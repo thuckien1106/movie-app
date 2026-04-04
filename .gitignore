@@ -1,19 +1,36 @@
-# Python
+# ===== Backend (Python / FastAPI) =====
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
 venv/
 .env
+.env.*
+*.sqlite3
+*.db
 
-# Node
+# logs
+*.log
+
+# ===== Frontend (Node / Vite / React) =====
 node_modules/
 dist/
 build/
-.env
 
-# IDE
+# env
+.env
+.env.local
+.env.*.local
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
 .vscode/
 .idea/
 
-# OS
-.DS_Store
-Thumbs.db
+# ===== Misc =====
+*.tmp
+*.swp

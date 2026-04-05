@@ -12,7 +12,7 @@ from app.database.connection import engine
 from app.database.base import Base
 from app.models import user, watchlist
 from app.routers import auth, movies, watchlist as watchlist_router
-
+from app.routers import mood as mood_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
 
@@ -133,7 +133,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(watchlist_router.router)
-
+app.include_router(mood_router.router)
 
 # ── Root / Health ─────────────────────────────────────────
 

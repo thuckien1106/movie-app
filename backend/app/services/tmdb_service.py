@@ -178,7 +178,20 @@ def search_movies(query: str, page: int = 1):
         "page": data.get("page", 1),
         "total_results": data.get("total_results", 0),
     }
-
+def discover_by_genre(genre_id, year_gte=None, year_lte=None, page=1):
+    params = {
+        "api_key": settings.TMDB_API_KEY,
+        "with_genres": genre_id,
+        "sort_by": "popularity.desc",
+        "vote_count.gte": 100,
+        "page": page,
+        "language": "vi-VN",
+    }
+    if year_gte: params["primary_release_date.gte"] = year_gte
+    if year_lte: params["primary_release_date.lte"] = year_lte
+    data = safe_request(f"{BASE_URL}/discover/movie", params)
+    data["results"] = format_movie_list(data.get("results", []))
+    return data
 
 # ════════════════════════════════════════════
 # SINGLE MOVIE APIs

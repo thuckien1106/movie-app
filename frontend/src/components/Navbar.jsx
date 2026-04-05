@@ -25,12 +25,6 @@ const TABS = [
 
 /* ════════════════════════════════════════════════
    MAIN NAVBAR
-   Props:
-     heroRef?   — ref to hero element; when provided the navbar
-                  starts transparent and becomes opaque once the
-                  hero scrolls out of view (IntersectionObserver)
-     activeTab? — currently selected tab key (Home page only)
-     onTabChange? — (key) => void
 ════════════════════════════════════════════════ */
 export default function Navbar({ heroRef, activeTab, onTabChange }) {
   const { isLoggedIn, user, logout } = useAuth();
@@ -38,10 +32,11 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
   const location = useLocation();
   const isMobile = useIsMobile();
 
-  const [solid, setSolid] = useState(!heroRef); // true = opaque bg
+  const [solid, setSolid] = useState(!heroRef);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
   const isHome = location.pathname === "/";
+  const isMood = location.pathname === "/mood";
 
   /* IntersectionObserver — watch hero bottom edge */
   useEffect(() => {
@@ -73,7 +68,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
     if (!isHome) navigate("/");
   };
 
-  /* ── DESKTOP NAVBAR ──────────────────────────── */
+  /* ── DESKTOP ─────────────────────────────────── */
   if (!isMobile) {
     return (
       <>
@@ -90,7 +85,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             </Link>
           </div>
 
-          {/* Tab bar — only on home; other pages show page title */}
+          {/* Center: tabs (home) | mood tabs (mood page) | page title (others) */}
           <div style={s.navCenter}>
             {isHome ? (
               <div style={s.tabBar}>
@@ -120,7 +115,19 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
           {/* Right controls */}
           <div style={s.navRight}>
+            {/* ── Mood link ── */}
+            <Link
+              to="/mood"
+              style={{
+                ...s.moodLink,
+                ...(isMood ? s.moodLinkActive : {}),
+              }}
+            >
+              🎭 Tâm trạng
+            </Link>
+
             <ThemeToggle />
+
             {isLoggedIn ? (
               <div style={{ position: "relative" }} ref={userMenuRef}>
                 <button
@@ -153,6 +160,13 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     >
                       🎬 My Watchlist
                     </Link>
+                    <Link
+                      to="/mood"
+                      style={s.menuItem}
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      🎭 Tâm trạng
+                    </Link>
                     <div style={s.menuDivider} />
                     <button
                       onClick={() => {
@@ -174,13 +188,12 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           </div>
         </nav>
 
-        {/* Spacer — only when navbar is NOT floating over hero */}
         {solid && !heroRef && <div style={{ height: 56 }} />}
       </>
     );
   }
 
-  /* ── MOBILE: top bar (logo + controls) + bottom tab nav ─ */
+  /* ── MOBILE ──────────────────────────────────── */
   return (
     <>
       {/* Top bar */}
@@ -194,7 +207,19 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           Films
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Mood shortcut on mobile top bar */}
+          <Link
+            to="/mood"
+            style={{
+              ...s.moodLinkMobile,
+              ...(isMood ? s.moodLinkMobileActive : {}),
+            }}
+          >
+            🎭
+          </Link>
+
           <ThemeToggle />
+
           {isLoggedIn ? (
             <div style={{ position: "relative" }} ref={userMenuRef}>
               <button
@@ -224,6 +249,13 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                   >
                     🎬 Watchlist
                   </Link>
+                  <Link
+                    to="/mood"
+                    style={s.menuItem}
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    🎭 Tâm trạng
+                  </Link>
                   <div style={s.menuDivider} />
                   <button
                     onClick={() => {
@@ -245,10 +277,9 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         </div>
       </nav>
 
-      {/* Spacer under top bar on mobile (not over hero) */}
       {solid && <div style={{ height: 52 }} />}
 
-      {/* Bottom tab bar — only on Home */}
+      {/* Bottom tab bar — home only */}
       {isHome && (
         <div style={s.bottomNav}>
           {TABS.map(({ key, label, icon }) => {
@@ -268,18 +299,32 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               </button>
             );
           })}
+
+          {/* Mood tab trong bottom nav mobile */}
+          <Link
+            to="/mood"
+            style={{
+              ...s.bottomTab,
+              ...(isMood ? s.bottomTabActive : {}),
+              textDecoration: "none",
+            }}
+          >
+            <span style={s.bottomIcon}>🎭</span>
+            <span style={s.bottomLabel}>Mood</span>
+          </Link>
         </div>
       )}
     </>
   );
 }
 
-/* tiny helper: shows a human page title in the center on non-home pages */
+/* ── Page title helper ───────────────────────── */
 function PageTitle({ path }) {
   const map = {
     "/watchlist": "My Watchlist",
     "/profile": "Hồ sơ",
     "/login": "Đăng nhập",
+    "/mood": "🎭 Tâm trạng",
   };
   if (path.startsWith("/movie/"))
     return <span style={s.pageTitle}>Chi tiết phim</span>;
@@ -288,9 +333,8 @@ function PageTitle({ path }) {
   return <span style={s.pageTitle}>{map[path] ?? ""}</span>;
 }
 
-/* ─── STYLES ──────────────────────────────────── */
+/* ── STYLES ──────────────────────────────────── */
 const s = {
-  /* shared base */
   navbar: {
     position: "fixed",
     top: 0,
@@ -331,7 +375,6 @@ const s = {
     borderBottom: "1px solid transparent",
   },
 
-  /* logo */
   logo: {
     color: "var(--red)",
     fontSize: 20,
@@ -340,15 +383,10 @@ const s = {
     textDecoration: "none",
   },
 
-  /* center */
+  navLeft: { display: "flex", alignItems: "center" },
   navCenter: { display: "flex", justifyContent: "center" },
-  pageTitle: {
-    fontSize: 15,
-    fontWeight: 600,
-    color: "var(--text-primary)",
-  },
+  pageTitle: { fontSize: 15, fontWeight: 600, color: "var(--text-primary)" },
 
-  /* tabs */
   tabBar: { display: "flex", gap: 2, alignItems: "center" },
   tab: {
     display: "flex",
@@ -384,13 +422,54 @@ const s = {
     lineHeight: 1.6,
   },
 
-  /* right controls */
   navRight: {
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 10,
   },
+
+  /* ── Mood link (desktop) ── */
+  moodLink: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "6px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--border-mid)",
+    background: "transparent",
+    color: "var(--text-muted)",
+    textDecoration: "none",
+    fontSize: 13,
+    fontWeight: 600,
+    transition: "all 0.15s",
+    whiteSpace: "nowrap",
+  },
+  moodLinkActive: {
+    background: "rgba(155,89,182,0.15)",
+    borderColor: "rgba(155,89,182,0.5)",
+    color: "#c39bd3",
+  },
+
+  /* ── Mood link (mobile top bar) ── */
+  moodLinkMobile: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    border: "1px solid var(--border-mid)",
+    background: "transparent",
+    textDecoration: "none",
+    fontSize: 16,
+    transition: "all 0.15s",
+  },
+  moodLinkMobileActive: {
+    background: "rgba(155,89,182,0.2)",
+    borderColor: "rgba(155,89,182,0.5)",
+  },
+
   loginBtn: {
     background: "var(--red)",
     color: "#fff",
@@ -444,7 +523,6 @@ const s = {
     color: "#fff",
   },
 
-  /* user dropdown */
   userMenu: {
     position: "absolute",
     right: 0,
@@ -472,11 +550,7 @@ const s = {
     fontFamily: "inherit",
   },
   menuItemLogout: { color: "rgba(255,100,100,0.85)" },
-  menuDivider: {
-    height: 1,
-    background: "var(--border)",
-    margin: "2px 0",
-  },
+  menuDivider: { height: 1, background: "var(--border)", margin: "2px 0" },
 
   /* ── Mobile bottom nav ── */
   bottomNav: {
@@ -507,9 +581,7 @@ const s = {
     position: "relative",
     minWidth: 0,
   },
-  bottomTabActive: {
-    color: "var(--red-text)",
-  },
+  bottomTabActive: { color: "var(--red-text)" },
   bottomIcon: { fontSize: 18, lineHeight: 1 },
   bottomLabel: {
     fontSize: 10,

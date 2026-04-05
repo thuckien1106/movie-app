@@ -8,7 +8,7 @@ import MovieDetail from "./pages/MovieDetail";
 import AuthPage from "./pages/AuthPage";
 import PublicWatchlist from "./pages/PublicWatchlist";
 import Profile from "./pages/Profile";
-
+import MoodDiscovery from "./pages/MoodDiscovery";
 function App() {
   return (
     <ThemeProvider>
@@ -22,6 +22,7 @@ function App() {
               <Route path="/movie/:id" element={<MovieDetail />} />
               <Route path="/w/:token" element={<PublicWatchlist />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/mood" element={<MoodDiscovery />} />
             </Routes>
           </BrowserRouter>
         </ToastProvider>

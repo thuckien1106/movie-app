@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -13,8 +14,33 @@ from app.database.base import Base
 from app.models import user, watchlist
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
+
+# 🔥 THÊM
+from app.routers import reminder as reminder_router
+from app.models import reminder as reminder_models
+from apscheduler.schedulers.background import BackgroundScheduler
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
+
+
+# ════════════════════════════════════════════
+# SCHEDULER JOB
+# ════════════════════════════════════════════
+
+def _run_check_and_fire():
+    """Helper cho scheduler — tạo DB session riêng."""
+    from app.database.connection import SessionLocal
+    from app.services.reminder_service import check_and_fire
+
+    db = SessionLocal()
+    try:
+        fired = check_and_fire(db)
+        logger.info(f"[scheduler] reminder check_and_fire → {fired} fired")
+    except Exception as e:
+        logger.error(f"[scheduler] reminder error: {e}")
+    finally:
+        db.close()
 
 
 # ════════════════════════════════════════════
@@ -42,14 +68,33 @@ class RequestSizeMiddleware(BaseHTTPMiddleware):
 
 
 # ════════════════════════════════════════════
-# LIFESPAN
+# LIFESPAN (ĐÃ GỘP + SCHEDULER)
 # ════════════════════════════════════════════
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+
     logger.info("🎬 Films API v2.2 starting up...")
+
+    # ── Scheduler ──
+    scheduler = BackgroundScheduler(timezone="Asia/Ho_Chi_Minh")
+    scheduler.add_job(
+        _run_check_and_fire,
+        trigger="cron",
+        hour=8,
+        minute=0,
+        id="reminder_check",
+    )
+
+    # ⚠️ tránh chạy 2 lần khi dùng --reload
+    if not scheduler.running:
+        scheduler.start()
+        logger.info("🔔 Reminder scheduler started.")
+
     yield
+
+    scheduler.shutdown(wait=False)
     logger.info("Films API shutting down.")
 
 
@@ -65,9 +110,9 @@ app = FastAPI(
 )
 
 
-# ── Middleware ────────────────────────────────────────────
+# ── Middleware ─────────────────────────────
 
-app.add_middleware(RequestSizeMiddleware, max_bytes=64 * 1024)   # 64 KB
+app.add_middleware(RequestSizeMiddleware, max_bytes=64 * 1024)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,11 +123,10 @@ app.add_middleware(
 )
 
 
-# ── Global exception handlers ─────────────────────────────
+# ── Global exception handlers ─────────────
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Trả về lỗi validation theo format thống nhất, dễ đọc hơn."""
     errors = []
     for err in exc.errors():
         field = " → ".join(str(loc) for loc in err["loc"] if loc != "body")
@@ -102,9 +146,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """Format thống nhất cho mọi HTTPException."""
     detail = exc.detail
-    # 429: detail là dict (từ rate limiter)
     if isinstance(detail, dict):
         return JSONResponse(
             status_code=exc.status_code,
@@ -120,7 +162,6 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    """Bắt mọi lỗi không xử lý được — không lộ stack trace ra client."""
     logger.exception(f"Unhandled error on {request.method} {request.url}: {exc}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -128,14 +169,18 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── Routers ───────────────────────────────────────────────
+# ── Routers ───────────────────────────────
 
 app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(watchlist_router.router)
-app.include_router(mood_router.router)
 
-# ── Root / Health ─────────────────────────────────────────
+# 🔥 thêm đúng vị trí
+app.include_router(mood_router.router)
+app.include_router(reminder_router.router)
+
+
+# ── Root / Health ─────────────────────────
 
 @app.get("/")
 def root():

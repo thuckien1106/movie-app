@@ -9,7 +9,8 @@ import {
 } from "../api/movieApi";
 import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
-
+import RemindButton from "../components/RemindButton";
+import { checkReminder } from "../api/reminderApi";
 function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function MovieDetail() {
 
   const castRef = useRef(null);
   const similarRef = useRef(null);
-
+  const [isReminded, setIsReminded] = useState(false);
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
@@ -40,7 +41,9 @@ function MovieDetail() {
       getSimilarMovies(id),
     ])
       .then(([detailRes, trailerRes, castRes, similarRes]) => {
-        setMovie(detailRes.data);
+        const movieData = detailRes.data;
+
+        setMovie(movieData);
         setYoutubeKey(trailerRes.data?.youtube_key || null);
         setCast(castRes.data || []);
         setSimilar(
@@ -48,6 +51,13 @@ function MovieDetail() {
             ? similarRes.data
             : similarRes.data?.results || [],
         );
+
+        // ✅ check reminder ngay tại đây
+        if (isUpcoming(movieData.release_date)) {
+          checkReminder(movieData.id)
+            .then((res) => setIsReminded(res.data.reminded))
+            .catch(() => {});
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -263,6 +273,15 @@ function MovieDetail() {
             >
               {addingToList ? "Đang thêm..." : "+ My List"}
             </button>
+            {/* ✅ REMIND BUTTON */}
+            {isUpcoming(movie?.release_date) && (
+              <RemindButton
+                movie={movie}
+                variant="pill"
+                initialSet={isReminded}
+                onToggle={setIsReminded}
+              />
+            )}
           </div>
         </div>
 
@@ -452,7 +471,10 @@ function InfoCard({ label, value }) {
     </div>
   );
 }
-
+function isUpcoming(dateStr) {
+  if (!dateStr) return false;
+  return new Date(dateStr) > new Date();
+}
 /* ── STYLES ── */
 const s = {
   loadingWrap: {

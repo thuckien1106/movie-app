@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
-
+import RemindButton from "../components/RemindButton";
 /* ─── debounce ──────────────────────────────── */
 function useDebounce(value, delay) {
   const [dv, setDv] = useState(value);
@@ -1019,13 +1019,32 @@ export default function Home() {
       <div style={s.grid}>
         {loading && movies.length === 0
           ? Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)
-          : movies.map((movie) => (
-              <MovieCard
-                key={movie.id}
-                movie={movie}
-                onPlay={(m) => setSelectedMovie(m)}
-              />
-            ))}
+          : movies.map((m) =>
+              mode === "upcoming" ? (
+                <div key={m.id} style={{ position: "relative" }}>
+                  <MovieCard
+                    movie={m}
+                    onPlay={(movie) => setSelectedMovie(movie)}
+                  />
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 44,
+                      right: 8,
+                    }}
+                  >
+                    <RemindButton movie={m} variant="icon" />
+                  </div>
+                </div>
+              ) : (
+                <MovieCard
+                  key={m.id}
+                  movie={m}
+                  onPlay={(movie) => setSelectedMovie(movie)}
+                />
+              ),
+            )}
       </div>
 
       {movies.length === 0 && !loading && (
@@ -1501,6 +1520,18 @@ const s = {
     fontSize: 12,
     color: "rgba(255,255,255,0.2)",
     letterSpacing: "0.08em",
+  },
+  remindOverlay: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 5,
+
+    /* glass effect nhẹ */
+    backdropFilter: "blur(6px)",
+
+    /* tránh click xuyên xuống card */
+    pointerEvents: "auto",
   },
 };
 

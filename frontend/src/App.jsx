@@ -9,6 +9,7 @@ import AuthPage from "./pages/AuthPage";
 import PublicWatchlist from "./pages/PublicWatchlist";
 import Profile from "./pages/Profile";
 import MoodDiscovery from "./pages/MoodDiscovery";
+import RemindersPage from "./pages/RemindersPage";
 function App() {
   return (
     <ThemeProvider>
@@ -23,6 +24,7 @@ function App() {
               <Route path="/w/:token" element={<PublicWatchlist />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/mood" element={<MoodDiscovery />} />
+              <Route path="/reminders" element={<RemindersPage />} />
             </Routes>
           </BrowserRouter>
         </ToastProvider>

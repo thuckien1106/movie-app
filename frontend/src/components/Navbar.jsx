@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
-
+import NotificationBell from "./NotificationBell";
 /* ─── hook: detect mobile ─────────────────────── */
 function useIsMobile(bp = 768) {
   const [mobile, setMobile] = useState(() => window.innerWidth < bp);
@@ -125,7 +125,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             >
               🎭 Tâm trạng
             </Link>
-
+            <NotificationBell />
             <ThemeToggle />
 
             {isLoggedIn ? (
@@ -217,7 +217,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           >
             🎭
           </Link>
-
+          <NotificationBell />
           <ThemeToggle />
 
           {isLoggedIn ? (

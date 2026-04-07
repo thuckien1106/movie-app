@@ -3,64 +3,202 @@ import { useNavigate } from "react-router-dom";
 import { addMovie } from "../api/movieApi";
 import { useToast } from "../components/ToastContext";
 
-/* ── rating ring helpers ──────────────────── */
-const RING_R = 14;
-const RING_C = RING_R + 3; // cx/cy = r + strokeWidth/2
-const RING_LEN = 2 * Math.PI * RING_R; // circumference ≈ 87.96
+/* ══════════════════════════════════════════════
+   GENRE COLOR MAP  — each genre has its own palette
+══════════════════════════════════════════════ */
+const GENRE_DATA = {
+  28: {
+    label: "Hành động",
+    bg: "rgba(239,68,68,0.18)",
+    border: "rgba(239,68,68,0.38)",
+    color: "#fca5a5",
+  },
+  12: {
+    label: "Phiêu lưu",
+    bg: "rgba(249,115,22,0.18)",
+    border: "rgba(249,115,22,0.38)",
+    color: "#fdba74",
+  },
+  16: {
+    label: "Hoạt hình",
+    bg: "rgba(234,179,8,0.18)",
+    border: "rgba(234,179,8,0.38)",
+    color: "#fde047",
+  },
+  35: {
+    label: "Hài",
+    bg: "rgba(251,191,36,0.18)",
+    border: "rgba(251,191,36,0.38)",
+    color: "#fcd34d",
+  },
+  80: {
+    label: "Tội phạm",
+    bg: "rgba(99,102,241,0.18)",
+    border: "rgba(99,102,241,0.38)",
+    color: "#a5b4fc",
+  },
+  99: {
+    label: "Tài liệu",
+    bg: "rgba(14,165,233,0.18)",
+    border: "rgba(14,165,233,0.38)",
+    color: "#7dd3fc",
+  },
+  18: {
+    label: "Chính kịch",
+    bg: "rgba(168,85,247,0.18)",
+    border: "rgba(168,85,247,0.38)",
+    color: "#d8b4fe",
+  },
+  10751: {
+    label: "Gia đình",
+    bg: "rgba(34,197,94,0.18)",
+    border: "rgba(34,197,94,0.38)",
+    color: "#86efac",
+  },
+  14: {
+    label: "Kỳ ảo",
+    bg: "rgba(139,92,246,0.18)",
+    border: "rgba(139,92,246,0.38)",
+    color: "#c4b5fd",
+  },
+  36: {
+    label: "Lịch sử",
+    bg: "rgba(180,83,9,0.18)",
+    border: "rgba(180,83,9,0.38)",
+    color: "#fdba74",
+  },
+  27: {
+    label: "Kinh dị",
+    bg: "rgba(15,23,42,0.55)",
+    border: "rgba(148,163,184,0.22)",
+    color: "#94a3b8",
+  },
+  10402: {
+    label: "Âm nhạc",
+    bg: "rgba(236,72,153,0.18)",
+    border: "rgba(236,72,153,0.38)",
+    color: "#f9a8d4",
+  },
+  9648: {
+    label: "Bí ẩn",
+    bg: "rgba(71,85,105,0.28)",
+    border: "rgba(148,163,184,0.28)",
+    color: "#94a3b8",
+  },
+  10749: {
+    label: "Lãng mạn",
+    bg: "rgba(244,63,94,0.18)",
+    border: "rgba(244,63,94,0.38)",
+    color: "#fda4af",
+  },
+  878: {
+    label: "Sci-Fi",
+    bg: "rgba(6,182,212,0.18)",
+    border: "rgba(6,182,212,0.38)",
+    color: "#67e8f9",
+  },
+  53: {
+    label: "Giật gân",
+    bg: "rgba(234,179,8,0.18)",
+    border: "rgba(234,179,8,0.38)",
+    color: "#fde047",
+  },
+  10752: {
+    label: "Chiến tranh",
+    bg: "rgba(120,53,15,0.22)",
+    border: "rgba(180,83,9,0.32)",
+    color: "#d97706",
+  },
+  37: {
+    label: "Cao bồi",
+    bg: "rgba(120,53,15,0.22)",
+    border: "rgba(180,83,9,0.32)",
+    color: "#fbbf24",
+  },
+};
 
-function ratingColor(pct) {
-  if (pct >= 70) return "var(--green)";
-  if (pct >= 50) return "#f1c40f";
-  return "#e74c3c";
+/* ══════════════════════════════════════════════
+   RATING RING  — bigger, more polished
+══════════════════════════════════════════════ */
+const R = 17; // circle radius
+const SW = 3; // stroke width
+const C = R + SW + 1; // center = radius + stroke + padding
+const CIRCUMFERENCE = 2 * Math.PI * R;
+
+function scoreColor(n) {
+  if (n >= 7.5) return { stroke: "#22c55e", glow: "rgba(34,197,94,0.5)" };
+  if (n >= 6.0) return { stroke: "#eab308", glow: "rgba(234,179,8,0.5)" };
+  if (n >= 4.0) return { stroke: "#f97316", glow: "rgba(249,115,22,0.45)" };
+  return { stroke: "#ef4444", glow: "rgba(239,68,68,0.5)" };
 }
 
-function RatingRing({ rating }) {
-  const num = rating ? Number(rating) : 0;
-  const pct = (num / 10) * 100;
-  const arc = (pct / 100) * RING_LEN;
-  const col = ratingColor(pct);
+function RatingRing({ rating, size = 42 }) {
+  const num = Number(rating) || 0;
+  const pct = Math.min(num / 10, 1);
+  const arc = pct * CIRCUMFERENCE;
+  const { stroke, glow } = scoreColor(num);
+  const scale = size / (C * 2);
 
   return (
     <svg
-      width={RING_C * 2}
-      height={RING_C * 2}
-      viewBox={`0 0 ${RING_C * 2} ${RING_C * 2}`}
-      style={{
-        display: "block",
-        filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.6))",
-      }}
+      width={size}
+      height={size}
+      viewBox={`0 0 ${C * 2} ${C * 2}`}
+      style={{ display: "block", overflow: "visible" }}
     >
-      {/* track */}
+      <defs>
+        <filter
+          id={`glow-${Math.round(num * 10)}`}
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+        >
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Backdrop circle */}
       <circle
-        cx={RING_C}
-        cy={RING_C}
-        r={RING_R}
-        fill="rgba(0,0,0,0.7)"
-        stroke="var(--border-mid)"
-        strokeWidth="2.5"
+        cx={C}
+        cy={C}
+        r={R}
+        fill="rgba(0,0,0,0.72)"
+        stroke="rgba(255,255,255,0.08)"
+        strokeWidth={SW}
       />
-      {/* arc */}
-      <circle
-        cx={RING_C}
-        cy={RING_C}
-        r={RING_R}
-        fill="none"
-        stroke={col}
-        strokeWidth="2.5"
-        strokeDasharray={`${arc} ${RING_LEN}`}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${RING_C} ${RING_C})`}
-      />
-      {/* number */}
+
+      {/* Score arc */}
+      {num > 0 && (
+        <circle
+          cx={C}
+          cy={C}
+          r={R}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={SW}
+          strokeDasharray={`${arc} ${CIRCUMFERENCE}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${C} ${C})`}
+          style={{ filter: `drop-shadow(0 0 4px ${glow})` }}
+        />
+      )}
+
+      {/* Score text */}
       <text
-        x={RING_C}
-        y={RING_C + 1}
+        x={C}
+        y={C + 0.5}
         textAnchor="middle"
         dominantBaseline="middle"
-        fill="var(--text-primary)"
-        fontSize="7.5"
-        fontWeight="700"
-        fontFamily="sans-serif"
+        fill={num > 0 ? stroke : "rgba(255,255,255,0.35)"}
+        fontSize="8.5"
+        fontWeight="800"
+        fontFamily="'DM Sans', system-ui, sans-serif"
+        letterSpacing="-0.02em"
       >
         {num > 0 ? num.toFixed(1) : "—"}
       </text>
@@ -68,18 +206,84 @@ function RatingRing({ rating }) {
   );
 }
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════════════════
+   SVG ICONS
+══════════════════════════════════════════════ */
+function IconPlay() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5.14v14l11-7-11-7z" />
+    </svg>
+  );
+}
+function IconPlus({ saved }) {
+  if (saved)
+    return (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    );
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+function IconArrow() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════
    MOVIE CARD
-══════════════════════════════════════════ */
+══════════════════════════════════════════════ */
 function MovieCard({ movie, onPlay }) {
   const [hover, setHover] = useState(false);
-  const [saved, setSaved] = useState(false); // optimistic "added" state
+  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
+
   const showToast = useToast();
   const navigate = useNavigate();
 
-  const year = movie.release_date ? movie.release_date.slice(0, 4) : null;
+  const year = movie.release_date?.slice(0, 4) ?? null;
+  const genres = (movie.genre_ids ?? [])
+    .slice(0, 2)
+    .map((id) => GENRE_DATA[id])
+    .filter(Boolean);
 
+  /* ── handlers ── */
   const handleAdd = useCallback(
     async (e) => {
       e.stopPropagation();
@@ -105,14 +309,20 @@ function MovieCard({ movie, onPlay }) {
   const handlePlay = useCallback(
     (e) => {
       e.stopPropagation();
-      if (onPlay) onPlay(movie);
+      onPlay?.(movie);
     },
     [onPlay, movie],
   );
+  const handleDetail = useCallback(
+    () => navigate(`/movie/${movie.id}`),
+    [navigate, movie.id],
+  );
 
-  const handleDetail = useCallback(() => {
-    navigate(`/movie/${movie.id}`);
-  }, [navigate, movie.id]);
+  /* ── poster fallback ── */
+  const posterSrc =
+    !imgErr && movie.poster
+      ? movie.poster
+      : `https://placehold.co/300x450/0e1218/1e2a3a?text=${encodeURIComponent(movie.title?.[0] ?? "?")}`;
 
   return (
     <div
@@ -122,56 +332,77 @@ function MovieCard({ movie, onPlay }) {
       style={{
         position: "relative",
         cursor: "pointer",
-        borderRadius: 10,
+        borderRadius: "var(--radius-lg, 14px)",
         overflow: "hidden",
-        /* lift + scale on hover */
-        transform: hover
-          ? "translateY(-6px) scale(1.03)"
-          : "translateY(0) scale(1)",
-        transition:
-          "transform 0.28s cubic-bezier(.25,.46,.45,.94), box-shadow 0.28s",
-        boxShadow: hover
-          ? "0 20px 50px rgba(0,0,0,0.85)"
-          : "0 6px 20px rgba(0,0,0,0.55)",
-        zIndex: hover ? 10 : 1,
-        aspectRatio: "2/3" /* poster ratio, no fixed width */,
+        aspectRatio: "2/3",
         background: "var(--bg-card)",
+        zIndex: hover ? 10 : 1,
+        /* lift + glow */
+        transform: hover
+          ? "translateY(-8px) scale(1.04)"
+          : "translateY(0) scale(1)",
+        boxShadow: hover
+          ? "0 24px 56px rgba(0,0,0,0.9), 0 0 0 1.5px rgba(229,9,20,0.55), 0 0 28px rgba(229,9,20,0.2)"
+          : "var(--shadow-card, 0 4px 20px rgba(0,0,0,0.6))",
+        transition:
+          "transform 0.32s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.32s cubic-bezier(0.4,0,0.2,1)",
       }}
     >
       {/* ── POSTER ── */}
       <img
-        src={
-          movie.poster ||
-          `https://placehold.co/300x450/1a1a1a/555?text=${encodeURIComponent(movie.title?.[0] ?? "?")}`
-        }
+        src={posterSrc}
         alt={movie.title}
         loading="lazy"
+        onError={() => setImgErr(true)}
         style={{
           width: "100%",
           height: "100%",
           objectFit: "cover",
           display: "block",
+          transform: hover ? "scale(1.07)" : "scale(1)",
+          transition: "transform 0.55s cubic-bezier(0.4,0,0.2,1)",
+          willChange: "transform",
         }}
       />
 
-      {/* ── ALWAYS-VISIBLE BOTTOM GRADIENT + INFO ── */}
+      {/* ── PERMANENT BOTTOM GRADIENT ── */}
       <div style={s.bottomGrad} />
+
+      {/* ── ALWAYS-VISIBLE INFO (title + year) ── */}
       <div style={s.bottomInfo}>
         <p style={s.infoTitle}>{movie.title}</p>
-        <div style={s.infoMeta}>
-          {year && <span style={s.metaYear}>{year}</span>}
-        </div>
+        {year && <span style={s.metaYear}>{year}</span>}
       </div>
 
-      {/* ── RATING RING (top-left, always visible) ── */}
+      {/* ── RATING RING — top-left ── */}
       <div style={s.ratingWrap}>
-        <RatingRing rating={movie.rating} />
+        <RatingRing rating={movie.rating} size={40} />
       </div>
 
-      {/* ── "SAVED" BADGE top-right ── */}
-      {saved && <div style={s.savedBadge}>✓</div>}
+      {/* ── SAVED BADGE — top-right ── */}
+      {saved && (
+        <div style={s.savedBadge}>
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
 
-      {/* ── HOVER OVERLAY ── */}
+      {/* ── "NEW" BADGE — new releases ── */}
+      {year === String(new Date().getFullYear()) && !saved && (
+        <div style={s.newBadge}>NEW</div>
+      )}
+
+      {/* ══ HOVER OVERLAY ══ */}
       <div
         style={{
           ...s.overlay,
@@ -179,108 +410,131 @@ function MovieCard({ movie, onPlay }) {
           pointerEvents: hover ? "auto" : "none",
         }}
       >
-        {/* blurred dark tint over middle portion */}
+        {/* Dark gradient tint */}
         <div style={s.overlayTint} />
 
-        {/* content */}
+        {/* Content — staggered slide-up */}
         <div style={s.overlayContent}>
-          {/* genre tags */}
-          {movie.genre_ids?.length > 0 && (
-            <div style={s.genreRow}>
-              {movie.genre_ids.slice(0, 2).map((id) => (
-                <span key={id} style={s.genreTag}>
-                  {GENRE_SHORT[id] ?? id}
+          {/* Genre tags row */}
+          {genres.length > 0 && (
+            <div
+              style={{
+                ...s.genreRow,
+                transform: hover ? "translateY(0)" : "translateY(10px)",
+                opacity: hover ? 1 : 0,
+                transition:
+                  "transform 0.28s cubic-bezier(0.4,0,0.2,1) 0.04s, opacity 0.22s ease 0.04s",
+              }}
+            >
+              {genres.map((g, i) => (
+                <span
+                  key={i}
+                  style={{
+                    ...s.genreTag,
+                    background: g.bg,
+                    border: `1px solid ${g.border}`,
+                    color: g.color,
+                  }}
+                >
+                  {g.label}
                 </span>
               ))}
             </div>
           )}
 
-          {/* action buttons */}
-          <div style={s.btnStack}>
-            {/* Trailer */}
-            {onPlay && (
-              <button
-                onClick={handlePlay}
-                style={s.btnPlay}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--red)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "var(--red)")
-                }
-              >
-                <span style={s.btnIcon}>▶</span>
-                <span>Xem Trailer</span>
-              </button>
-            )}
-
-            {/* Add to Watchlist */}
+          {/* Play trailer button */}
+          {onPlay && (
             <button
-              onClick={handleAdd}
-              disabled={saving || saved}
+              onClick={handlePlay}
               style={{
-                ...s.btnSave,
-                ...(saved ? s.btnSaved : {}),
-                opacity: saving ? 0.65 : 1,
+                ...s.btnPlay,
+                transform: hover ? "translateY(0)" : "translateY(12px)",
+                opacity: hover ? 1 : 0,
+                transition:
+                  "transform 0.28s cubic-bezier(0.4,0,0.2,1) 0.08s, opacity 0.22s ease 0.08s, background 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                if (!saved)
-                  e.currentTarget.style.background = "rgba(255,255,255,0.22)";
+                e.currentTarget.style.background = "var(--red-hover, #ff1a1a)";
+                e.currentTarget.style.boxShadow = "0 0 18px rgba(229,9,20,0.5)";
               }}
               onMouseLeave={(e) => {
-                if (!saved)
-                  e.currentTarget.style.background = "var(--border-mid)";
+                e.currentTarget.style.background = "var(--red)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <span style={s.btnIcon}>{saved ? "✓" : saving ? "…" : "+"}</span>
-              <span>
-                {saved ? "Đã lưu" : saving ? "Đang lưu..." : "My List"}
-              </span>
+              <IconPlay />
+              <span>Xem Trailer</span>
             </button>
+          )}
 
-            {/* Quick-view detail hint */}
-            <div style={s.detailHint}>Nhấn để xem chi tiết →</div>
+          {/* Add to watchlist button */}
+          <button
+            onClick={handleAdd}
+            disabled={saving || saved}
+            style={{
+              ...s.btnSave,
+              ...(saved ? s.btnSaved : {}),
+              opacity: (hover ? 1 : 0) * (saving ? 0.65 : 1),
+              transform: hover ? "translateY(0)" : "translateY(14px)",
+              transition:
+                "transform 0.28s cubic-bezier(0.4,0,0.2,1) 0.12s, opacity 0.22s ease 0.12s, background 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!saved)
+                e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+            }}
+            onMouseLeave={(e) => {
+              if (!saved)
+                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+            }}
+          >
+            <IconPlus saved={saved} />
+            <span>{saved ? "Đã lưu" : saving ? "Đang lưu…" : "My List"}</span>
+          </button>
+
+          {/* Detail hint */}
+          <div
+            style={{
+              ...s.detailHint,
+              transform: hover ? "translateY(0)" : "translateY(8px)",
+              opacity: hover ? 0.6 : 0,
+              transition:
+                "transform 0.28s cubic-bezier(0.4,0,0.2,1) 0.16s, opacity 0.22s ease 0.16s",
+            }}
+          >
+            <span>Chi tiết</span>
+            <IconArrow />
           </div>
         </div>
       </div>
+
+      {/* Red edge glow on hover — separate div outside overflow:hidden context */}
+      <div
+        style={{
+          ...s.edgeGlow,
+          opacity: hover ? 1 : 0,
+          transition: "opacity 0.32s ease",
+        }}
+      />
 
       <style>{cardCSS}</style>
     </div>
   );
 }
 
-/* ── compact genre name map ─────────────── */
-const GENRE_SHORT = {
-  28: "Hành động",
-  12: "Phiêu lưu",
-  16: "Hoạt hình",
-  35: "Hài",
-  80: "Tội phạm",
-  99: "Tài liệu",
-  18: "Chính kịch",
-  10751: "Gia đình",
-  14: "Kỳ ảo",
-  36: "Lịch sử",
-  27: "Kinh dị",
-  10402: "Âm nhạc",
-  9648: "Bí ẩn",
-  10749: "Lãng mạn",
-  878: "Sci-Fi",
-  53: "Giật gân",
-  10752: "Chiến tranh",
-  37: "Cao bồi",
-};
-
-/* ── styles ─────────────────────────────── */
+/* ── Styles ─────────────────────────────────── */
 const s = {
-  /* always-on bottom strip */
+  /* bottom permanent gradient */
   bottomGrad: {
     position: "absolute",
     inset: 0,
     background:
-      "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.3) 42%, transparent 68%)",
+      "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 38%, transparent 62%)",
     pointerEvents: "none",
+    zIndex: 1,
   },
+
+  /* title + year always visible */
   bottomInfo: {
     position: "absolute",
     bottom: 0,
@@ -288,27 +542,35 @@ const s = {
     right: 0,
     padding: "0 10px 10px",
     pointerEvents: "none",
+    zIndex: 2,
   },
   infoTitle: {
     margin: 0,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
-    color: "var(--text-primary)",
-    lineHeight: 1.25,
+    color: "#fff",
+    lineHeight: 1.3,
     letterSpacing: "0.01em",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
+    textShadow: "0 1px 6px rgba(0,0,0,0.6)",
+    marginBottom: 3,
   },
-  infoMeta: { display: "flex", gap: 6, alignItems: "center", marginTop: 3 },
-  metaYear: { fontSize: 11, color: "var(--text-muted)" },
+  metaYear: {
+    fontSize: 10,
+    fontWeight: 500,
+    color: "rgba(255,255,255,0.45)",
+    letterSpacing: "0.04em",
+  },
 
   /* rating ring */
   ratingWrap: {
     position: "absolute",
     top: 8,
     left: 8,
+    zIndex: 3,
     pointerEvents: "none",
   },
 
@@ -317,114 +579,147 @@ const s = {
     position: "absolute",
     top: 8,
     right: 8,
-    background: "var(--green)",
-    color: "var(--text-primary)",
-    borderRadius: "50%",
+    zIndex: 3,
     width: 22,
     height: 22,
+    borderRadius: "50%",
+    background: "var(--green)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 12,
-    fontWeight: 700,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+    boxShadow: "0 0 10px rgba(34,197,94,0.5)",
   },
 
-  /* hover overlay */
+  /* "NEW" badge */
+  newBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 3,
+    fontSize: 8,
+    fontWeight: 800,
+    letterSpacing: "0.14em",
+    background: "var(--gold, #f5c518)",
+    color: "#000",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    textTransform: "uppercase",
+  },
+
+  /* overlay shell */
   overlay: {
     position: "absolute",
     inset: 0,
-    borderRadius: 10,
-    transition: "opacity 0.22s ease",
+    borderRadius: "inherit",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
+    zIndex: 4,
+    transition: "opacity 0.22s ease",
   },
   overlayTint: {
     position: "absolute",
     inset: 0,
+    borderRadius: "inherit",
     background:
-      "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.1) 100%)",
-    backdropFilter: "blur(1.5px)",
-    borderRadius: 10,
+      "linear-gradient(to top, rgba(4,6,12,0.96) 0%, rgba(4,6,12,0.65) 45%, rgba(4,6,12,0.15) 72%, transparent 100%)",
+    backdropFilter: "blur(1px)",
   },
+
+  /* overlay content */
   overlayContent: {
     position: "relative",
     zIndex: 1,
-    padding: "12px 10px 12px",
+    padding: "10px 9px 10px",
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 7,
   },
 
   /* genre row */
-  genreRow: { display: "flex", gap: 5, flexWrap: "wrap" },
+  genreRow: {
+    display: "flex",
+    gap: 5,
+    flexWrap: "wrap",
+  },
   genreTag: {
-    fontSize: 10,
-    fontWeight: 600,
-    background: "rgba(255,255,255,0.13)",
-    border: "1px solid var(--border-bright)",
-    borderRadius: 4,
-    padding: "2px 6px",
-    color: "var(--text-secondary)",
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: "0.07em",
+    borderRadius: "var(--radius-sm, 5px)",
+    padding: "2px 7px",
     whiteSpace: "nowrap",
+    textTransform: "uppercase",
+    backdropFilter: "blur(4px)",
   },
 
-  /* button stack */
-  btnStack: { display: "flex", flexDirection: "column", gap: 6 },
-
+  /* buttons */
   btnPlay: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+    width: "100%",
+    padding: "8px 0",
     background: "var(--red)",
     border: "none",
-    color: "var(--text-primary)",
-    borderRadius: 7,
-    padding: "8px 0",
-    fontSize: 12,
+    borderRadius: "var(--radius-sm, 6px)",
+    color: "#fff",
+    fontSize: 11,
     fontWeight: 700,
+    letterSpacing: "0.06em",
     cursor: "pointer",
-    width: "100%",
-    transition: "background 0.15s",
-    letterSpacing: "0.02em",
+    fontFamily: "var(--font-body, sans-serif)",
   },
   btnSave: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    background: "var(--border-mid)",
-    border: "1px solid var(--border-bright)",
-    color: "var(--text-primary)",
-    borderRadius: 7,
+    width: "100%",
     padding: "7px 0",
-    fontSize: 12,
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: "var(--radius-sm, 6px)",
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 11,
     fontWeight: 600,
     cursor: "pointer",
-    width: "100%",
-    transition: "background 0.15s",
+    fontFamily: "var(--font-body, sans-serif)",
   },
   btnSaved: {
-    background: "rgba(46,204,113,0.2)",
-    borderColor: "rgba(46,204,113,0.5)",
-    color: "var(--green)",
+    background: "rgba(34,197,94,0.18)",
+    borderColor: "rgba(34,197,94,0.45)",
+    color: "var(--green, #22c55e)",
     cursor: "default",
   },
-  btnIcon: { fontSize: 13, lineHeight: 1, flexShrink: 0 },
 
+  /* detail hint */
   detailHint: {
-    textAlign: "center",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
     fontSize: 10,
-    color: "var(--text-faint)",
-    letterSpacing: "0.03em",
-    marginTop: 2,
+    color: "rgba(255,255,255,0.5)",
+    letterSpacing: "0.04em",
+    fontWeight: 500,
+  },
+
+  /* red edge glow — pseudo-border effect */
+  edgeGlow: {
+    position: "absolute",
+    inset: -1,
+    borderRadius: "calc(var(--radius-lg, 14px) + 1px)",
+    boxShadow:
+      "inset 0 0 0 1.5px rgba(229,9,20,0.7), 0 0 30px rgba(229,9,20,0.22)",
+    pointerEvents: "none",
+    zIndex: 5,
   },
 };
 
 const cardCSS = `
-  @keyframes loading {
+  @keyframes cardShimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }

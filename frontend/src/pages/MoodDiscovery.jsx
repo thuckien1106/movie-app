@@ -1,443 +1,1174 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getMoviesByMood } from "../api/moodApi";
+import { getMoviesByMood, getMoods } from "../api/moodApi";
 import MovieCard from "../components/MovieCard";
 import TrailerModal from "../components/TrailerModal";
-import MoodPicker from "../components/MoodPicker";
 import Navbar from "../components/Navbar";
 import SkeletonCard from "../components/SkeletonCard";
 import ScrollToTop from "../components/ScrollToTop";
 
-const MOODS_STATIC = [
-  { id: "vui", label: "Vui vẻ", emoji: "😄", color: "#f1c40f" },
-  { id: "buon", label: "Khóc", emoji: "😢", color: "#3498db" },
-  { id: "hoi_hop", label: "Hồi hộp", emoji: "😰", color: "#e74c3c" },
-  { id: "kinh_di", label: "Sợ hãi", emoji: "👻", color: "#8e44ad" },
-  { id: "thu_gian", label: "Thư giãn", emoji: "🛋️", color: "#2ecc71" },
-  { id: "phieu_luu", label: "Phiêu lưu", emoji: "🌍", color: "#e67e22" },
-  { id: "lang_man", label: "Lãng mạn", emoji: "💕", color: "#e91e8c" },
-  { id: "suy_ngam", label: "Suy ngẫm", emoji: "🤔", color: "#34495e" },
+/* ══════════════════════════════════════════════
+   MOOD CONFIG
+══════════════════════════════════════════════ */
+const MOODS = [
+  {
+    id: "vui",
+    label: "Vui vẻ",
+    emoji: "😄",
+    color: "#f5c518",
+    glow: "rgba(245,197,24,0.3)",
+    bg: "rgba(245,197,24,0.08)",
+    desc: "Cần cười thả ga, quên hết muộn phiền",
+    particles: ["✨", "⭐", "🎉", "💫", "🌟"],
+  },
+  {
+    id: "buon",
+    label: "Muốn khóc",
+    emoji: "😢",
+    color: "#60a5fa",
+    glow: "rgba(96,165,250,0.3)",
+    bg: "rgba(96,165,250,0.08)",
+    desc: "Phim chạm đến trái tim, xúc động thật sự",
+    particles: ["💧", "🌧", "💙", "🫧", "🩵"],
+  },
+  {
+    id: "hoi_hop",
+    label: "Hồi hộp",
+    emoji: "😰",
+    color: "#ef4444",
+    glow: "rgba(239,68,68,0.3)",
+    bg: "rgba(239,68,68,0.08)",
+    desc: "Tim đập nhanh, ngồi không yên",
+    particles: ["⚡", "🔥", "💥", "❗", "🫀"],
+  },
+  {
+    id: "kinh_di",
+    label: "Sợ hãi",
+    emoji: "👻",
+    color: "#a855f7",
+    glow: "rgba(168,85,247,0.3)",
+    bg: "rgba(168,85,247,0.08)",
+    desc: "Tắt đèn, xem một mình, dám không?",
+    particles: ["🕷", "🌑", "👁", "🦇", "💀"],
+  },
+  {
+    id: "thu_gian",
+    label: "Thư giãn",
+    emoji: "🛋️",
+    color: "#22c55e",
+    glow: "rgba(34,197,94,0.3)",
+    bg: "rgba(34,197,94,0.08)",
+    desc: "Nhẹ nhàng, không suy nghĩ, chill thôi",
+    particles: ["🍃", "🌿", "☁️", "🌊", "🫖"],
+  },
+  {
+    id: "phieu_luu",
+    label: "Phiêu lưu",
+    emoji: "🌍",
+    color: "#f97316",
+    glow: "rgba(249,115,22,0.3)",
+    bg: "rgba(249,115,22,0.08)",
+    desc: "Khám phá thế giới mới, vượt giới hạn",
+    particles: ["🗺", "⛰", "🚀", "🌄", "🏔"],
+  },
+  {
+    id: "lang_man",
+    label: "Lãng mạn",
+    emoji: "💕",
+    color: "#f472b6",
+    glow: "rgba(244,114,182,0.3)",
+    bg: "rgba(244,114,182,0.08)",
+    desc: "Ngọt ngào, ấm áp, tim tan chảy",
+    particles: ["💖", "🌹", "💞", "🌸", "💝"],
+  },
+  {
+    id: "suy_ngam",
+    label: "Suy ngẫm",
+    emoji: "🤔",
+    color: "#94a3b8",
+    glow: "rgba(148,163,184,0.2)",
+    bg: "rgba(148,163,184,0.06)",
+    desc: "Phim nhiều tầng ý nghĩa, kích thích tư duy",
+    particles: ["🔮", "🧩", "🌌", "💭", "🎭"],
+  },
 ];
 
+/* ── Mood Card ─────────────────────────────── */
+function MoodCard({ mood, isSelected, onClick }) {
+  const [hov, setHov] = useState(false);
+  const active = isSelected || hov;
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 10,
+        padding: "20px 14px 16px",
+        borderRadius: "var(--radius-xl, 20px)",
+        border: `1.5px solid ${isSelected ? mood.color : hov ? mood.color + "55" : "var(--border)"}`,
+        background: isSelected
+          ? mood.bg
+          : hov
+            ? mood.color + "0d"
+            : "var(--bg-card)",
+        cursor: "pointer",
+        overflow: "hidden",
+        transition:
+          "transform 0.28s cubic-bezier(0.34,1.3,0.64,1), border-color 0.22s ease, background 0.22s ease, box-shadow 0.28s ease",
+        transform: active ? "translateY(-6px) scale(1.03)" : "none",
+        boxShadow: isSelected
+          ? `0 12px 36px ${mood.glow}, 0 0 0 1px ${mood.color}44`
+          : hov
+            ? `0 8px 24px rgba(0,0,0,0.45)`
+            : "var(--shadow-card)",
+        fontFamily: "var(--font-body, sans-serif)",
+      }}
+    >
+      {/* top color bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: mood.color,
+          borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
+          opacity: isSelected ? 1 : hov ? 0.65 : 0.22,
+          transition: "opacity 0.22s ease",
+        }}
+      />
+      {/* ambient glow */}
+      <div
+        style={{
+          position: "absolute",
+          top: -20,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 80,
+          height: 80,
+          borderRadius: "50%",
+          background: mood.color,
+          opacity: active ? 0.1 : 0,
+          filter: "blur(20px)",
+          transition: "opacity 0.3s ease",
+          pointerEvents: "none",
+        }}
+      />
+      {/* check badge */}
+      {isSelected && (
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            background: mood.color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            animation: "checkPop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+          }}
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
+      {/* emoji */}
+      <span
+        style={{
+          fontSize: isSelected ? 38 : hov ? 34 : 30,
+          lineHeight: 1,
+          filter: active ? `drop-shadow(0 0 10px ${mood.color}88)` : "none",
+          transition: "font-size 0.28s ease, filter 0.25s ease",
+          animation: isSelected
+            ? "emojiWobble 2s ease-in-out infinite"
+            : "none",
+          display: "inline-block",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {mood.emoji}
+      </span>
+      {/* label */}
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: isSelected
+            ? mood.color
+            : hov
+              ? "var(--text-primary)"
+              : "var(--text-secondary)",
+          transition: "color 0.2s ease",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {mood.label}
+      </span>
+      {/* desc */}
+      <span
+        style={{
+          fontSize: 10,
+          color: "var(--text-faint)",
+          lineHeight: 1.4,
+          textAlign: "center",
+          maxHeight: active ? 32 : 0,
+          overflow: "hidden",
+          opacity: active ? 1 : 0,
+          transition: "max-height 0.25s ease, opacity 0.2s ease",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {mood.desc}
+      </span>
+    </button>
+  );
+}
+
+/* ── Particle ──────────────────────────────── */
+function Particle({ char, top, left, size, duration, delay }) {
+  return (
+    <span
+      style={{
+        position: "absolute",
+        fontSize: size,
+        opacity: 0,
+        top,
+        left,
+        animation: `floatUp ${duration}s ease-out ${delay}s infinite`,
+        pointerEvents: "none",
+        userSelect: "none",
+        zIndex: 0,
+      }}
+    >
+      {char}
+    </span>
+  );
+}
+
+/* ── Mood Picker Sheet ─────────────────────── */
+function MoodPickerSheet({ selectedMood, onSelect, onClose }) {
+  const [moods, setMoods] = useState(MOODS);
+  useEffect(() => {
+    getMoods()
+      .then((r) => {
+        if (r.data?.length) setMoods(r.data);
+      })
+      .catch(() => {});
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.72)",
+        backdropFilter: "blur(8px)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          background: "var(--bg-overlay, #1a2030)",
+          borderRadius: "24px 24px 0 0",
+          border: "1px solid var(--border-mid)",
+          borderBottom: "none",
+          padding: "8px 24px 40px",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          scrollbarWidth: "none",
+          animation: "sheetUp 0.38s cubic-bezier(0.34,1.2,0.64,1) both",
+          boxShadow: "0 -12px 60px rgba(0,0,0,0.6)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            borderRadius: 2,
+            background: "var(--border-bright)",
+            margin: "10px auto 20px",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 24,
+          }}
+        >
+          <div>
+            <p
+              style={{
+                margin: "0 0 4px",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--text-faint)",
+              }}
+            >
+              Hôm nay bạn đang cảm thấy thế nào?
+            </p>
+            <h2
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-2xl, 30px)",
+                fontWeight: 400,
+                letterSpacing: "0.05em",
+                color: "var(--text-primary)",
+              }}
+            >
+              Chọn tâm trạng
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 34,
+              height: 34,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--bg-card2)",
+              border: "1px solid var(--border-mid)",
+              borderRadius: "var(--radius-md)",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 14,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+            gap: 10,
+          }}
+        >
+          {moods.map((mood) => (
+            <MoodCard
+              key={mood.id}
+              mood={mood}
+              isSelected={selectedMood?.id === mood.id}
+              onClick={() => onSelect(mood)}
+            />
+          ))}
+        </div>
+        {selectedMood && (
+          <div
+            style={{ marginTop: 24, display: "flex", justifyContent: "center" }}
+          >
+            <button
+              onClick={onClose}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "14px 32px",
+                borderRadius: "var(--radius-full, 999px)",
+                border: "none",
+                background: selectedMood.color,
+                color: selectedMood.color === "#f5c518" ? "#000" : "#fff",
+                fontSize: 15,
+                fontWeight: 800,
+                cursor: "pointer",
+                fontFamily: "var(--font-body, sans-serif)",
+                boxShadow: `0 6px 24px ${selectedMood.glow}`,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.transform =
+                  "translateY(-2px) scale(1.02)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
+            >
+              <span style={{ fontSize: 20 }}>{selectedMood.emoji}</span>
+              <span>Xem phim {selectedMood.label}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════════════ */
 export default function MoodDiscovery() {
-  const [selectedMood, setSelectedMood] = useState(null);
+  const [selectedMood, setSelected] = useState(null);
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMore, setLoadMore] = useState(false);
   const [trailer, setTrailer] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); // force re-fetch
-
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [particles, setParticles] = useState([]);
   const gridRef = useRef(null);
 
-  /* ── fetch phim khi mood hoặc refreshKey thay đổi ── */
+  useEffect(() => {
+    if (selectedMood?.particles) {
+      setParticles(
+        Array.from({ length: 14 }, (_, i) => ({
+          id: i,
+          char: selectedMood.particles[i % selectedMood.particles.length],
+          top: `${8 + Math.random() * 78}%`,
+          left: `${Math.random() * 100}%`,
+          size: 12 + Math.random() * 14,
+          duration: 4 + Math.random() * 5,
+          delay: Math.random() * 3,
+        })),
+      );
+    } else {
+      setParticles([]);
+    }
+  }, [selectedMood]);
+
   useEffect(() => {
     if (!selectedMood) return;
-
     setLoading(true);
     setMovies([]);
     setPage(1);
-
     getMoviesByMood(selectedMood.id, 1)
-      .then((res) => {
-        setMovies(res.data.results || []);
-        setHasMore((res.data.results || []).length === 20);
+      .then((r) => {
+        setMovies(r.data.results || []);
+        setHasMore((r.data.results || []).length === 20);
       })
       .catch(() => setMovies([]))
       .finally(() => setLoading(false));
   }, [selectedMood, refreshKey]);
 
-  /* ── load more ── */
   const loadMore = useCallback(() => {
     if (loadingMore || !selectedMood) return;
-    const nextPage = page + 1;
-    setLoadingMore(true);
-    getMoviesByMood(selectedMood.id, nextPage)
-      .then((res) => {
-        const newMovies = res.data.results || [];
+    const next = page + 1;
+    setLoadMore(true);
+    getMoviesByMood(selectedMood.id, next)
+      .then((r) => {
+        const nm = r.data.results || [];
         setMovies((prev) => {
           const ids = new Set(prev.map((m) => m.id));
-          return [...prev, ...newMovies.filter((m) => !ids.has(m.id))];
+          return [...prev, ...nm.filter((m) => !ids.has(m.id))];
         });
-        setPage(nextPage);
-        setHasMore(newMovies.length === 20);
+        setPage(next);
+        setHasMore(nm.length === 20);
       })
-      .finally(() => setLoadingMore(false));
+      .finally(() => setLoadMore(false));
   }, [loadingMore, selectedMood, page]);
 
-  /* ── handlers ── */
-  const handleSelectMood = useCallback((mood) => {
-    setSelectedMood(mood);
+  const handleSelect = useCallback((mood) => {
+    setSelected(mood);
     setShowPicker(false);
+    setTimeout(
+      () =>
+        gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      300,
+    );
   }, []);
 
   const handleRefresh = () => {
     setRefreshKey((k) => k + 1);
-    // scroll to top of grid
     gridRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  /* ── render ── */
   return (
-    <div style={s.page}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+        color: "var(--text-primary)",
+        fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
+        paddingTop: 60,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       <Navbar />
 
-      {/* ── HERO HEADER ── */}
-      <div
-        style={{
-          ...s.hero,
-          ...(selectedMood
-            ? { borderBottom: `3px solid ${selectedMood.color}` }
-            : {}),
-        }}
-      >
-        {/* bg blur nếu đã chọn mood */}
-        {selectedMood && (
+      {/* Ambient bg glows */}
+      {selectedMood && (
+        <>
           <div
             style={{
-              ...s.heroBg,
-              background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${selectedMood.color}22 0%, transparent 70%)`,
+              position: "fixed",
+              top: -100,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "80vw",
+              height: "60vh",
+              borderRadius: "50%",
+              background: `radial-gradient(ellipse at center, ${selectedMood.color}14 0%, transparent 65%)`,
+              pointerEvents: "none",
+              zIndex: 0,
+              transition: "background 0.8s ease",
             }}
           />
-        )}
+          <div
+            style={{
+              position: "fixed",
+              bottom: -80,
+              right: -80,
+              width: 400,
+              height: 400,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${selectedMood.color}0b 0%, transparent 70%)`,
+              pointerEvents: "none",
+              zIndex: 0,
+              transition: "background 0.8s ease",
+            }}
+          />
+        </>
+      )}
 
-        <div style={s.heroContent}>
-          <p style={s.heroEyebrow}>🎬 Khám phá theo tâm trạng</p>
-          <h1 style={s.heroTitle}>
-            {selectedMood
-              ? `${selectedMood.emoji} ${selectedMood.label}`
-              : "Hôm nay bạn muốn xem gì?"}
-          </h1>
-          {selectedMood && <p style={s.heroDesc}>{selectedMood.description}</p>}
+      {/* ── HERO ── */}
+      <div
+        style={{
+          position: "relative",
+          padding:
+            "clamp(40px,8vh,72px) clamp(20px,5vw,64px) clamp(32px,5vh,52px)",
+          textAlign: "center",
+          overflow: "hidden",
+          zIndex: 1,
+          borderBottom: `2px solid ${selectedMood ? selectedMood.color + "55" : "var(--border)"}`,
+          transition: "border-color 0.5s ease",
+        }}
+      >
+        {particles.map((p) => (
+          <Particle key={p.id} {...p} />
+        ))}
 
-          <div style={s.heroActions}>
-            <button
+        <p
+          style={{
+            margin: "0 0 16px",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: selectedMood ? selectedMood.color : "var(--text-faint)",
+            transition: "color 0.4s ease",
+          }}
+        >
+          {selectedMood ? "✦ Tâm trạng đang chọn" : "✦ Khám phá theo tâm trạng"}
+        </p>
+
+        {selectedMood ? (
+          <div style={{ marginBottom: 20 }}>
+            <span
               style={{
-                ...s.changeBtn,
-                ...(selectedMood
-                  ? {
-                      borderColor: selectedMood.color,
-                      color: selectedMood.color,
-                    }
-                  : {
-                      background: "var(--red, #e74c3c)",
-                      border: "none",
-                      color: "#fff",
-                    }),
+                fontSize: "clamp(64px,10vw,96px)",
+                lineHeight: 1,
+                filter: `drop-shadow(0 0 24px ${selectedMood.glow})`,
+                animation: "emojiFloat 3s ease-in-out infinite",
+                display: "inline-block",
+                transition: "font-size 0.4s ease",
               }}
-              onClick={() => setShowPicker(true)}
             >
-              {selectedMood ? "Đổi tâm trạng" : "Chọn tâm trạng →"}
-            </button>
-
-            {selectedMood && (
-              <button
-                style={s.refreshBtn}
-                onClick={handleRefresh}
-                title="Gợi ý khác"
-              >
-                🔀 Gợi ý khác
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── MOOD QUICK-SELECT BAR ── */}
-      <div style={s.moodBar}>
-        <div style={s.moodBarInner}>
-          {MOODS_STATIC.map((m) => (
-            <button
-              key={m.id}
+              {selectedMood.emoji}
+            </span>
+            <h1
               style={{
-                ...s.moodChip,
-                ...(selectedMood?.id === m.id
-                  ? {
-                      borderColor: m.color,
-                      color: m.color,
-                      background: `${m.color}18`,
-                    }
-                  : {}),
+                fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
+                fontSize: "clamp(42px,7vw,80px)",
+                fontWeight: 400,
+                letterSpacing: "0.04em",
+                lineHeight: 1.0,
+                margin: "14px 0 0",
+                color: selectedMood.color,
+                textShadow: `0 0 40px ${selectedMood.glow}`,
+                transition: "color 0.4s ease",
               }}
-              onClick={() => handleSelectMood(m)}
             >
-              <span>{m.emoji}</span>
-              <span style={s.chipLabel}>{m.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── CONTENT AREA ── */}
-      <div style={s.content} ref={gridRef}>
-        {/* chưa chọn mood */}
-        {!selectedMood && (
-          <div style={s.emptyState}>
-            <div style={s.emptyIcon}>🎭</div>
-            <p style={s.emptyTitle}>Chọn một tâm trạng để bắt đầu</p>
-            <p style={s.emptyDesc}>
-              App sẽ gợi ý những bộ phim phù hợp nhất với cảm xúc của bạn lúc
-              này.
+              {selectedMood.label}
+            </h1>
+            <p
+              style={{
+                margin: "10px auto 0",
+                fontSize: "clamp(14px,1.5vw,16px)",
+                color: "var(--text-muted)",
+                lineHeight: 1.6,
+                maxWidth: 500,
+              }}
+            >
+              {selectedMood.desc}
             </p>
-            <button style={s.emptyBtn} onClick={() => setShowPicker(true)}>
-              Chọn tâm trạng ngay
+          </div>
+        ) : (
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: "clamp(56px,10vw,88px)",
+                lineHeight: 1,
+                marginBottom: 16,
+                animation: "emojiFloat 4s ease-in-out infinite",
+              }}
+            >
+              🎭
+            </div>
+            <h1
+              style={{
+                fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
+                fontSize: "clamp(36px,6vw,64px)",
+                fontWeight: 400,
+                letterSpacing: "0.04em",
+                lineHeight: 1.05,
+                margin: "0 0 12px",
+                color: "var(--text-primary)",
+              }}
+            >
+              Hôm nay bạn muốn xem gì?
+            </h1>
+            <p
+              style={{
+                margin: "0 auto",
+                fontSize: 15,
+                color: "var(--text-muted)",
+                maxWidth: 440,
+              }}
+            >
+              Chọn tâm trạng của bạn — app sẽ gợi ý những bộ phim hoàn hảo nhất.
+            </p>
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            justifyContent: "center",
+            flexWrap: "wrap",
+            marginTop: 24,
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <button
+            onClick={() => setShowPicker(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 28px",
+              borderRadius: "var(--radius-full, 999px)",
+              border: "none",
+              background: selectedMood ? selectedMood.color : "var(--red)",
+              color: selectedMood?.color === "#f5c518" ? "#000" : "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+              fontFamily: "var(--font-body, sans-serif)",
+              boxShadow: selectedMood
+                ? `0 4px 20px ${selectedMood.glow}`
+                : "0 4px 16px rgba(229,9,20,0.35)",
+              transition:
+                "background 0.4s ease, box-shadow 0.4s ease, transform 0.18s ease",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.transform = "translateY(-2px) scale(1.03)")
+            }
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
+          >
+            <span>{selectedMood ? selectedMood.emoji : "🎭"}</span>
+            <span>{selectedMood ? "Đổi tâm trạng" : "Chọn tâm trạng"}</span>
+          </button>
+          {selectedMood && (
+            <button
+              onClick={handleRefresh}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 22px",
+                borderRadius: "var(--radius-full, 999px)",
+                border: `1px solid ${selectedMood.color}55`,
+                background: selectedMood.bg,
+                color: selectedMood.color,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "var(--font-body, sans-serif)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = selectedMood.color + "20";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = selectedMood.bg;
+                e.currentTarget.style.transform = "none";
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+              </svg>
+              <span>Gợi ý khác</span>
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mood Quick Bar ── */}
+      <div
+        style={{
+          borderBottom: "1px solid var(--border)",
+          padding: "14px 0",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          position: "sticky",
+          top: 60,
+          zIndex: 50,
+          background: "var(--bg-surface, rgba(14,18,24,0.95))",
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            padding: "0 clamp(16px,4vw,48px)",
+            width: "max-content",
+            minWidth: "100%",
+            justifyContent: "center",
+          }}
+        >
+          {MOODS.map((mood) => {
+            const active = selectedMood?.id === mood.id;
+            return (
+              <button
+                key={mood.id}
+                onClick={() => handleSelect(mood)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "7px 15px",
+                  borderRadius: "var(--radius-full, 999px)",
+                  border: `1.5px solid ${active ? mood.color : "var(--border-mid)"}`,
+                  background: active ? mood.bg : "transparent",
+                  color: active ? mood.color : "var(--text-muted)",
+                  fontSize: 12,
+                  fontWeight: active ? 700 : 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  fontFamily: "var(--font-body, sans-serif)",
+                  transition: "all 0.2s ease",
+                  boxShadow: active ? `0 0 12px ${mood.glow}` : "none",
+                  transform: active ? "translateY(-1px)" : "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.borderColor = mood.color + "55";
+                    e.currentTarget.style.color = "var(--text-secondary)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.borderColor = "var(--border-mid)";
+                    e.currentTarget.style.color = "var(--text-muted)";
+                  }
+                }}
+              >
+                <span style={{ fontSize: 15 }}>{mood.emoji}</span>
+                <span>{mood.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      <div
+        ref={gridRef}
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+          padding: "32px clamp(16px,4vw,48px) 80px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {/* No mood — big card grid */}
+        {!selectedMood && (
+          <div>
+            <div style={{ textAlign: "center", marginBottom: 36 }}>
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "var(--text-faint)",
+                }}
+              >
+                Chọn một trong
+              </p>
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-xl, 24px)",
+                  fontWeight: 400,
+                  letterSpacing: "0.06em",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                8 tâm trạng phim
+              </h2>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                gap: 14,
+                maxWidth: 900,
+                margin: "0 auto",
+              }}
+            >
+              {MOODS.map((mood, i) => (
+                <div
+                  key={mood.id}
+                  style={{
+                    animation: `fadeSlideUp 0.4s ease ${i * 0.05}s both`,
+                  }}
+                >
+                  <MoodCard
+                    mood={mood}
+                    isSelected={false}
+                    onClick={() => handleSelect(mood)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* loading skeleton */}
-        {loading && (
-          <div style={s.grid}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* kết quả */}
-        {!loading && movies.length > 0 && (
-          <>
-            <div style={s.resultHeader}>
-              <p style={s.resultCount}>
-                {movies.length} phim gợi ý cho tâm trạng{" "}
-                <span style={{ color: selectedMood?.color }}>
-                  {selectedMood?.label}
-                </span>
+        {/* Loading */}
+        {loading && selectedMood && (
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  width: 3,
+                  height: 16,
+                  borderRadius: "var(--radius-full)",
+                  background: selectedMood.color,
+                  flexShrink: 0,
+                }}
+              />
+              <p
+                style={{ margin: 0, fontSize: 14, color: "var(--text-muted)" }}
+              >
+                Đang tìm phim cho{" "}
+                <strong style={{ color: selectedMood.color }}>
+                  {selectedMood.label}
+                </strong>
+                …
               </p>
             </div>
-
-            <div style={s.grid}>
-              {movies.map((movie) => (
-                <MovieCard
-                  key={movie.id}
-                  movie={movie}
-                  onPlay={() => setTrailer(movie)}
-                />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {Array.from({ length: 12 }).map((_, i) => (
+                <SkeletonCard key={i} delay={i * 40} />
               ))}
+            </div>
+          </div>
+        )}
 
-              {/* skeleton khi load more */}
+        {/* Results */}
+        {!loading && movies.length > 0 && selectedMood && (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 24,
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    width: 3,
+                    height: 20,
+                    borderRadius: "var(--radius-full)",
+                    background: selectedMood.color,
+                    boxShadow: `0 0 8px ${selectedMood.glow}`,
+                    flexShrink: 0,
+                  }}
+                />
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-2xl, 30px)",
+                      fontWeight: 400,
+                      letterSpacing: "0.05em",
+                      lineHeight: 1,
+                    }}
+                  >
+                    Phim cho tâm trạng {selectedMood.emoji}
+                  </h2>
+                  <p
+                    style={{
+                      margin: "4px 0 0",
+                      fontSize: 12,
+                      color: "var(--text-faint)",
+                    }}
+                  >
+                    {movies.length} gợi ý ·{" "}
+                    <span
+                      style={{ color: selectedMood.color, fontWeight: 700 }}
+                    >
+                      {selectedMood.label}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleRefresh}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 16px",
+                  borderRadius: "var(--radius-full)",
+                  border: `1px solid ${selectedMood.color}44`,
+                  background: selectedMood.bg,
+                  color: selectedMood.color,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-body, sans-serif)",
+                  transition: "all 0.18s ease",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = selectedMood.color + "20")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = selectedMood.bg)
+                }
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                </svg>
+                Gợi ý khác
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {movies.map((movie, i) => (
+                <div
+                  key={movie.id}
+                  style={{
+                    animation: `fadeSlideUp 0.35s ease ${Math.min(i, 8) * 0.04}s both`,
+                  }}
+                >
+                  <MovieCard movie={movie} onPlay={() => setTrailer(movie)} />
+                </div>
+              ))}
               {loadingMore &&
                 Array.from({ length: 4 }).map((_, i) => (
-                  <SkeletonCard key={`more-${i}`} />
+                  <SkeletonCard key={`more-${i}`} delay={i * 60} />
                 ))}
             </div>
-
-            {/* load more button */}
             {hasMore && !loadingMore && (
-              <div style={s.loadMoreRow}>
-                <button style={s.loadMoreBtn} onClick={loadMore}>
-                  Xem thêm phim {selectedMood?.emoji}
+              <div
+                style={{
+                  marginTop: 40,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <button
+                  onClick={loadMore}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "13px 36px",
+                    borderRadius: "var(--radius-full)",
+                    border: `1.5px solid ${selectedMood.color}55`,
+                    background: selectedMood.bg,
+                    color: selectedMood.color,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "var(--font-body, sans-serif)",
+                    letterSpacing: "0.03em",
+                    boxShadow: `0 4px 16px ${selectedMood.glow}`,
+                    transition: "all 0.22s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = `0 8px 28px ${selectedMood.glow}`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "none";
+                    e.currentTarget.style.boxShadow = `0 4px 16px ${selectedMood.glow}`;
+                  }}
+                >
+                  <span>{selectedMood.emoji}</span>
+                  <span>Xem thêm phim {selectedMood.label}</span>
                 </button>
               </div>
             )}
           </>
         )}
 
-        {/* không có kết quả */}
+        {/* No results */}
         {!loading && selectedMood && movies.length === 0 && (
-          <div style={s.emptyState}>
-            <div style={s.emptyIcon}>😅</div>
-            <p style={s.emptyTitle}>Không tìm thấy phim phù hợp</p>
-            <p style={s.emptyDesc}>
+          <div style={{ textAlign: "center", padding: "80px 20px" }}>
+            <div
+              style={{
+                fontSize: 56,
+                marginBottom: 16,
+                animation: "emojiFloat 3s ease-in-out infinite",
+              }}
+            >
+              😅
+            </div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-2xl)",
+                fontWeight: 400,
+                letterSpacing: "0.05em",
+                marginBottom: 10,
+              }}
+            >
+              Không tìm thấy phim
+            </h2>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                maxWidth: 360,
+                margin: "0 auto 24px",
+                lineHeight: 1.6,
+              }}
+            >
               Thử đổi tâm trạng hoặc nhấn gợi ý khác nhé.
             </p>
-            <button style={s.emptyBtn} onClick={handleRefresh}>
+            <button
+              onClick={handleRefresh}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 28px",
+                borderRadius: "var(--radius-full)",
+                border: "none",
+                background: "var(--red)",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "var(--font-body, sans-serif)",
+              }}
+            >
               Thử lại
             </button>
           </div>
         )}
       </div>
 
-      {/* ── MODALS ── */}
       {showPicker && (
-        <MoodPicker
+        <MoodPickerSheet
           selectedMood={selectedMood}
-          onSelect={handleSelectMood}
+          onSelect={handleSelect}
           onClose={() => setShowPicker(false)}
         />
       )}
-
       {trailer && (
         <TrailerModal movie={trailer} onClose={() => setTrailer(null)} />
       )}
-
       <ScrollToTop />
+
+      <style>{`
+        @keyframes emojiFloat { 0%,100%{transform:translateY(0px) rotate(0deg)} 33%{transform:translateY(-10px) rotate(-3deg)} 66%{transform:translateY(-6px) rotate(3deg)} }
+        @keyframes emojiWobble { 0%,100%{transform:rotate(0deg) scale(1)} 25%{transform:rotate(-8deg) scale(1.05)} 75%{transform:rotate(8deg) scale(1.05)} }
+        @keyframes floatUp { 0%{opacity:0;transform:translateY(0) scale(0.8)} 15%{opacity:0.65} 85%{opacity:0.35} 100%{opacity:0;transform:translateY(-120px) scale(1.1) rotate(20deg)} }
+        @keyframes fadeSlideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes checkPop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes sheetUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+        ::-webkit-scrollbar { display:none; }
+      `}</style>
     </div>
   );
 }
-
-/* ── styles ─────────────────────────────── */
-const s = {
-  page: {
-    minHeight: "100vh",
-    background: "var(--bg-primary, #0f0f0f)",
-    color: "var(--text-primary, #fff)",
-  },
-  hero: {
-    position: "relative",
-    padding: "80px 24px 36px",
-    textAlign: "center",
-    overflow: "hidden",
-    transition: "border-color 0.4s",
-  },
-  heroBg: {
-    position: "absolute",
-    inset: 0,
-    pointerEvents: "none",
-    transition: "background 0.4s",
-  },
-  heroContent: { position: "relative", zIndex: 1 },
-  heroEyebrow: {
-    margin: "0 0 8px",
-    fontSize: 13,
-    color: "var(--text-muted, #888)",
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-  },
-  heroTitle: {
-    margin: "0 0 10px",
-    fontSize: "clamp(28px, 5vw, 44px)",
-    fontWeight: 800,
-    letterSpacing: "-0.02em",
-    lineHeight: 1.2,
-    transition: "all 0.3s",
-  },
-  heroDesc: {
-    margin: "0 0 20px",
-    fontSize: 16,
-    color: "var(--text-secondary, #aaa)",
-  },
-  heroActions: {
-    display: "flex",
-    gap: 12,
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  changeBtn: {
-    padding: "10px 22px",
-    borderRadius: 10,
-    border: "1.5px solid",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    background: "transparent",
-  },
-  refreshBtn: {
-    padding: "10px 18px",
-    borderRadius: 10,
-    border: "1.5px solid var(--border-mid, #333)",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    background: "var(--bg-card, #1a1a1a)",
-    color: "var(--text-secondary, #aaa)",
-    transition: "all 0.2s",
-  },
-
-  /* mood bar */
-  moodBar: {
-    borderTop: "1px solid var(--border-mid, #222)",
-    borderBottom: "1px solid var(--border-mid, #222)",
-    padding: "12px 16px",
-    overflowX: "auto",
-    scrollbarWidth: "none",
-  },
-  moodBarInner: {
-    display: "flex",
-    gap: 8,
-    width: "max-content",
-    margin: "0 auto",
-  },
-  moodChip: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "7px 14px",
-    borderRadius: 999,
-    border: "1.5px solid var(--border-mid, #2a2a2a)",
-    background: "var(--bg-card, #1a1a1a)",
-    color: "var(--text-secondary, #aaa)",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "all 0.18s",
-  },
-  chipLabel: { fontSize: 13 },
-
-  /* content */
-  content: {
-    maxWidth: 1400,
-    margin: "0 auto",
-    padding: "28px 16px 60px",
-  },
-  resultHeader: {
-    marginBottom: 20,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  resultCount: {
-    margin: 0,
-    fontSize: 14,
-    color: "var(--text-muted, #888)",
-  },
-
-  /* grid */
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
-    gap: 16,
-  },
-
-  /* load more */
-  loadMoreRow: {
-    marginTop: 32,
-    display: "flex",
-    justifyContent: "center",
-  },
-  loadMoreBtn: {
-    padding: "12px 32px",
-    borderRadius: 10,
-    border: "1.5px solid var(--border-mid, #333)",
-    background: "transparent",
-    color: "var(--text-secondary, #ccc)",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  /* empty state */
-  emptyState: {
-    textAlign: "center",
-    padding: "80px 24px",
-  },
-  emptyIcon: { fontSize: 56, marginBottom: 16, lineHeight: 1 },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "var(--text-primary, #fff)",
-    margin: "0 0 8px",
-  },
-  emptyDesc: {
-    fontSize: 14,
-    color: "var(--text-muted, #888)",
-    margin: "0 0 24px",
-    maxWidth: 400,
-    marginLeft: "auto",
-    marginRight: "auto",
-  },
-  emptyBtn: {
-    padding: "12px 28px",
-    borderRadius: 10,
-    border: "none",
-    background: "var(--red, #e74c3c)",
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-};

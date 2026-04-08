@@ -1,9 +1,3 @@
-// src/components/NotificationBell.jsx
-/**
- * NotificationBell
- * Bell icon trên Navbar với badge unread count.
- * Click → mở dropdown danh sách thông báo.
- */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,8 +9,232 @@ import {
 } from "../api/reminderApi";
 import { useAuth } from "../context/AuthContext";
 
-const POLL_MS = 60_000; // poll mỗi 60 giây
+const POLL_MS = 60_000;
 
+/* ── Time formatter ────────────────────────── */
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return "Vừa xong";
+  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+  return `${Math.floor(diff / 86400)} ngày trước`;
+}
+
+/* ── Bell SVG ──────────────────────────────── */
+function BellSVG({ hasUnread }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        animation: hasUnread ? "bellWiggle 3s ease-in-out infinite 1s" : "none",
+      }}
+    >
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 01-3.46 0" />
+    </svg>
+  );
+}
+
+/* ── Empty state SVG ───────────────────────── */
+function EmptyBell() {
+  return (
+    <svg
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--text-faint)"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 01-3.46 0" />
+      <line
+        x1="1"
+        y1="1"
+        x2="23"
+        y2="23"
+        stroke="var(--text-faint)"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+/* ── Notification item ─────────────────────── */
+function NotifItem({ notif, onRead, onDelete, onNavigate }) {
+  const [hov, setHov] = useState(false);
+  const [exiting, setExiting] = useState(false);
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    setExiting(true);
+    setTimeout(() => onDelete(notif.id), 220);
+  };
+
+  return (
+    <div
+      onClick={() => onNavigate(notif)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "10px 14px",
+        cursor: notif.movie_id ? "pointer" : "default",
+        borderBottom: "1px solid var(--border)",
+        background: hov
+          ? "var(--bg-card2)"
+          : notif.is_read
+            ? "transparent"
+            : "rgba(229,9,20,0.05)",
+        transform: exiting ? "translateX(100%)" : "translateX(0)",
+        opacity: exiting ? 0 : 1,
+        transition:
+          "background 0.15s ease, transform 0.22s ease, opacity 0.22s ease",
+        overflow: "hidden",
+      }}
+    >
+      {/* Poster */}
+      {notif.poster ? (
+        <img
+          src={notif.poster}
+          alt=""
+          loading="lazy"
+          style={{
+            width: 40,
+            height: 56,
+            objectFit: "cover",
+            borderRadius: "var(--radius-sm, 6px)",
+            flexShrink: 0,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 40,
+            height: 56,
+            borderRadius: "var(--radius-sm, 6px)",
+            background: "var(--bg-card2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 18,
+            flexShrink: 0,
+          }}
+        >
+          🎬
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            margin: "0 0 3px",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            lineHeight: 1.3,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {notif.title}
+        </p>
+        {notif.body && (
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontSize: 11,
+              color: "var(--text-muted)",
+              lineHeight: 1.45,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {notif.body}
+          </p>
+        )}
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            color: "var(--text-faint)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {timeAgo(notif.created_at)}
+        </p>
+      </div>
+
+      {/* Right: unread dot + delete */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 6,
+          flexShrink: 0,
+          paddingTop: 2,
+        }}
+      >
+        {!notif.is_read && (
+          <div
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: "var(--red)",
+              boxShadow: "0 0 6px rgba(229,9,20,0.6)",
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <button
+          onClick={handleDelete}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--text-faint)",
+            cursor: "pointer",
+            fontSize: 11,
+            padding: "2px 4px",
+            lineHeight: 1,
+            borderRadius: "var(--radius-sm)",
+            opacity: hov ? 1 : 0.4,
+            transition: "opacity 0.15s ease, color 0.15s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--text-faint)")
+          }
+          title="Xoá"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════ */
 export default function NotificationBell() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -25,19 +243,15 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [notifs, setNotifs] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const dropRef = useRef(null);
   const pollRef = useRef(null);
 
-  /* ── fetch unread count (polling) ── */
   const fetchStats = useCallback(async () => {
     if (!isLoggedIn) return;
     try {
-      const res = await getNotifStats();
-      setUnread(res.data.unread);
-    } catch {
-      /* silent */
-    }
+      const r = await getNotifStats();
+      setUnread(r.data.unread);
+    } catch {}
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -46,17 +260,15 @@ export default function NotificationBell() {
     return () => clearInterval(pollRef.current);
   }, [fetchStats]);
 
-  /* ── fetch full list on open ── */
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     getNotifs({ limit: 30 })
-      .then((res) => setNotifs(res.data))
+      .then((r) => setNotifs(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [open]);
 
-  /* ── close on outside click ── */
   useEffect(() => {
     const h = (e) => {
       if (dropRef.current && !dropRef.current.contains(e.target))
@@ -66,29 +278,23 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const handleMarkAllRead = async () => {
+  const handleMarkAll = async () => {
     await markAllRead();
     setUnread(0);
-    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setNotifs((p) => p.map((n) => ({ ...n, is_read: true })));
   };
-
   const handleMarkOne = async (id) => {
     await markOneRead(id);
     setUnread((u) => Math.max(0, u - 1));
-    setNotifs((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
-    );
+    setNotifs((p) => p.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
-
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
+  const handleDelete = async (id) => {
     await deleteNotif(id);
     const deleted = notifs.find((n) => n.id === id);
     if (deleted && !deleted.is_read) setUnread((u) => Math.max(0, u - 1));
-    setNotifs((prev) => prev.filter((n) => n.id !== id));
+    setNotifs((p) => p.filter((n) => n.id !== id));
   };
-
-  const handleClick = (notif) => {
+  const handleNav = (notif) => {
     if (!notif.is_read) handleMarkOne(notif.id);
     if (notif.movie_id) {
       setOpen(false);
@@ -103,108 +309,266 @@ export default function NotificationBell() {
       {/* Bell button */}
       <button
         onClick={() => setOpen((p) => !p)}
-        style={{
-          ...s.bell,
-          background: open ? "var(--red-dim)" : "transparent",
-        }}
         title="Thông báo"
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 36,
+          height: 36,
+          borderRadius: "var(--radius-md, 10px)",
+          border: "1px solid var(--border-mid)",
+          background: open ? "var(--red-dim)" : "transparent",
+          color: open ? "var(--red-text)" : "var(--text-muted)",
+          cursor: "pointer",
+          transition:
+            "background 0.18s ease, color 0.18s ease, border-color 0.18s ease",
+        }}
+        onMouseEnter={(e) => {
+          if (!open) {
+            e.currentTarget.style.background = "var(--bg-card2)";
+            e.currentTarget.style.borderColor = "var(--border-bright)";
+            e.currentTarget.style.color = "var(--text-secondary)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!open) {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "var(--border-mid)";
+            e.currentTarget.style.color = "var(--text-muted)";
+          }
+        }}
       >
-        <span style={{ fontSize: 18, lineHeight: 1 }}>🔔</span>
+        <BellSVG hasUnread={unread > 0} />
         {unread > 0 && (
-          <span style={s.badge}>{unread > 9 ? "9+" : unread}</span>
+          <span
+            style={{
+              position: "absolute",
+              top: 1,
+              right: 1,
+              minWidth: 15,
+              height: 15,
+              borderRadius: "var(--radius-full)",
+              background: "var(--red)",
+              color: "#fff",
+              fontSize: 8,
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 3px",
+              lineHeight: 1,
+              border: "1.5px solid var(--bg-page)",
+              animation: "badgePop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+            }}
+          >
+            {unread > 9 ? "9+" : unread}
+          </span>
         )}
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div style={s.dropdown}>
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 10px)",
+            width: 340,
+            maxHeight: 480,
+            background: "var(--bg-overlay, #1a2030)",
+            border: "1px solid var(--border-mid)",
+            borderRadius: "var(--radius-lg, 14px)",
+            boxShadow: "var(--shadow-menu, 0 12px 40px rgba(0,0,0,0.7))",
+            zIndex: "var(--z-overlay, 100)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            animation: "dropIn 0.22s cubic-bezier(0.34,1.3,0.64,1) both",
+          }}
+        >
           {/* Header */}
-          <div style={s.dropHeader}>
-            <span style={s.dropTitle}>Thông báo</span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 16px 12px",
+              borderBottom: "1px solid var(--border)",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 3,
+                  height: 14,
+                  borderRadius: "var(--radius-full)",
+                  background: "var(--red)",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
+                Thông báo
+              </span>
+              {unread > 0 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    background: "var(--red-dim)",
+                    color: "var(--red-text)",
+                    border: "1px solid var(--red-border)",
+                    borderRadius: "var(--radius-full)",
+                    padding: "1px 7px",
+                  }}
+                >
+                  {unread} chưa đọc
+                </span>
+              )}
+            </div>
             {unread > 0 && (
-              <button style={s.markAllBtn} onClick={handleMarkAllRead}>
+              <button
+                onClick={handleMarkAll}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--red-text)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: "3px 6px",
+                  borderRadius: "var(--radius-sm)",
+                  fontFamily: "var(--font-body, sans-serif)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--red-dim)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "none")
+                }
+              >
                 Đọc tất cả
               </button>
             )}
           </div>
 
           {/* List */}
-          <div style={s.list}>
+          <div style={{ overflowY: "auto", flex: 1, scrollbarWidth: "none" }}>
             {loading && (
-              <div style={s.empty}>
-                <span style={{ fontSize: 20 }}>⏳</span>
-                <span>Đang tải...</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  padding: "32px 20px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    border: "2px solid rgba(255,255,255,0.1)",
+                    borderTopColor: "var(--red)",
+                    borderRadius: "50%",
+                    animation: "microSpin 0.7s linear infinite",
+                  }}
+                />
+                <span style={{ color: "var(--text-faint)", fontSize: 13 }}>
+                  Đang tải…
+                </span>
               </div>
             )}
 
             {!loading && notifs.length === 0 && (
-              <div style={s.empty}>
-                <span style={{ fontSize: 32 }}>🔕</span>
-                <span style={{ color: "var(--text-muted)" }}>
-                  Chưa có thông báo nào
-                </span>
-                <span
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "36px 20px",
+                  textAlign: "center",
+                }}
+              >
+                <EmptyBell />
+                <p
                   style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Chưa có thông báo
+                </p>
+                <p
+                  style={{
+                    margin: 0,
                     fontSize: 12,
                     color: "var(--text-faint)",
-                    textAlign: "center",
+                    lineHeight: 1.5,
                   }}
                 >
                   Đặt nhắc nhở phim sắp chiếu để nhận thông báo tại đây
-                </span>
+                </p>
               </div>
             )}
 
             {!loading &&
               notifs.map((n) => (
-                <div
+                <NotifItem
                   key={n.id}
-                  onClick={() => handleClick(n)}
-                  style={{
-                    ...s.item,
-                    background: n.is_read
-                      ? "transparent"
-                      : "var(--red-dim, rgba(229,9,20,0.07))",
-                  }}
-                >
-                  {/* Poster thumbnail */}
-                  {n.poster ? (
-                    <img src={n.poster} alt="" style={s.thumb} />
-                  ) : (
-                    <div style={s.thumbPlaceholder}>🎬</div>
-                  )}
-
-                  {/* Content */}
-                  <div style={s.itemContent}>
-                    <p style={s.itemTitle}>{n.title}</p>
-                    {n.body && <p style={s.itemBody}>{n.body}</p>}
-                    <p style={s.itemTime}>{formatTime(n.created_at)}</p>
-                  </div>
-
-                  {/* Unread dot + delete */}
-                  <div style={s.itemActions}>
-                    {!n.is_read && <div style={s.unreadDot} />}
-                    <button
-                      style={s.deleteBtn}
-                      onClick={(e) => handleDelete(e, n.id)}
-                      title="Xoá"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
+                  notif={n}
+                  onRead={handleMarkOne}
+                  onDelete={handleDelete}
+                  onNavigate={handleNav}
+                />
               ))}
           </div>
 
           {/* Footer */}
           {notifs.length > 0 && (
-            <div style={s.dropFooter}>
+            <div
+              style={{
+                borderTop: "1px solid var(--border)",
+                padding: "10px 14px",
+                flexShrink: 0,
+              }}
+            >
               <button
-                style={s.footerBtn}
                 onClick={() => {
                   setOpen(false);
                   navigate("/reminders");
                 }}
+                style={{
+                  width: "100%",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-mid)",
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--text-secondary)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: "8px",
+                  fontFamily: "var(--font-body, sans-serif)",
+                  letterSpacing: "0.02em",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--bg-card2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "var(--bg-card)")
+                }
               >
                 Xem tất cả nhắc nhở →
               </button>
@@ -212,192 +576,31 @@ export default function NotificationBell() {
           )}
         </div>
       )}
+
+      <style>{bellCSS}</style>
     </div>
   );
 }
 
-function formatTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = Math.floor((now - d) / 1000);
-  if (diff < 60) return "Vừa xong";
-  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-  return `${Math.floor(diff / 86400)} ngày trước`;
-}
-
-/* ── styles ─────────────────────────────── */
-const s = {
-  bell: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    transition: "background 0.15s",
-  },
-  badge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 999,
-    background: "var(--red, #e50914)",
-    color: "#fff",
-    fontSize: 9,
-    fontWeight: 700,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0 3px",
-    lineHeight: 1,
-  },
-  dropdown: {
-    position: "absolute",
-    right: 0,
-    top: "calc(100% + 8px)",
-    width: 340,
-    maxHeight: 480,
-    background: "var(--bg-overlay)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: 12,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
-    zIndex: 200,
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-  },
-  dropHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "14px 16px 10px",
-    borderBottom: "1px solid var(--border)",
-    flexShrink: 0,
-  },
-  dropTitle: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: "var(--text-primary)",
-  },
-  markAllBtn: {
-    background: "transparent",
-    border: "none",
-    color: "var(--red-text, #ff6b6b)",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    padding: "2px 6px",
-  },
-  list: {
-    overflowY: "auto",
-    flex: 1,
-  },
-  empty: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-    padding: "32px 20px",
-    color: "var(--text-secondary)",
-    fontSize: 14,
-  },
-  item: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 10,
-    padding: "12px 14px",
-    cursor: "pointer",
-    transition: "background 0.12s",
-    borderBottom: "1px solid var(--border)",
-  },
-  thumb: {
-    width: 44,
-    height: 62,
-    objectFit: "cover",
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  thumbPlaceholder: {
-    width: 44,
-    height: 62,
-    borderRadius: 6,
-    background: "var(--bg-card2)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 20,
-    flexShrink: 0,
-  },
-  itemContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  itemTitle: {
-    margin: "0 0 3px",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--text-primary)",
-    lineHeight: 1.35,
-  },
-  itemBody: {
-    margin: "0 0 4px",
-    fontSize: 12,
-    color: "var(--text-muted)",
-    lineHeight: 1.45,
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-  },
-  itemTime: {
-    margin: 0,
-    fontSize: 11,
-    color: "var(--text-faint)",
-  },
-  itemActions: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 6,
-    flexShrink: 0,
-  },
-  unreadDot: {
-    width: 7,
-    height: 7,
-    borderRadius: "50%",
-    background: "var(--red, #e50914)",
-  },
-  deleteBtn: {
-    background: "transparent",
-    border: "none",
-    color: "var(--text-faint)",
-    cursor: "pointer",
-    fontSize: 11,
-    padding: 2,
-    lineHeight: 1,
-    transition: "color 0.12s",
-  },
-  dropFooter: {
-    borderTop: "1px solid var(--border)",
-    padding: "10px 14px",
-    flexShrink: 0,
-  },
-  footerBtn: {
-    width: "100%",
-    background: "transparent",
-    border: "none",
-    color: "var(--text-secondary)",
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: "pointer",
-    textAlign: "center",
-    padding: 4,
-  },
-};
+const bellCSS = `
+  @keyframes bellWiggle {
+    0%,100%{ transform:rotate(0deg); }
+    10%    { transform:rotate(-8deg); }
+    20%    { transform:rotate(8deg); }
+    30%    { transform:rotate(-5deg); }
+    40%    { transform:rotate(5deg); }
+    50%    { transform:rotate(0deg); }
+  }
+  @keyframes badgePop {
+    from { transform: scale(0.5); opacity:0; }
+    to   { transform: scale(1);   opacity:1; }
+  }
+  @keyframes dropIn {
+    from { opacity:0; transform:translateY(-8px) scale(0.97); }
+    to   { opacity:1; transform:translateY(0)    scale(1);    }
+  }
+  @keyframes microSpin {
+    to { transform: rotate(360deg); }
+  }
+  ::-webkit-scrollbar { display:none; }
+`;

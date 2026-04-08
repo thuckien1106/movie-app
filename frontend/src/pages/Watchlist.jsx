@@ -15,48 +15,24 @@ import {
 import { useToast } from "../components/ToastContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import ThemeToggle from "../components/ThemeToggle";
+import Navbar from "../components/Navbar";
 
-/* ─── mobile breakpoint hook ───────────────────────── */
-function useIsMobile(bp = 640) {
-  const [mobile, setMobile] = useState(() => window.innerWidth < bp);
+/* ─── helpers ──────────────────────────────────── */
+function useIsMobile(bp = 768) {
+  const [m, setM] = useState(() => window.innerWidth < bp);
   useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < bp);
-    window.addEventListener("resize", handler, { passive: true });
-    return () => window.removeEventListener("resize", handler);
+    const h = () => setM(window.innerWidth < bp);
+    window.addEventListener("resize", h, { passive: true });
+    return () => window.removeEventListener("resize", h);
   }, [bp]);
-  return mobile;
+  return m;
 }
-
-/* ─── helpers ──────────────────────────────────────── */
-const GENRE_NAMES = {
-  28: "Hành động",
-  12: "Phiêu lưu",
-  16: "Hoạt hình",
-  35: "Hài",
-  80: "Tội phạm",
-  99: "Tài liệu",
-  18: "Chính kịch",
-  10751: "Gia đình",
-  14: "Kỳ ảo",
-  36: "Lịch sử",
-  27: "Kinh dị",
-  10402: "Âm nhạc",
-  9648: "Bí ẩn",
-  10749: "Lãng mạn",
-  878: "Khoa học viễn tưởng",
-  53: "Giật gân",
-  10752: "Chiến tranh",
-  37: "Cao bồi",
-};
-
 function fmt(min) {
   if (!min) return "0p";
   const h = Math.floor(min / 60),
     m = min % 60;
   return h > 0 ? `${h}g ${m}p` : `${m}p`;
 }
-
 const ORDER_KEY = (uid, colId) => `wl_order_${uid}_${colId ?? "all"}`;
 function saveOrder(uid, colId, ids) {
   try {
@@ -70,18 +46,254 @@ function loadOrder(uid, colId) {
     return null;
   }
 }
-function applyOrder(movies, savedIds) {
-  if (!savedIds) return movies;
+function applyOrder(movies, saved) {
+  if (!saved) return movies;
   const map = Object.fromEntries(movies.map((m) => [m.movie_id, m]));
-  const ordered = savedIds.filter((id) => map[id]).map((id) => map[id]);
-  const newOnes = movies.filter((m) => !savedIds.includes(m.movie_id));
-  return [...ordered, ...newOnes];
+  return [
+    ...saved.filter((id) => map[id]).map((id) => map[id]),
+    ...movies.filter((m) => !saved.includes(m.movie_id)),
+  ];
 }
 
-/* ══════════════════════════════════════════════════════
-   SIDEBAR CONTENT  (shared between desktop & drawer)
-══════════════════════════════════════════════════════ */
-function SidebarContent({
+/* ─── SVG Icons ─────────────────────────────────── */
+const IconGrid = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+const IconList = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+  >
+    <line x1="8" y1="6" x2="21" y2="6" />
+    <line x1="8" y1="12" x2="21" y2="12" />
+    <line x1="8" y1="18" x2="21" y2="18" />
+    <circle cx="3" cy="6" r="1" fill="currentColor" />
+    <circle cx="3" cy="12" r="1" fill="currentColor" />
+    <circle cx="3" cy="18" r="1" fill="currentColor" />
+  </svg>
+);
+const IconShare = () => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+const IconTrash = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+    <path d="M10 11v6M14 11v6" />
+    <path d="M9 6V4h6v2" />
+  </svg>
+);
+const IconNote = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+const IconCheck = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+const IconDrag = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="8" cy="6" r="1.5" />
+    <circle cx="16" cy="6" r="1.5" />
+    <circle cx="8" cy="12" r="1.5" />
+    <circle cx="16" cy="12" r="1.5" />
+    <circle cx="8" cy="18" r="1.5" />
+    <circle cx="16" cy="18" r="1.5" />
+  </svg>
+);
+const IconPlus = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+  >
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+/* ─── Stat card with animated number ────────────── */
+function StatCard({ icon, label, value, sub, accent }) {
+  return (
+    <div style={{ ...w.statCard, borderTop: `2px solid ${accent}` }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 8,
+        }}
+      >
+        <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+        {sub && (
+          <span
+            style={{
+              fontSize: 10,
+              color: "var(--text-faint)",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}
+          >
+            {sub}
+          </span>
+        )}
+      </div>
+      <p
+        style={{
+          margin: "0 0 3px",
+          fontSize: 28,
+          fontWeight: 800,
+          color: "var(--text-primary)",
+          fontFamily: "var(--font-display)",
+          letterSpacing: "0.02em",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </p>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 11,
+          color: "var(--text-faint)",
+          fontWeight: 500,
+          letterSpacing: "0.04em",
+        }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+/* ─── Progress bar ───────────────────────────────── */
+function ProgressBar({ pct, color = "var(--red)" }) {
+  return (
+    <div
+      style={{
+        height: 4,
+        background: "var(--border)",
+        borderRadius: "var(--radius-full)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${pct}%`,
+          background: color,
+          borderRadius: "var(--radius-full)",
+          transition: "width 0.8s ease",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─── Section heading ────────────────────────────── */
+function SectionHead({ children, action }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 3,
+            height: 16,
+            borderRadius: "var(--radius-full)",
+            background: "var(--red)",
+            flexShrink: 0,
+          }}
+        />
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "var(--text-base)",
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            letterSpacing: "0.01em",
+          }}
+        >
+          {children}
+        </h2>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════ */
+function Sidebar({
   stats,
   collections,
   activeCol,
@@ -91,33 +303,170 @@ function SidebarContent({
   onOpenDetail,
   onDeleteCol,
   onCreateCol,
-  onClose,
   isMobile,
+  onClose,
 }) {
+  const pct =
+    stats?.total > 0 ? Math.round((stats.watched / stats.total) * 100) : 0;
+
   return (
-    <>
+    <div style={isMobile ? w.sidebarMobile : w.sidebar}>
       {isMobile && (
-        <div style={d.drawerHeader}>
-          <span style={d.drawerTitle}>Bộ sưu tập</span>
-          <button onClick={onClose} style={d.drawerCloseBtn}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 18,
+            paddingBottom: 14,
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: "var(--text-primary)",
+            }}
+          >
+            Bộ sưu tập
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "var(--bg-card2)",
+              border: "1px solid var(--border-mid)",
+              borderRadius: "var(--radius-md)",
+              width: 30,
+              height: 30,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 13,
+            }}
+          >
             ✕
           </button>
         </div>
       )}
 
-      {!isMobile && <p style={s.sideLabel}>Bộ sưu tập</p>}
+      {/* Mini stats */}
+      {stats && (
+        <div style={w.sideStats}>
+          <div style={w.sideStat}>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "var(--text-primary)",
+                fontFamily: "var(--font-display)",
+              }}
+            >
+              {stats.total}
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--text-faint)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              Phim
+            </span>
+          </div>
+          <div style={w.sideStatDivider} />
+          <div style={w.sideStat}>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "var(--green)",
+                fontFamily: "var(--font-display)",
+              }}
+            >
+              {stats.watched}
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--text-faint)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              Đã xem
+            </span>
+          </div>
+          <div style={w.sideStatDivider} />
+          <div style={w.sideStat}>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "var(--red-text)",
+                fontFamily: "var(--font-display)",
+              }}
+            >
+              {pct}%
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--text-faint)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              Xong
+            </span>
+          </div>
+        </div>
+      )}
+      {stats && <ProgressBar pct={pct} />}
 
+      <div style={{ height: 20 }} />
+
+      {/* Collections label */}
+      <p
+        style={{
+          margin: "0 0 8px",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--text-faint)",
+        }}
+      >
+        DANH SÁCH
+      </p>
+
+      {/* All */}
       <button
         onClick={() => {
           onSelectAll();
-          if (isMobile) onClose();
+          isMobile && onClose();
         }}
-        style={{ ...s.colBtn, ...(activeCol === null ? s.colBtnActive : {}) }}
+        style={{ ...w.colBtn, ...(activeCol === null ? w.colBtnActive : {}) }}
+        onMouseEnter={(e) => {
+          if (activeCol !== null)
+            e.currentTarget.style.background = "var(--bg-card2)";
+        }}
+        onMouseLeave={(e) => {
+          if (activeCol !== null)
+            e.currentTarget.style.background = "transparent";
+        }}
       >
-        <span>📋 Tất cả</span>
-        <span style={s.colCount}>{stats?.total ?? 0}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14 }}>▣</span>
+          <span>Tất cả phim</span>
+        </span>
+        <span style={w.colCount}>{stats?.total ?? 0}</span>
       </button>
 
+      {/* Collections */}
       {collections.map((col) => (
         <div
           key={col.id}
@@ -131,92 +480,667 @@ function SidebarContent({
           <button
             onClick={() => {
               onOpenDetail(col.id);
-              if (isMobile) onClose();
+              isMobile && onClose();
             }}
-            style={{ ...s.colBtn, flex: 1, marginBottom: 0 }}
-          >
-            <span>📁 {col.name}</span>
-            <span style={s.colCount}>{col.movie_count}</span>
-          </button>
-          <button
-            onClick={() => {
-              onOpenDetail(col.id);
-              if (isMobile) onClose();
+            style={{
+              ...w.colBtn,
+              flex: 1,
+              marginBottom: 0,
+              ...(activeCol === col.id ? w.colBtnActive : {}),
             }}
-            style={s.iconBtnBlue}
-            title="Chi tiết"
+            onMouseEnter={(e) => {
+              if (activeCol !== col.id)
+                e.currentTarget.style.background = "var(--bg-card2)";
+            }}
+            onMouseLeave={(e) => {
+              if (activeCol !== col.id)
+                e.currentTarget.style.background = "transparent";
+            }}
           >
-            →
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, opacity: 0.6 }}>◈</span>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {col.name}
+              </span>
+            </span>
+            <span style={w.colCount}>{col.movie_count}</span>
           </button>
           <button
             onClick={() => onDeleteCol(col.id)}
-            style={s.iconBtn}
+            style={w.colDeleteBtn}
             title="Xoá"
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-faint)")
+            }
           >
-            ✕
+            <IconTrash />
           </button>
         </div>
       ))}
 
-      <div style={{ marginTop: 14, display: "flex", gap: 6 }}>
-        <input
-          value={newColName}
-          onChange={(e) => setNewColName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onCreateCol()}
-          placeholder="Tên bộ sưu tập mới..."
-          style={s.colInput}
-        />
-        <button onClick={onCreateCol} style={s.addBtn}>
-          +
-        </button>
+      {/* New collection */}
+      <div style={{ marginTop: 14 }}>
+        <p
+          style={{
+            margin: "0 0 8px",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "var(--text-faint)",
+          }}
+        >
+          TẠO MỚI
+        </p>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            value={newColName}
+            onChange={(e) => setNewColName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onCreateCol()}
+            placeholder="Tên bộ sưu tập..."
+            style={w.colInput}
+            onFocus={(e) => (e.target.style.borderColor = "var(--red-border)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border-mid)")}
+          />
+          <button
+            onClick={onCreateCol}
+            style={w.addBtn}
+            title="Tạo"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--red-hover)";
+              e.currentTarget.style.boxShadow = "var(--red-glow)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--red)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
+            <IconPlus />
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   BOTTOM DRAWER  (mobile only)
-══════════════════════════════════════════════════════ */
-function BottomDrawer({ open, onClose, children }) {
-  /* lock body scroll while open */
+/* ══════════════════════════════════════════════
+   MOVIE ITEM — List view
+══════════════════════════════════════════════ */
+function MovieItem({
+  movie,
+  collections,
+  editNote,
+  setEditNote,
+  onDelete,
+  onToggleWatched,
+  onSaveNote,
+  onMoveCol,
+  canDrag,
+}) {
+  const [showNote, setShowNote] = useState(false);
+  const [hov, setHov] = useState(false);
+  const noteVal =
+    editNote[movie.movie_id] !== undefined
+      ? editNote[movie.movie_id]
+      : movie.note || "";
+
+  return (
+    <div
+      style={{
+        ...w.listCard,
+        ...(movie.is_watched ? w.listCardWatched : {}),
+        ...(hov ? w.listCardHov : {}),
+      }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      {canDrag && (
+        <div style={w.dragHandle} title="Kéo để sắp xếp">
+          <IconDrag />
+        </div>
+      )}
+
+      {/* Poster */}
+      <Link
+        to={`/movie/${movie.movie_id}`}
+        style={{
+          display: "block",
+          flexShrink: 0,
+          borderRadius: "var(--radius-md)",
+          overflow: "hidden",
+        }}
+      >
+        <img
+          src={
+            movie.poster || "https://placehold.co/60x88/0e1218/1e2a3a?text=?"
+          }
+          alt={movie.title}
+          loading="lazy"
+          style={{
+            width: 60,
+            height: 88,
+            objectFit: "cover",
+            display: "block",
+            transition: "transform 0.3s ease",
+            transform: hov ? "scale(1.05)" : "scale(1)",
+          }}
+        />
+      </Link>
+
+      {/* Info */}
+      <div style={w.listInfo}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <Link
+            to={`/movie/${movie.movie_id}`}
+            style={{ textDecoration: "none", flex: 1, minWidth: 0 }}
+          >
+            <p style={w.listTitle}>{movie.title}</p>
+          </Link>
+          <span
+            style={{
+              ...w.watchBadge,
+              ...(movie.is_watched ? w.watchBadgeWatched : w.watchBadgePending),
+            }}
+          >
+            {movie.is_watched ? "✓ Đã xem" : "Chưa xem"}
+          </span>
+        </div>
+
+        {movie.note && !showNote && (
+          <p style={w.notePreview}>💬 {movie.note}</p>
+        )}
+
+        {showNote && (
+          <div style={{ marginTop: 8 }}>
+            <textarea
+              rows={2}
+              value={noteVal}
+              onChange={(e) =>
+                setEditNote((p) => ({ ...p, [movie.movie_id]: e.target.value }))
+              }
+              placeholder="Ghi chú của bạn..."
+              style={w.noteArea}
+              onFocus={(e) =>
+                (e.target.style.borderColor = "var(--red-border)")
+              }
+              onBlur={(e) => (e.target.style.borderColor = "var(--border-mid)")}
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <button
+                onClick={() => {
+                  onSaveNote(movie.movie_id);
+                  setShowNote(false);
+                }}
+                style={w.btnXs}
+              >
+                Lưu
+              </button>
+              <button
+                onClick={() => setShowNote(false)}
+                style={{ ...w.btnXs, background: "var(--bg-card)" }}
+              >
+                Huỷ
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={w.listActions}>
+          <select
+            value={movie.collection_id || ""}
+            onChange={(e) =>
+              onMoveCol(
+                movie.movie_id,
+                e.target.value ? Number(e.target.value) : null,
+              )
+            }
+            style={w.colSelect}
+          >
+            <option value="">— Không có bộ sưu tập —</option>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => onToggleWatched(movie.movie_id)}
+            style={{
+              ...w.actionBtn,
+              ...(movie.is_watched ? w.actionBtnGreen : {}),
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            <IconCheck /> {movie.is_watched ? "Bỏ đã xem" : "Đánh dấu đã xem"}
+          </button>
+          <button
+            onClick={() => setShowNote((p) => !p)}
+            style={w.actionBtn}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--bg-card2)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--bg-card)")
+            }
+          >
+            <IconNote /> Ghi chú
+          </button>
+          <button
+            onClick={() => onDelete(movie.movie_id)}
+            style={w.actionBtnDanger}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(239,68,68,0.18)";
+              e.currentTarget.style.borderColor = "rgba(239,68,68,0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--bg-card)";
+              e.currentTarget.style.borderColor = "var(--border)";
+            }}
+          >
+            <IconTrash /> Xoá
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Grid card ───────────────────────────────────── */
+function GridCard({
+  movie,
+  collections,
+  onDelete,
+  onToggleWatched,
+  onMoveCol,
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      style={{
+        ...w.gridCard,
+        ...(movie.is_watched ? { opacity: 0.7 } : {}),
+        transform: hov ? "translateY(-5px)" : "none",
+        boxShadow: hov
+          ? "0 16px 40px rgba(0,0,0,0.8), 0 0 0 1.5px rgba(229,9,20,0.4)"
+          : "var(--shadow-card)",
+      }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <Link
+        to={`/movie/${movie.movie_id}`}
+        style={{
+          display: "block",
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: "var(--radius-md) var(--radius-md) 0 0",
+        }}
+      >
+        <img
+          src={
+            movie.poster || "https://placehold.co/160x240/0e1218/1e2a3a?text=?"
+          }
+          alt={movie.title}
+          style={{
+            width: "100%",
+            aspectRatio: "2/3",
+            objectFit: "cover",
+            display: "block",
+            transform: hov ? "scale(1.06)" : "scale(1)",
+            transition: "transform 0.4s ease",
+          }}
+          loading="lazy"
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)",
+            pointerEvents: "none",
+          }}
+        />
+        {movie.is_watched && (
+          <div style={w.gridWatchedBadge}>
+            <IconCheck />
+          </div>
+        )}
+      </Link>
+      <div style={{ padding: "10px 10px 12px" }}>
+        <Link
+          to={`/movie/${movie.movie_id}`}
+          style={{ textDecoration: "none" }}
+        >
+          <p style={w.gridTitle}>{movie.title}</p>
+        </Link>
+        <div style={{ display: "flex", gap: 5, marginTop: 8 }}>
+          <button
+            onClick={() => onToggleWatched(movie.movie_id)}
+            style={{
+              ...w.gridBtn,
+              ...(movie.is_watched
+                ? { color: "var(--green)", borderColor: "rgba(34,197,94,0.35)" }
+                : {}),
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--bg-card2)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            <IconCheck /> {movie.is_watched ? "Xem lại" : "Đánh dấu"}
+          </button>
+          <button
+            onClick={() => onDelete(movie.movie_id)}
+            style={{
+              ...w.gridBtn,
+              color: "var(--red-text)",
+              borderColor: "var(--red-border)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--red-dim)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            <IconTrash />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Draggable list wrapper ──────────────────────── */
+function DraggableList({
+  movies,
+  viewMode,
+  collections,
+  editNote,
+  setEditNote,
+  onDelete,
+  onToggleWatched,
+  onSaveNote,
+  onMoveCol,
+  onReorder,
+}) {
+  const [items, setItems] = useState(movies);
+  const [dragging, setDragging] = useState(null);
+  const dragItem = useRef(null),
+    dragNode = useRef(null);
+
+  useEffect(() => {
+    setItems(movies);
+  }, [movies]);
+
+  const handleDragStart = (e, idx) => {
+    dragItem.current = idx;
+    dragNode.current = e.currentTarget;
+    dragNode.current.addEventListener("dragend", handleDragEnd);
+    setTimeout(() => setDragging(idx), 0);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragEnter = (e, idx) => {
+    e.preventDefault();
+    if (dragItem.current === idx) return;
+    const ni = [...items];
+    const [m] = ni.splice(dragItem.current, 1);
+    ni.splice(idx, 0, m);
+    dragItem.current = idx;
+    setItems(ni);
+  };
+  const handleDragEnd = () => {
+    setDragging(null);
+    dragNode.current?.removeEventListener("dragend", handleDragEnd);
+    dragItem.current = null;
+    dragNode.current = null;
+    if (onReorder) onReorder(items);
+  };
+  const canDrag = !!onReorder && viewMode === "list";
+
+  if (viewMode === "grid") {
+    return (
+      <div style={w.gridLayout}>
+        {items.map((movie) => (
+          <GridCard
+            key={movie.movie_id}
+            movie={movie}
+            collections={collections}
+            onDelete={onDelete}
+            onToggleWatched={onToggleWatched}
+            onMoveCol={onMoveCol}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {items.map((movie, idx) => (
+        <div
+          key={movie.movie_id}
+          draggable={canDrag}
+          onDragStart={canDrag ? (e) => handleDragStart(e, idx) : undefined}
+          onDragEnter={canDrag ? (e) => handleDragEnter(e, idx) : undefined}
+          onDragOver={canDrag ? (e) => e.preventDefault() : undefined}
+          style={{
+            opacity: dragging === idx ? 0.4 : 1,
+            transition: "opacity 0.15s",
+          }}
+        >
+          <MovieItem
+            movie={movie}
+            collections={collections}
+            editNote={editNote}
+            setEditNote={setEditNote}
+            onDelete={onDelete}
+            onToggleWatched={onToggleWatched}
+            onSaveNote={onSaveNote}
+            onMoveCol={onMoveCol}
+            canDrag={canDrag}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Share panel ────────────────────────────────── */
+function SharePanel({ shareInfo, onToggle, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(shareInfo?.share_url || "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div style={w.sharePanel}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 3,
+              height: 16,
+              borderRadius: "var(--radius-full)",
+              background: "var(--red)",
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>
+            Chia sẻ Watchlist
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: "var(--bg-card2)",
+            border: "1px solid var(--border-mid)",
+            borderRadius: "var(--radius-md)",
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+            fontSize: 13,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <input
+          readOnly
+          value={shareInfo.is_active ? shareInfo.share_url : "Chia sẻ đang tắt"}
+          style={{ ...w.shareInput, opacity: shareInfo.is_active ? 1 : 0.45 }}
+        />
+        {shareInfo.is_active && (
+          <button
+            onClick={copy}
+            style={{
+              ...w.btnPrimary,
+              whiteSpace: "nowrap",
+              padding: "8px 16px",
+              fontSize: 13,
+            }}
+          >
+            {copied ? "✓ Đã sao chép" : "Sao chép"}
+          </button>
+        )}
+      </div>
+      <button
+        onClick={onToggle}
+        style={{ ...w.btnGhost, fontSize: 12, padding: "6px 14px" }}
+      >
+        {shareInfo.is_active ? "🚫 Tắt chia sẻ" : "✅ Bật chia sẻ"}
+      </button>
+    </div>
+  );
+}
+
+/* ── Empty state ────────────────────────────────── */
+function EmptyState() {
+  return (
+    <div style={{ textAlign: "center", padding: "72px 20px" }}>
+      <p style={{ fontSize: 52, marginBottom: 14 }}>🎬</p>
+      <p
+        style={{
+          fontSize: 16,
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+          marginBottom: 8,
+        }}
+      >
+        Danh sách trống
+      </p>
+      <p style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 24 }}>
+        Khám phá phim và thêm vào watchlist của bạn
+      </p>
+      <Link
+        to="/"
+        style={{
+          ...w.btnPrimary,
+          display: "inline-flex",
+          textDecoration: "none",
+        }}
+      >
+        Khám phá phim →
+      </Link>
+    </div>
+  );
+}
+
+/* ── Mobile bottom drawer ───────────────────────── */
+function Drawer({ open, onClose, children }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
   }, [open]);
-
   return (
     <>
-      {/* backdrop */}
       <div
         onClick={onClose}
         style={{
-          ...d.backdrop,
+          position: "fixed",
+          inset: 0,
+          zIndex: 400,
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
-          transition: "opacity 0.28s ease",
+          transition: "opacity 0.25s ease",
         }}
       />
-      {/* sheet */}
       <div
         style={{
-          ...d.sheet,
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 500,
+          background: "var(--bg-overlay)",
+          borderRadius: "20px 20px 0 0",
+          border: "1px solid var(--border-mid)",
+          borderBottom: "none",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 -12px 48px rgba(0,0,0,0.5)",
           transform: open ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.32s cubic-bezier(.32,1,.23,1)",
+          transition: "transform 0.3s cubic-bezier(0.32,1,0.23,1)",
         }}
       >
-        {/* drag pill */}
-        <div style={d.pill} />
-        <div style={d.sheetBody}>{children}</div>
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            borderRadius: 2,
+            background: "var(--border-bright)",
+            margin: "10px auto 4px",
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ overflowY: "auto", padding: "8px 20px 40px", flex: 1 }}>
+          {children}
+        </div>
       </div>
     </>
   );
 }
 
-/* ══════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════
    MAIN PAGE
-══════════════════════════════════════════════════════ */
+══════════════════════════════════════════════ */
 export default function Watchlist() {
   const { isLoggedIn, user } = useAuth();
   const navigate = useNavigate();
@@ -226,22 +1150,27 @@ export default function Watchlist() {
   const [movies, setMovies] = useState([]);
   const [orderedMovies, setOrdered] = useState([]);
   const [stats, setStats] = useState(null);
-  const [collections, setCollections] = useState([]);
+  const [collections, setCols] = useState([]);
   const [activeCol, setActiveCol] = useState(null);
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("list"); // "list"|"grid"|"detail"|"stats"
+  const [listView, setListView] = useState("list"); // "list"|"grid" toggle
   const [shareInfo, setShareInfo] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [editNote, setEditNote] = useState({});
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [entered, setEntered] = useState(false);
 
   const uid = user?.id ?? user?.email ?? "guest";
 
   useEffect(() => {
     if (!isLoggedIn) navigate("/login");
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn]);
+  useEffect(() => {
+    const t = setTimeout(() => setEntered(true), 80);
+    return () => clearTimeout(t);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -254,47 +1183,42 @@ export default function Watchlist() {
       const raw = mRes.data || [];
       setMovies(raw);
       setStats(sRes.data);
-      setCollections(cRes.data || []);
-      const saved = loadOrder(uid, activeCol);
-      setOrdered(applyOrder(raw, saved));
+      setCols(cRes.data || []);
+      setOrdered(applyOrder(raw, loadOrder(uid, activeCol)));
     } catch {
       showToast("Không tải được dữ liệu.", "error");
     } finally {
       setLoading(false);
     }
-  }, [activeCol, showToast, uid]);
+  }, [activeCol, uid]);
 
   useEffect(() => {
     load();
   }, [load]);
-
   useEffect(() => {
     setOrdered((prev) => {
-      if (prev.length === 0) {
-        const saved = loadOrder(uid, activeCol);
-        return applyOrder(movies, saved);
-      }
+      if (prev.length === 0)
+        return applyOrder(movies, loadOrder(uid, activeCol));
       const ids = prev.map((m) => m.movie_id);
       const map = Object.fromEntries(movies.map((m) => [m.movie_id, m]));
-      const kept = ids.filter((id) => map[id]).map((id) => map[id]);
-      const added = movies.filter((m) => !ids.includes(m.movie_id));
-      return [...kept, ...added];
+      return [
+        ...ids.filter((id) => map[id]).map((id) => map[id]),
+        ...movies.filter((m) => !ids.includes(m.movie_id)),
+      ];
     });
   }, [movies]);
 
-  /* actions */
   const handleDelete = async (id) => {
     await deleteMovie(id);
     showToast("Đã xoá.", "success");
     load();
   };
-  const handleToggleWatched = async (id) => {
+  const handleToggle = async (id) => {
     await toggleWatched(id);
     load();
   };
   const handleSaveNote = async (id) => {
-    const n = editNote[id] ?? "";
-    await updateNote(id, n);
+    await updateNote(id, editNote[id] ?? "");
     showToast("Đã lưu.", "success");
     setEditNote((p) => {
       const x = { ...p };
@@ -337,11 +1261,6 @@ export default function Watchlist() {
       "success",
     );
   };
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareInfo?.share_url || "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   const handleReorder = (list) => {
     setOrdered(list);
     saveOrder(
@@ -350,17 +1269,17 @@ export default function Watchlist() {
       list.map((m) => m.movie_id),
     );
   };
-  const openCollectionDetail = (colId) => {
+  const openDetail = (colId) => {
     setActiveCol(colId);
     setViewMode("detail");
   };
 
   if (!isLoggedIn) return null;
 
+  const pct =
+    stats?.total > 0 ? Math.round((stats.watched / stats.total) * 100) : 0;
   const activeColObj = collections.find((c) => c.id === activeCol);
-  const watchedCount = orderedMovies.filter((m) => m.is_watched).length;
 
-  /* shared sidebar props */
   const sidebarProps = {
     stats,
     collections,
@@ -371,230 +1290,351 @@ export default function Watchlist() {
       setActiveCol(null);
       setViewMode("list");
     },
-    onOpenDetail: openCollectionDetail,
+    onOpenDetail: openDetail,
     onDeleteCol: handleDeleteCol,
     onCreateCol: handleCreateCol,
     onClose: () => setDrawerOpen(false),
   };
 
   return (
-    <div style={{ ...s.page, paddingBottom: isMobile ? 80 : 24 }}>
-      {/* ══ HEADER ══ */}
-      <div style={s.header}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {viewMode !== "list" && (
+    <div
+      style={{
+        background: "var(--bg-page)",
+        minHeight: "100vh",
+        color: "var(--text-primary)",
+        fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
+        paddingTop: 60,
+      }}
+    >
+      <Navbar />
+
+      {/* ════════════════════════════════
+          DASHBOARD HEADER
+      ════════════════════════════════ */}
+      <div
+        style={{
+          ...w.dashHeader,
+          opacity: entered ? 1 : 0,
+          transform: entered ? "translateY(0)" : "translateY(12px)",
+          transition:
+            "opacity 0.45s ease, transform 0.45s cubic-bezier(0.4,0,0.2,1)",
+        }}
+      >
+        {/* Title row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 24,
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div>
+            <p
+              style={{
+                margin: "0 0 4px",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--text-faint)",
+              }}
+            >
+              Trang cá nhân
+            </p>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(28px,4vw,42px)",
+                fontWeight: 400,
+                letterSpacing: "0.04em",
+                lineHeight: 1,
+              }}
+            >
+              {viewMode === "detail" && activeColObj
+                ? activeColObj.name
+                : "My Watchlist"}
+            </h1>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            {viewMode !== "list" && viewMode !== "grid" && (
               <button
+                style={w.btnGhost}
                 onClick={() => {
                   setViewMode("list");
                   setActiveCol(null);
                 }}
-                style={s.backBtn}
               >
                 ← Quay lại
               </button>
             )}
-            <h1 style={s.title}>
-              {viewMode === "detail" && activeColObj
-                ? `📁 ${activeColObj.name}`
-                : "My Watchlist"}
-            </h1>
+            {(viewMode === "list" || viewMode === "grid") && (
+              <>
+                {/* List / Grid toggle */}
+                <div style={w.viewToggle}>
+                  <button
+                    style={{
+                      ...w.viewToggleBtn,
+                      ...(listView === "list" ? w.viewToggleBtnActive : {}),
+                    }}
+                    onClick={() => {
+                      setListView("list");
+                      setViewMode("list");
+                    }}
+                  >
+                    <IconList />
+                  </button>
+                  <button
+                    style={{
+                      ...w.viewToggleBtn,
+                      ...(listView === "grid" ? w.viewToggleBtnActive : {}),
+                    }}
+                    onClick={() => {
+                      setListView("grid");
+                      setViewMode("grid");
+                    }}
+                  >
+                    <IconGrid />
+                  </button>
+                </div>
+                <button style={w.btnGhost} onClick={handleLoadShare}>
+                  <IconShare /> <span>Chia sẻ</span>
+                </button>
+              </>
+            )}
+            <Link to="/" style={{ ...w.btnPrimary, textDecoration: "none" }}>
+              ← Trang chủ
+            </Link>
           </div>
-          {stats && viewMode === "list" && (
-            <p style={s.headerSub}>
-              {stats.total} phim · {stats.watched} đã xem · ~
-              {fmt(stats.total_runtime_minutes)}
-            </p>
-          )}
-          {viewMode === "detail" && activeColObj && (
-            <p style={s.headerSub}>
-              {activeColObj.movie_count} phim · {watchedCount} đã xem
-              {activeColObj.description && ` · ${activeColObj.description}`}
-            </p>
-          )}
         </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <ThemeToggle />
-          {viewMode === "list" && (
-            <>
-              <button onClick={handleLoadShare} style={s.btnOutline}>
-                🔗 Chia sẻ
-              </button>
-              <button onClick={() => setViewMode("stats")} style={s.btnOutline}>
-                📊
-              </button>
-            </>
-          )}
-          <Link to="/" style={s.btnRed}>
-            ← Trang chủ
-          </Link>
-        </div>
+
+        {/* Share panel */}
+        {showShare && shareInfo && (
+          <SharePanel
+            shareInfo={shareInfo}
+            onToggle={handleToggleShare}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+
+        {/* Stat cards row */}
+        {stats && (viewMode === "list" || viewMode === "grid") && (
+          <div style={w.statsRow}>
+            <StatCard
+              icon="🎬"
+              label="Phim đã lưu"
+              value={stats.total}
+              accent="#3b82f6"
+            />
+            <StatCard
+              icon="✓"
+              label="Đã xem"
+              value={stats.watched}
+              accent="#22c55e"
+            />
+            <StatCard
+              icon="⏳"
+              label="Chưa xem"
+              value={stats.unwatched ?? stats.total - stats.watched}
+              accent="#eab308"
+            />
+            <StatCard
+              icon="⏱"
+              label="Tổng thời gian"
+              value={fmt(stats.total_runtime_minutes)}
+              accent="#8b5cf6"
+            />
+            <StatCard
+              icon="📈"
+              label="Hoàn thành"
+              value={`${pct}%`}
+              accent="var(--red)"
+              sub={`${stats.watched}/${stats.total}`}
+            />
+          </div>
+        )}
+
+        {/* Progress bar */}
+        {stats && (viewMode === "list" || viewMode === "grid") && (
+          <div style={{ marginTop: 12 }}>
+            <ProgressBar pct={pct} />
+          </div>
+        )}
       </div>
 
-      {/* ══ SHARE PANEL ══ */}
-      {showShare && shareInfo && (
-        <div style={s.sharePanel}>
+      {/* ════════════════════════════════
+          MAIN LAYOUT
+      ════════════════════════════════ */}
+      <div style={w.body}>
+        {viewMode === "list" || viewMode === "grid" ? (
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 10,
-            }}
+            style={
+              isMobile ? { display: "flex", flexDirection: "column" } : w.layout
+            }
           >
-            <span style={{ fontSize: 14, fontWeight: 600 }}>
-              Chia sẻ Watchlist
-            </span>
-            <button onClick={() => setShowShare(false)} style={s.closeBtn}>
-              ✕
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              readOnly
-              value={
-                shareInfo.is_active ? shareInfo.share_url : "Chia sẻ đang tắt"
-              }
-              style={{
-                ...s.shareInput,
-                opacity: shareInfo.is_active ? 1 : 0.4,
-              }}
-            />
-            {shareInfo.is_active && (
-              <button onClick={handleCopyLink} style={s.btnRed}>
-                {copied ? "✓ Đã sao chép" : "Sao chép"}
-              </button>
+            {/* Desktop sidebar */}
+            {!isMobile && (
+              <aside>
+                <Sidebar {...sidebarProps} isMobile={false} />
+              </aside>
             )}
-          </div>
-          <button
-            onClick={handleToggleShare}
-            style={{ ...s.btnOutline, marginTop: 10, fontSize: 13 }}
-          >
-            {shareInfo.is_active ? "🚫 Tắt chia sẻ" : "✅ Bật chia sẻ"}
-          </button>
-        </div>
-      )}
 
-      {/* ══ MAIN CONTENT ══ */}
-      {viewMode === "stats" ? (
-        <StatsView stats={stats} onBack={() => setViewMode("list")} />
-      ) : viewMode === "detail" ? (
-        <CollectionDetail
-          collection={activeColObj}
-          movies={orderedMovies}
-          collections={collections}
-          editNote={editNote}
-          setEditNote={setEditNote}
-          loading={loading}
-          onDelete={handleDelete}
-          onToggleWatched={handleToggleWatched}
-          onSaveNote={handleSaveNote}
-          onMoveCol={handleMoveCol}
-          onReorder={handleReorder}
-          onDeleteCol={() => handleDeleteCol(activeCol)}
-        />
-      ) : (
-        <div
-          style={
-            isMobile ? { display: "flex", flexDirection: "column" } : s.layout
-          }
-        >
-          {/* ── DESKTOP: sticky sidebar ── */}
-          {!isMobile && (
-            <aside style={s.sidebar}>
-              <SidebarContent {...sidebarProps} isMobile={false} />
-            </aside>
-          )}
-
-          {/* ── MOBILE: active collection chip bar ── */}
-          {isMobile && (
-            <div style={d.chipBar}>
-              <button
-                onClick={() => {
-                  setActiveCol(null);
-                }}
-                style={{
-                  ...d.chip,
-                  ...(activeCol === null ? d.chipActive : {}),
-                }}
-              >
-                📋 Tất cả
-                <span style={d.chipCount}>{stats?.total ?? 0}</span>
-              </button>
-              {collections.map((col) => (
+            {/* Mobile collection chips */}
+            {isMobile && (
+              <div style={w.chipBar}>
                 <button
-                  key={col.id}
-                  onClick={() => openCollectionDetail(col.id)}
+                  onClick={() => setActiveCol(null)}
                   style={{
-                    ...d.chip,
-                    ...(activeCol === col.id ? d.chipActive : {}),
+                    ...w.chip,
+                    ...(activeCol === null ? w.chipActive : {}),
                   }}
                 >
-                  📁 {col.name}
-                  <span style={d.chipCount}>{col.movie_count}</span>
+                  ▣ Tất cả <span style={w.chipCount}>{stats?.total ?? 0}</span>
                 </button>
-              ))}
-            </div>
-          )}
-
-          {/* main movie list */}
-          <main style={{ flex: 1 }}>
-            {loading ? (
-              <p style={{ color: "var(--text-faint)", padding: 20 }}>
-                Đang tải...
-              </p>
-            ) : orderedMovies.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <DraggableList
-                movies={orderedMovies}
-                collections={collections}
-                editNote={editNote}
-                setEditNote={setEditNote}
-                onDelete={handleDelete}
-                onToggleWatched={handleToggleWatched}
-                onSaveNote={handleSaveNote}
-                onMoveCol={handleMoveCol}
-                onReorder={handleReorder}
-                isMobile={isMobile}
-              />
+                {collections.map((col) => (
+                  <button
+                    key={col.id}
+                    onClick={() => openDetail(col.id)}
+                    style={{
+                      ...w.chip,
+                      ...(activeCol === col.id ? w.chipActive : {}),
+                    }}
+                  >
+                    ◈ {col.name}{" "}
+                    <span style={w.chipCount}>{col.movie_count}</span>
+                  </button>
+                ))}
+              </div>
             )}
-          </main>
-        </div>
-      )}
 
-      {/* ══ MOBILE: FAB to open drawer ══ */}
-      {isMobile && viewMode === "list" && (
-        <button onClick={() => setDrawerOpen(true)} style={d.fab}>
-          📋
+            {/* Main content */}
+            <main style={{ flex: 1, minWidth: 0 }}>
+              {loading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "48px 0",
+                  }}
+                >
+                  <div style={w.spinner} />{" "}
+                  <span style={{ color: "var(--text-faint)" }}>
+                    Đang tải...
+                  </span>
+                </div>
+              ) : orderedMovies.length === 0 ? (
+                <EmptyState />
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: "var(--text-faint)",
+                      }}
+                    >
+                      {orderedMovies.length} phim
+                    </p>
+                    {listView === "list" && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 11,
+                          color: "var(--text-dim)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
+                        <span style={{ opacity: 0.5 }}>⠿</span> Kéo thả để sắp
+                        xếp
+                      </p>
+                    )}
+                  </div>
+                  <DraggableList
+                    movies={orderedMovies}
+                    viewMode={listView}
+                    collections={collections}
+                    editNote={editNote}
+                    setEditNote={setEditNote}
+                    onDelete={handleDelete}
+                    onToggleWatched={handleToggle}
+                    onSaveNote={handleSaveNote}
+                    onMoveCol={handleMoveCol}
+                    onReorder={handleReorder}
+                  />
+                </>
+              )}
+            </main>
+          </div>
+        ) : viewMode === "detail" ? (
+          /* Collection detail */
+          <CollectionDetail
+            collection={activeColObj}
+            movies={orderedMovies}
+            collections={collections}
+            editNote={editNote}
+            setEditNote={setEditNote}
+            loading={loading}
+            listView={listView}
+            setListView={setListView}
+            onDelete={handleDelete}
+            onToggleWatched={handleToggle}
+            onSaveNote={handleSaveNote}
+            onMoveCol={handleMoveCol}
+            onReorder={handleReorder}
+            onDeleteCol={() => handleDeleteCol(activeCol)}
+          />
+        ) : null}
+      </div>
+
+      {/* Mobile FAB */}
+      {isMobile && (viewMode === "list" || viewMode === "grid") && (
+        <button onClick={() => setDrawerOpen(true)} style={w.fab}>
+          ◈
           {collections.length > 0 && (
-            <span style={d.fabBadge}>{collections.length}</span>
+            <span style={w.fabBadge}>{collections.length}</span>
           )}
         </button>
       )}
 
-      {/* ══ MOBILE: Bottom Drawer ══ */}
+      {/* Mobile drawer */}
       {isMobile && (
-        <BottomDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-          <SidebarContent {...sidebarProps} isMobile={true} />
-        </BottomDrawer>
+        <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          <Sidebar {...sidebarProps} isMobile={true} />
+        </Drawer>
       )}
 
-      <style>{globalCSS}</style>
+      <style>{`
+        [draggable=true] { cursor: grab; }
+        [draggable=true]:active { cursor: grabbing; }
+        ::-webkit-scrollbar { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   COLLECTION DETAIL VIEW
-══════════════════════════════════════════════════════ */
+/* ── Collection Detail ───────────────────────────── */
 function CollectionDetail({
   collection,
   movies,
@@ -602,6 +1642,8 @@ function CollectionDetail({
   editNote,
   setEditNote,
   loading,
+  listView,
+  setListView,
   onDelete,
   onToggleWatched,
   onSaveNote,
@@ -625,38 +1667,53 @@ function CollectionDetail({
 
   return (
     <div>
-      <div style={s.detailProgress}>
+      {/* Progress */}
+      <div
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "16px 20px",
+          marginBottom: 20,
+        }}
+      >
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            marginBottom: 6,
+            marginBottom: 8,
           }}
         >
-          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
+          <span
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontWeight: 500,
+            }}
+          >
             Tiến độ xem
           </span>
           <span
-            style={{ fontSize: 12, color: "var(--red-text)", fontWeight: 600 }}
+            style={{ fontSize: 12, color: "var(--red-text)", fontWeight: 700 }}
           >
             {pct}%
           </span>
         </div>
-        <div style={s.progressBg}>
-          <div style={{ ...s.progressFill, width: `${pct}%` }} />
-        </div>
+        <ProgressBar pct={pct} />
       </div>
+
+      {/* Toolbar */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 16,
+          marginBottom: 18,
           flexWrap: "wrap",
-          gap: 8,
+          gap: 10,
         }}
       >
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6 }}>
           {[
             { key: "all", label: "Tất cả" },
             { key: "watched", label: "✓ Đã xem" },
@@ -666,34 +1723,76 @@ function CollectionDetail({
               key={key}
               onClick={() => setFilter(key)}
               style={{
-                ...s.filterPill,
-                ...(filter === key ? s.filterPillActive : {}),
+                ...w.filterPill,
+                ...(filter === key ? w.filterPillActive : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (filter !== key)
+                  e.currentTarget.style.borderColor = "var(--border-bright)";
+              }}
+              onMouseLeave={(e) => {
+                if (filter !== key)
+                  e.currentTarget.style.borderColor = "var(--border-mid)";
               }}
             >
               {label}
             </button>
           ))}
         </div>
-        <button
-          onClick={onDeleteCol}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={w.viewToggle}>
+            <button
+              style={{
+                ...w.viewToggleBtn,
+                ...(listView === "list" ? w.viewToggleBtnActive : {}),
+              }}
+              onClick={() => setListView("list")}
+            >
+              <IconList />
+            </button>
+            <button
+              style={{
+                ...w.viewToggleBtn,
+                ...(listView === "grid" ? w.viewToggleBtnActive : {}),
+              }}
+              onClick={() => setListView("grid")}
+            >
+              <IconGrid />
+            </button>
+          </div>
+          <button
+            onClick={onDeleteCol}
+            style={{
+              ...w.btnGhost,
+              color: "#ef4444",
+              borderColor: "rgba(239,68,68,0.3)",
+              fontSize: 12,
+              padding: "6px 12px",
+            }}
+          >
+            <IconTrash /> Xoá collection
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div
           style={{
-            ...s.btnOutline,
-            fontSize: 12,
-            padding: "5px 10px",
-            color: "#e57373",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            padding: "40px 0",
           }}
         >
-          🗑 Xoá collection
-        </button>
-      </div>
-      <div style={s.dragHint}>⠿ Kéo thả để sắp xếp thứ tự</div>
-      {loading ? (
-        <p style={{ color: "var(--text-faint)", padding: 20 }}>Đang tải...</p>
+          <div style={w.spinner} />{" "}
+          <span style={{ color: "var(--text-faint)" }}>Đang tải...</span>
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState />
       ) : (
         <DraggableList
           movies={filtered}
+          viewMode={listView}
           collections={collections}
           editNote={editNote}
           setEditNote={setEditNote}
@@ -708,760 +1807,511 @@ function CollectionDetail({
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   DRAGGABLE LIST
-══════════════════════════════════════════════════════ */
-function DraggableList({
-  movies,
-  collections,
-  editNote,
-  setEditNote,
-  onDelete,
-  onToggleWatched,
-  onSaveNote,
-  onMoveCol,
-  onReorder,
-  isMobile,
-}) {
-  const [items, setItems] = useState(movies);
-  const [dragging, setDragging] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
-  const dragItem = useRef(null);
-  const dragNode = useRef(null);
-
-  useEffect(() => {
-    setItems(movies);
-  }, [movies]);
-
-  const handleDragStart = (e, idx) => {
-    dragItem.current = idx;
-    dragNode.current = e.currentTarget;
-    dragNode.current.addEventListener("dragend", handleDragEnd);
-    setTimeout(() => setDragging(idx), 0);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragEnter = (e, idx) => {
-    e.preventDefault();
-    if (dragItem.current === idx) return;
-    setDragOver(idx);
-    const newItems = [...items];
-    const [moved] = newItems.splice(dragItem.current, 1);
-    newItems.splice(idx, 0, moved);
-    dragItem.current = idx;
-    setItems(newItems);
-  };
-  const handleDragEnd = () => {
-    setDragging(null);
-    setDragOver(null);
-    dragNode.current?.removeEventListener("dragend", handleDragEnd);
-    dragItem.current = null;
-    dragNode.current = null;
-    if (onReorder) onReorder(items);
-  };
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-  const canDrag = !!onReorder && !isMobile; // drag disabled on mobile (touch)
-
-  return (
-    <div style={s.grid}>
-      {items.map((movie, idx) => (
-        <div
-          key={movie.movie_id}
-          draggable={canDrag}
-          onDragStart={canDrag ? (e) => handleDragStart(e, idx) : undefined}
-          onDragEnter={canDrag ? (e) => handleDragEnter(e, idx) : undefined}
-          onDragOver={canDrag ? handleDragOver : undefined}
-          style={{
-            opacity: dragging === idx ? 0.4 : 1,
-            transition: "opacity 0.15s",
-          }}
-        >
-          <MovieItem
-            movie={movie}
-            collections={collections}
-            editNote={editNote}
-            setEditNote={setEditNote}
-            onDelete={onDelete}
-            onToggleWatched={onToggleWatched}
-            onSaveNote={onSaveNote}
-            onMoveCol={onMoveCol}
-            canDrag={canDrag}
-            isMobile={isMobile}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════
-   MOVIE ITEM CARD
-══════════════════════════════════════════════════════ */
-function MovieItem({
-  movie,
-  collections,
-  editNote,
-  setEditNote,
-  onDelete,
-  onToggleWatched,
-  onSaveNote,
-  onMoveCol,
-  canDrag,
-  isMobile,
-}) {
-  const [showNote, setShowNote] = useState(false);
-  const [showActions, setShowActions] = useState(false); // mobile expand
-  const noteVal =
-    editNote[movie.movie_id] !== undefined
-      ? editNote[movie.movie_id]
-      : movie.note || "";
-
-  return (
-    <div style={{ ...s.card, ...(movie.is_watched ? s.cardWatched : {}) }}>
-      {canDrag && (
-        <div style={s.dragHandle}>
-          <span style={s.dragDots}>⠿</span>
-        </div>
-      )}
-
-      <Link
-        to={`/movie/${movie.movie_id}`}
-        style={{ display: "block", flexShrink: 0 }}
-      >
-        <img
-          src={movie.poster || "https://placehold.co/68x100/222/555?text=?"}
-          alt={movie.title}
-          style={s.poster}
-        />
-      </Link>
-
-      <div style={s.info}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 6,
-          }}
-        >
-          <Link
-            to={`/movie/${movie.movie_id}`}
-            style={{ textDecoration: "none", flex: 1 }}
-          >
-            <p style={s.movieTitle}>{movie.title}</p>
-          </Link>
-          {/* mobile: tap to expand actions */}
-          {isMobile && (
-            <button
-              onClick={() => setShowActions((p) => !p)}
-              style={{
-                ...s.iconBtn,
-                fontSize: 16,
-                padding: "2px 6px",
-                flexShrink: 0,
-              }}
-            >
-              {showActions ? "▲" : "▼"}
-            </button>
-          )}
-        </div>
-
-        <span
-          style={{
-            ...s.badge,
-            ...(movie.is_watched ? s.badgeWatched : s.badgePending),
-          }}
-        >
-          {movie.is_watched ? "✓ Đã xem" : "⏳ Chưa xem"}
-        </span>
-
-        {movie.note && !showNote && (
-          <p style={s.notePreview}>💬 {movie.note}</p>
-        )}
-
-        {showNote && (
-          <div style={{ marginTop: 8 }}>
-            <textarea
-              rows={3}
-              value={noteVal}
-              onChange={(e) =>
-                setEditNote((p) => ({ ...p, [movie.movie_id]: e.target.value }))
-              }
-              placeholder="Ghi chú của bạn..."
-              style={s.noteArea}
-            />
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-              <button
-                onClick={() => {
-                  onSaveNote(movie.movie_id);
-                  setShowNote(false);
-                }}
-                style={s.btnSm}
-              >
-                Lưu
-              </button>
-              <button
-                onClick={() => setShowNote(false)}
-                style={{ ...s.btnSm, background: "var(--bg-input)" }}
-              >
-                Huỷ
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* on desktop: always visible. on mobile: toggle */}
-        {(!isMobile || showActions) && (
-          <>
-            <select
-              value={movie.collection_id || ""}
-              onChange={(e) =>
-                onMoveCol(
-                  movie.movie_id,
-                  e.target.value ? Number(e.target.value) : null,
-                )
-              }
-              style={s.select}
-            >
-              <option value="">— Không có bộ sưu tập —</option>
-              {collections.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <div style={s.actions}>
-              <button
-                onClick={() => onToggleWatched(movie.movie_id)}
-                style={{
-                  ...s.btnSm,
-                  background: movie.is_watched
-                    ? "rgba(26,107,58,0.8)"
-                    : "var(--bg-input2)",
-                }}
-              >
-                {movie.is_watched ? "↩ Chưa xem" : "✓ Đã xem"}
-              </button>
-              <button
-                onClick={() => setShowNote((p) => !p)}
-                style={{ ...s.btnSm, background: "var(--bg-input2)" }}
-              >
-                💬 Ghi chú
-              </button>
-              <button
-                onClick={() => onDelete(movie.movie_id)}
-                style={{
-                  ...s.btnSm,
-                  background: "rgba(90,26,26,0.8)",
-                  color: "#ff8080",
-                }}
-              >
-                🗑 Xoá
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════
-   STATS VIEW
-══════════════════════════════════════════════════════ */
-function StatsView({ stats, onBack }) {
-  if (!stats) return null;
-  const pct =
-    stats.total > 0 ? Math.round((stats.watched / stats.total) * 100) : 0;
-  return (
-    <div>
-      <button onClick={onBack} style={{ ...s.backBtn, marginBottom: 20 }}>
-        ← Về danh sách
-      </button>
-      <div style={s.statsGrid}>
-        <StatCard label="Tổng phim" value={stats.total} icon="🎬" />
-        <StatCard label="Đã xem" value={stats.watched} icon="✅" />
-        <StatCard label="Chưa xem" value={stats.unwatched} icon="⏳" />
-        <StatCard
-          label="Tổng thời gian"
-          value={fmt(stats.total_runtime_minutes)}
-          icon="⏱"
-        />
-        <StatCard
-          label="Thời gian đã xem"
-          value={fmt(stats.watched_runtime_minutes)}
-          icon="🎞"
-        />
-        <StatCard label="Tiến độ" value={`${pct}%`} icon="📈" />
-      </div>
-      <div style={{ marginTop: 20 }}>
-        <p
-          style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}
-        >
-          Tiến độ: {stats.watched}/{stats.total} phim
-        </p>
-        <div style={s.progressBg}>
-          <div style={{ ...s.progressFill, width: `${pct}%` }} />
-        </div>
-      </div>
-      {stats.top_genres?.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-            🎭 Thể loại yêu thích
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {stats.top_genres.map((g, i) => {
-              const name = GENRE_NAMES[g.genre_id] || `Genre #${g.genre_id}`;
-              const max = stats.top_genres[0].count;
-              const bar = Math.round((g.count / max) * 100);
-              return (
-                <div
-                  key={g.genre_id}
-                  style={{ display: "flex", alignItems: "center", gap: 10 }}
-                >
-                  <span
-                    style={{
-                      width: 140,
-                      fontSize: 13,
-                      color: "var(--text-secondary)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {i === 0 ? "❤️ " : ""}
-                    {name}
-                  </span>
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 8,
-                      background: "var(--border)",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${bar}%`,
-                        background: "var(--red)",
-                        borderRadius: 4,
-                        transition: "width 0.6s ease",
-                      }}
-                    />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-faint)",
-                      minWidth: 24,
-                    }}
-                  >
-                    {g.count}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatCard({ label, value, icon }) {
-  return (
-    <div style={s.statCard}>
-      <span style={{ fontSize: 22 }}>{icon}</span>
-      <span
-        style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)" }}
-      >
-        {value}
-      </span>
-      <span style={{ fontSize: 12, color: "var(--text-faint)" }}>{label}</span>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div style={{ textAlign: "center", padding: "60px 20px" }}>
-      <p style={{ fontSize: 40, marginBottom: 12 }}>🎬</p>
-      <p style={{ color: "var(--text-muted)", fontSize: 16 }}>
-        Danh sách trống
-      </p>
-      <Link to="/" style={{ color: "var(--red)", fontSize: 14 }}>
-        Khám phá phim ngay →
-      </Link>
-    </div>
-  );
-}
-
-/* ─── Desktop styles ─────────────────────────────── */
-const s = {
-  page: {
-    background: "var(--bg-page)",
-    minHeight: "100vh",
-    color: "var(--text-primary)",
-    padding: "24px 20px",
+/* ── Styles ─────────────────────────────────────── */
+const w = {
+  /* Dashboard header */
+  dashHeader: {
+    padding: "clamp(20px,4vh,36px) clamp(20px,5vw,48px) 24px",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg-surface, #0e1218)",
   },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-    flexWrap: "wrap",
+
+  /* Stat cards */
+  statsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
     gap: 12,
+    marginTop: 20,
   },
-  title: { color: "var(--red)", margin: 0, fontSize: 26, fontWeight: 700 },
-  headerSub: { fontSize: 13, color: "var(--text-faint)", margin: "4px 0 0" },
-  backBtn: {
-    background: "transparent",
-    border: "1px solid var(--border-mid)",
-    color: "var(--text-secondary)",
-    padding: "6px 12px",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 13,
-  },
-  layout: { display: "flex", gap: 20, alignItems: "flex-start" },
-  sidebar: {
-    width: 210,
-    flexShrink: 0,
+  statCard: {
     background: "var(--bg-card)",
-    borderRadius: 12,
-    padding: 16,
     border: "1px solid var(--border)",
+    borderRadius: "var(--radius-lg)",
+    padding: "16px 18px",
+    transition: "border-color 0.18s ease",
+  },
+
+  /* Body layout */
+  body: {
+    maxWidth: 1280,
+    margin: "0 auto",
+    padding: "28px clamp(16px,4vw,48px) 60px",
+  },
+  layout: {
+    display: "grid",
+    gridTemplateColumns: "220px 1fr",
+    gap: 28,
+    alignItems: "start",
+  },
+
+  /* Sidebar */
+  sidebar: {
     position: "sticky",
-    top: 20,
+    top: "calc(60px + 20px)",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-xl)",
+    padding: "20px 16px",
   },
-  sideLabel: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: "0.1em",
-    color: "var(--text-faint)",
-    margin: "0 0 10px",
-  },
-  colBtn: {
-    width: "100%",
-    textAlign: "left",
-    background: "transparent",
-    border: "none",
-    color: "var(--text-muted)",
-    padding: "7px 10px",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 13,
-    marginBottom: 2,
-    transition: "all 0.15s",
+  sidebarMobile: { padding: "4px 0 8px" },
+  sideStats: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 8,
+    padding: "12px 10px",
+    background: "var(--bg-card)",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--border)",
+  },
+  sideStat: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    flex: 1,
+  },
+  sideStatDivider: {
+    width: 1,
+    height: 28,
+    background: "var(--border)",
+    flexShrink: 0,
+  },
+
+  /* Collection buttons */
+  colBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    padding: "9px 10px",
+    background: "transparent",
+    border: "none",
+    borderRadius: "var(--radius-md)",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 500,
+    marginBottom: 2,
+    fontFamily: "var(--font-body, sans-serif)",
+    textAlign: "left",
+    transition: "background 0.15s ease, color 0.15s ease",
   },
   colBtnActive: {
     background: "var(--red-dim)",
     color: "var(--red-text)",
-    fontWeight: 600,
+    fontWeight: 700,
   },
   colCount: {
     fontSize: 10,
+    fontWeight: 600,
     background: "var(--border-mid)",
-    borderRadius: 10,
-    padding: "1px 6px",
+    borderRadius: "var(--radius-full)",
+    padding: "1px 7px",
     color: "var(--text-faint)",
+    flexShrink: 0,
   },
-  iconBtn: {
+  colDeleteBtn: {
+    width: 26,
+    height: 26,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     background: "transparent",
     border: "none",
-    color: "var(--border-bright)",
+    color: "var(--text-faint)",
     cursor: "pointer",
-    fontSize: 12,
-    padding: "4px 6px",
-    borderRadius: 4,
-  },
-  iconBtnBlue: {
-    background: "transparent",
-    border: "none",
-    color: "rgba(100,160,255,0.6)",
-    cursor: "pointer",
-    fontSize: 14,
-    padding: "4px 6px",
-    borderRadius: 4,
-    fontWeight: 700,
+    borderRadius: "var(--radius-sm)",
+    transition: "color 0.15s ease",
+    flexShrink: 0,
+    padding: 0,
   },
   colInput: {
     flex: 1,
-    background: "var(--bg-input2)",
+    padding: "8px 10px",
+    background: "var(--bg-input)",
     border: "1px solid var(--border-mid)",
-    borderRadius: 6,
-    padding: "6px 8px",
+    borderRadius: "var(--radius-md)",
     color: "var(--text-primary)",
     fontSize: 12,
+    fontFamily: "var(--font-body,sans-serif)",
     outline: "none",
+    transition: "border-color 0.18s ease",
   },
   addBtn: {
+    width: 34,
+    height: 34,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     background: "var(--red)",
     border: "none",
-    borderRadius: 6,
+    borderRadius: "var(--radius-md)",
     color: "#fff",
-    fontWeight: 700,
     cursor: "pointer",
-    padding: "0 10px",
-    fontSize: 18,
+    flexShrink: 0,
+    transition: "background 0.18s ease, box-shadow 0.18s ease",
   },
-  detailProgress: {
+
+  /* View toggle */
+  viewToggle: {
+    display: "flex",
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-md)",
+    overflow: "hidden",
+  },
+  viewToggleBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 34,
+    height: 34,
+    background: "transparent",
+    border: "none",
+    color: "var(--text-muted)",
+    cursor: "pointer",
+    transition: "background 0.15s ease, color 0.15s ease",
+  },
+  viewToggleBtnActive: {
+    background: "var(--red-dim)",
+    color: "var(--red-text)",
+  },
+
+  /* Buttons */
+  btnPrimary: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    background: "var(--red)",
+    border: "none",
+    color: "#fff",
+    padding: "9px 18px",
+    borderRadius: "var(--radius-md)",
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    cursor: "pointer",
+    fontFamily: "var(--font-body, sans-serif)",
+    boxShadow: "0 4px 16px rgba(229,9,20,0.3)",
+    transition: "background 0.18s ease",
+  },
+  btnGhost: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-mid)",
+    color: "var(--text-secondary)",
+    padding: "9px 16px",
+    borderRadius: "var(--radius-md)",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "var(--font-body, sans-serif)",
+    transition: "border-color 0.15s ease, background 0.15s ease",
+  },
+
+  /* List card */
+  listCard: {
+    display: "flex",
+    gap: 14,
+    alignItems: "flex-start",
     background: "var(--bg-card)",
     border: "1px solid var(--border)",
-    borderRadius: 12,
-    padding: "16px 20px",
-    marginBottom: 16,
+    borderRadius: "var(--radius-lg)",
+    padding: "12px 16px",
+    transition: "border-color 0.18s ease, box-shadow 0.18s ease",
   },
-  filterPill: {
+  listCardHov: {
+    borderColor: "var(--border-bright)",
+    boxShadow: "var(--shadow-hover)",
+  },
+  listCardWatched: { opacity: 0.65 },
+  dragHandle: {
+    display: "flex",
+    alignItems: "center",
+    paddingRight: 4,
+    cursor: "grab",
+    color: "var(--text-faint)",
+    flexShrink: 0,
+    marginTop: 4,
+  },
+  listInfo: { flex: 1, minWidth: 0 },
+  listTitle: {
+    margin: "0 0 6px",
+    fontSize: 15,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    lineHeight: 1.3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  watchBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 10,
+    fontWeight: 700,
+    padding: "3px 9px",
+    borderRadius: "var(--radius-full)",
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+  },
+  watchBadgeWatched: {
+    background: "rgba(34,197,94,0.14)",
+    color: "var(--green)",
+    border: "1px solid rgba(34,197,94,0.3)",
+  },
+  watchBadgePending: {
     background: "var(--border)",
-    border: "1px solid var(--border-mid)",
     color: "var(--text-muted)",
-    borderRadius: 20,
-    padding: "5px 14px",
+    border: "1px solid var(--border-mid)",
+  },
+  notePreview: {
+    margin: "4px 0 0",
+    fontSize: 12,
+    color: "var(--text-faint)",
+    fontStyle: "italic",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  noteArea: {
+    width: "100%",
+    padding: "9px 12px",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-md)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+    fontFamily: "var(--font-body,sans-serif)",
+    resize: "vertical",
+    outline: "none",
+    boxSizing: "border-box",
+    transition: "border-color 0.18s ease",
+  },
+  listActions: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  colSelect: {
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-sm)",
+    color: "var(--text-muted)",
+    fontSize: 11,
+    padding: "5px 8px",
+    cursor: "pointer",
+    outline: "none",
+    fontFamily: "var(--font-body,sans-serif)",
+    maxWidth: 180,
+  },
+  actionBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    background: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    color: "var(--text-secondary)",
+    borderRadius: "var(--radius-sm)",
+    padding: "5px 10px",
+    fontSize: 11,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "background 0.15s ease",
+  },
+  actionBtnGreen: {
+    color: "var(--green)",
+    borderColor: "rgba(34,197,94,0.35)",
+  },
+  actionBtnDanger: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    background: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    color: "var(--red-text)",
+    borderRadius: "var(--radius-sm)",
+    padding: "5px 10px",
+    fontSize: 11,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "background 0.15s ease, border-color 0.15s ease",
+  },
+  btnXs: {
+    background: "var(--bg-card2)",
+    border: "1px solid var(--border-mid)",
+    color: "var(--text-primary)",
+    padding: "5px 12px",
+    borderRadius: "var(--radius-sm)",
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: "var(--font-body,sans-serif)",
+  },
+
+  /* Grid */
+  gridLayout: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    gap: 14,
+  },
+  gridCard: {
+    borderRadius: "var(--radius-lg)",
+    overflow: "hidden",
+    background: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    cursor: "pointer",
+    transition:
+      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease",
+  },
+  gridWatchedBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: "50%",
+    background: "var(--green)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 0 8px rgba(34,197,94,0.5)",
+  },
+  gridTitle: {
+    margin: "0 0 4px",
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    lineHeight: 1.3,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  gridBtn: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    background: "transparent",
+    border: "1px solid var(--border)",
+    color: "var(--text-muted)",
+    borderRadius: "var(--radius-sm)",
+    padding: "5px 0",
+    fontSize: 10,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "background 0.15s ease",
+  },
+
+  /* Filter pills */
+  filterPill: {
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-full)",
+    color: "var(--text-muted)",
+    padding: "6px 14px",
     fontSize: 12,
     cursor: "pointer",
-    transition: "all 0.15s",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "border-color 0.15s ease",
   },
   filterPillActive: {
     background: "var(--red-dim)",
     borderColor: "var(--red-border)",
     color: "var(--red-text)",
-    fontWeight: 600,
+    fontWeight: 700,
   },
-  dragHint: {
-    fontSize: 11,
-    color: "var(--border-bright)",
-    marginBottom: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  grid: { display: "flex", flexDirection: "column", gap: 12 },
-  card: {
-    display: "flex",
-    gap: 12,
-    background: "var(--bg-card)",
-    borderRadius: 12,
-    padding: "12px 14px",
-    border: "1px solid var(--border)",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-    position: "relative",
-  },
-  cardWatched: { opacity: 0.65 },
-  dragHandle: {
-    display: "flex",
-    alignItems: "center",
-    paddingRight: 6,
-    cursor: "grab",
-    flexShrink: 0,
-    color: "var(--border-bright)",
-    userSelect: "none",
-  },
-  dragDots: { fontSize: 18, lineHeight: 1, letterSpacing: "-2px" },
-  poster: {
-    width: 68,
-    height: 100,
-    objectFit: "cover",
-    borderRadius: 8,
-    display: "block",
-    flexShrink: 0,
-  },
-  info: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 0,
-  },
-  movieTitle: {
-    margin: 0,
-    fontWeight: 600,
-    fontSize: 15,
-    color: "var(--text-primary)",
-    lineHeight: 1.3,
-  },
-  badge: {
-    display: "inline-block",
-    fontSize: 11,
-    padding: "3px 9px",
-    borderRadius: 12,
-    fontWeight: 600,
-  },
-  badgeWatched: { background: "var(--green-dim)", color: "var(--green)" },
-  badgePending: { background: "var(--border)", color: "var(--text-muted)" },
-  notePreview: {
-    fontSize: 12,
-    color: "var(--text-faint)",
-    margin: 0,
-    fontStyle: "italic",
-  },
-  noteArea: {
-    width: "100%",
-    background: "var(--bg-input2)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: 8,
-    padding: 10,
-    color: "var(--text-primary)",
-    fontSize: 13,
-    resize: "vertical",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  select: {
-    background: "var(--bg-input2)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: 6,
-    color: "var(--text-muted)",
-    fontSize: 12,
-    padding: "4px 8px",
-    cursor: "pointer",
-    outline: "none",
-    maxWidth: 220,
-  },
-  actions: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 },
-  btnSm: {
-    background: "var(--bg-input2)",
-    border: "none",
-    color: "var(--text-primary)",
-    padding: "5px 10px",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 12,
-  },
-  btnRed: {
-    background: "var(--red)",
-    color: "#fff",
-    padding: "8px 14px",
-    borderRadius: 8,
-    textDecoration: "none",
-    fontWeight: 600,
-    fontSize: 14,
-  },
-  btnOutline: {
-    background: "transparent",
-    border: "1px solid var(--border-bright)",
-    color: "var(--text-secondary)",
-    padding: "8px 14px",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 14,
-  },
+
+  /* Share panel */
   sharePanel: {
     background: "var(--bg-card)",
     border: "1px solid var(--red-border)",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: "var(--radius-lg)",
+    padding: "16px 18px",
     marginBottom: 20,
+    boxShadow: "0 4px 20px rgba(229,9,20,0.1)",
   },
   shareInput: {
     flex: 1,
-    background: "var(--bg-input2)",
+    padding: "9px 12px",
+    background: "var(--bg-input)",
     border: "1px solid var(--border-mid)",
-    borderRadius: 8,
-    padding: "8px 12px",
+    borderRadius: "var(--radius-md)",
     color: "var(--text-primary)",
     fontSize: 13,
+    fontFamily: "var(--font-body,sans-serif)",
     outline: "none",
   },
-  closeBtn: {
-    background: "transparent",
-    border: "none",
-    color: "var(--text-faint)",
-    cursor: "pointer",
-    fontSize: 18,
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
-    gap: 12,
-  },
-  statCard: {
-    background: "var(--bg-overlay)",
-    border: "1px solid var(--border)",
-    borderRadius: 12,
-    padding: "16px 14px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    alignItems: "flex-start",
-  },
-  progressBg: {
-    height: 8,
-    background: "var(--border)",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    background: "linear-gradient(90deg, var(--red), var(--red-text))",
-    borderRadius: 4,
-    transition: "width 0.6s ease",
-  },
-};
 
-/* ─── Mobile-specific styles ─────────────────────── */
-const d = {
-  /* horizontal chip bar */
+  /* Mobile chips */
   chipBar: {
     display: "flex",
     gap: 8,
     overflowX: "auto",
     scrollbarWidth: "none",
-    padding: "0 0 12px",
+    paddingBottom: 14,
     marginBottom: 4,
   },
   chip: {
     flexShrink: 0,
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     background: "var(--bg-card)",
     border: "1px solid var(--border-mid)",
     color: "var(--text-muted)",
-    borderRadius: 20,
-    padding: "6px 14px",
-    fontSize: 13,
+    borderRadius: "var(--radius-full)",
+    padding: "7px 14px",
+    fontSize: 12,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    transition: "all 0.15s",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "all 0.15s ease",
   },
   chipActive: {
     background: "var(--red-dim)",
     borderColor: "var(--red-border)",
     color: "var(--red-text)",
-    fontWeight: 600,
+    fontWeight: 700,
   },
   chipCount: {
     fontSize: 10,
     background: "var(--border-mid)",
-    borderRadius: 10,
+    borderRadius: "var(--radius-full)",
     padding: "1px 6px",
     color: "var(--text-faint)",
   },
-  /* floating action button */
+
+  /* FAB */
   fab: {
     position: "fixed",
-    bottom: 20,
-    right: 20,
+    bottom: 24,
+    right: 24,
     zIndex: 300,
-    width: 52,
-    height: 52,
+    width: 50,
+    height: 50,
     borderRadius: "50%",
     background: "var(--red)",
     border: "none",
     color: "#fff",
-    fontSize: 22,
+    fontSize: 18,
     cursor: "pointer",
     boxShadow: "0 4px 20px rgba(229,9,20,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "transform 0.18s, box-shadow 0.18s",
+    transition: "transform 0.18s ease",
   },
   fabBadge: {
     position: "absolute",
@@ -1479,66 +2329,15 @@ const d = {
     justifyContent: "center",
     border: "2px solid var(--red)",
   },
-  /* backdrop */
-  backdrop: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 400,
-    background: "rgba(0,0,0,0.55)",
-    backdropFilter: "blur(2px)",
-  },
-  /* bottom sheet */
-  sheet: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 500,
-    background: "var(--bg-overlay)",
-    borderRadius: "20px 20px 0 0",
-    border: "1px solid var(--border-mid)",
-    borderBottom: "none",
-    maxHeight: "82vh",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
-  },
-  pill: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    background: "var(--border-bright)",
-    margin: "10px auto 4px",
+
+  /* Spinner */
+  spinner: {
+    width: 20,
+    height: 20,
     flexShrink: 0,
-  },
-  sheetBody: {
-    overflowY: "auto",
-    padding: "8px 20px 36px",
-    flex: 1,
-  },
-  /* drawer header */
-  drawerHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-    paddingBottom: 12,
-    borderBottom: "1px solid var(--border)",
-  },
-  drawerTitle: { fontSize: 16, fontWeight: 700, color: "var(--text-primary)" },
-  drawerCloseBtn: {
-    background: "transparent",
-    border: "none",
-    color: "var(--text-faint)",
-    cursor: "pointer",
-    fontSize: 20,
-    lineHeight: 1,
-    padding: 4,
+    border: "2px solid rgba(255,255,255,0.08)",
+    borderTop: "2px solid var(--red)",
+    borderRadius: "50%",
+    animation: "spin 0.75s linear infinite",
   },
 };
-
-const globalCSS = `
-  [draggable=true] { cursor: grab; }
-  [draggable=true]:active { cursor: grabbing; }
-  ::-webkit-scrollbar { display: none; }
-`;

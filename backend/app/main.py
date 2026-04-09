@@ -13,10 +13,11 @@ from app.database.connection import engine
 from app.database.base import Base
 from app.models import user, watchlist
 from app.models import reminder as reminder_models
-from app.models import password_reset as password_reset_models  # ← THÊM MỚI
+from app.models import password_reset as password_reset_models
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
 from app.routers import reminder as reminder_router
+from app.routers import recommendations as recommendations_router  # ← THÊM MỚI
 from apscheduler.schedulers.background import BackgroundScheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -28,10 +29,8 @@ logger = logging.getLogger("films")
 # ════════════════════════════════════════════
 
 def _run_check_and_fire():
-    """Helper cho scheduler — tạo DB session riêng."""
     from app.database.connection import SessionLocal
     from app.services.reminder_service import check_and_fire
-
     db = SessionLocal()
     try:
         fired = check_and_fire(db)
@@ -47,8 +46,6 @@ def _run_check_and_fire():
 # ════════════════════════════════════════════
 
 class RequestSizeMiddleware(BaseHTTPMiddleware):
-    """Từ chối request body > max_bytes (mặc định 64 KB)."""
-
     def __init__(self, app, max_bytes: int = 64 * 1024):
         super().__init__(app)
         self.max_bytes = max_bytes
@@ -67,26 +64,17 @@ class RequestSizeMiddleware(BaseHTTPMiddleware):
 
 
 # ════════════════════════════════════════════
-# LIFESPAN (ĐÃ GỘP + SCHEDULER)
+# LIFESPAN
 # ════════════════════════════════════════════
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    logger.info("🎬 Films API v2.3 starting up...")
 
-    logger.info("🎬 Films API v2.2 starting up...")
-
-    # ── Scheduler ──
     scheduler = BackgroundScheduler(timezone="Asia/Ho_Chi_Minh")
-    scheduler.add_job(
-        _run_check_and_fire,
-        trigger="cron",
-        hour=8,
-        minute=0,
-        id="reminder_check",
-    )
+    scheduler.add_job(_run_check_and_fire, trigger="cron", hour=8, minute=0, id="reminder_check")
 
-    # ⚠️ tránh chạy 2 lần khi dùng --reload
     if not scheduler.running:
         scheduler.start()
         logger.info("🔔 Reminder scheduler started.")
@@ -104,15 +92,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Films API",
     description="Movie Discovery & Watchlist API",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan,
 )
 
-
-# ── Middleware ─────────────────────────────
-
 app.add_middleware(RequestSizeMiddleware, max_bytes=64 * 1024)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -136,10 +120,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         })
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error":   "Dữ liệu không hợp lệ",
-            "details": errors,
-        },
+        content={"error": "Dữ liệu không hợp lệ", "details": errors},
     )
 
 
@@ -148,13 +129,11 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     detail = exc.detail
     if isinstance(detail, dict):
         return JSONResponse(
-            status_code=exc.status_code,
-            content=detail,
+            status_code=exc.status_code, content=detail,
             headers=getattr(exc, "headers", None) or {},
         )
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": detail},
+        status_code=exc.status_code, content={"error": detail},
         headers=getattr(exc, "headers", None) or {},
     )
 
@@ -175,19 +154,15 @@ app.include_router(movies.router)
 app.include_router(watchlist_router.router)
 app.include_router(mood_router.router)
 app.include_router(reminder_router.router)
+app.include_router(recommendations_router.router)   # ← THÊM MỚI
 
-
-# ── Root / Health ─────────────────────────
 
 @app.get("/")
 def root():
-    return {"message": "Films API v2.2 running", "docs": "/docs"}
+    return {"message": "Films API v2.3 running", "docs": "/docs"}
 
 
 @app.get("/health")
 def health(request: Request):
     from app.utils.rate_limit import limiter
-    return {
-        "status":       "ok",
-        "rate_limiter": limiter.stats(),
-    }
+    return {"status": "ok", "rate_limiter": limiter.stats()}

@@ -35,7 +35,6 @@ function Logo({ size = 32 }) {
       xmlns="http://www.w3.org/2000/svg"
       style={{ display: "block" }}
     >
-      {/* Film strip left bracket */}
       <rect
         x="1"
         y="4"
@@ -48,7 +47,6 @@ function Logo({ size = 32 }) {
       <rect x="1" y="6" width="3" height="4" rx="1" fill="var(--bg-page)" />
       <rect x="1" y="13" width="3" height="4" rx="1" fill="var(--bg-page)" />
       <rect x="1" y="20" width="3" height="4" rx="1" fill="var(--bg-page)" />
-      {/* Wordmark */}
       <text
         x="9"
         y="23"
@@ -59,7 +57,6 @@ function Logo({ size = 32 }) {
       >
         FILMS
       </text>
-      {/* Accent dot */}
       <circle cx="86" cy="22" r="2.5" fill="var(--red)" />
     </svg>
   );
@@ -73,6 +70,7 @@ function PageTitle({ path }) {
     "/login": "Đăng nhập",
     "/mood": "Tâm trạng",
     "/reminders": "Nhắc nhở",
+    "/recommendations": "Gợi ý cho bạn", // ← THÊM MỚI
   };
   if (path.startsWith("/movie/"))
     return <span style={s.pageTitle}>Chi tiết phim</span>;
@@ -98,9 +96,9 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
   const isHome = location.pathname === "/";
   const isMood = location.pathname === "/mood";
+  const isRec = location.pathname === "/recommendations";
   const curTab = activeTab ?? "all";
 
-  /* IntersectionObserver */
   useEffect(() => {
     if (!heroRef?.current) {
       setSolid(true);
@@ -115,7 +113,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
     return () => obs.disconnect();
   }, [heroRef]);
 
-  /* Close menus on outside click */
   useEffect(() => {
     const h = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target))
@@ -125,7 +122,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* Lock body scroll when drawer open */
   useEffect(() => {
     document.body.style.overflow = showDrawer ? "hidden" : "";
     return () => {
@@ -197,7 +193,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                         <span style={s.tabLabel}>{label}</span>
                         {badge && <span style={s.newBadge}>{badge}</span>}
                       </span>
-                      {/* Animated underline */}
                       <span
                         style={{
                           ...s.tabUnderline,
@@ -220,6 +215,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
           {/* ── Right: Controls ── */}
           <div style={s.navRight}>
+            {/* ── Mood link ── */}
             <Link
               to="/mood"
               style={{ ...s.moodLink, ...(isMood ? s.moodLinkActive : {}) }}
@@ -227,6 +223,17 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               <span style={{ fontSize: 14 }}>✦</span>
               <span>Tâm trạng</span>
             </Link>
+
+            {/* ── Gợi ý link (chỉ hiện khi đã login) ── */}
+            {isLoggedIn && (
+              <Link
+                to="/recommendations"
+                style={{ ...s.recLink, ...(isRec ? s.recLinkActive : {}) }}
+              >
+                <span style={{ fontSize: 13 }}>◈</span>
+                <span>Gợi ý</span>
+              </Link>
+            )}
 
             <NotificationBell />
             <ThemeToggle />
@@ -266,6 +273,11 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     {[
                       { to: "/profile", icon: "◈", label: "Hồ sơ của tôi" },
                       { to: "/watchlist", icon: "▣", label: "My Watchlist" },
+                      {
+                        to: "/recommendations",
+                        icon: "✦",
+                        label: "Gợi ý cho bạn",
+                      }, // ← THÊM
                       { to: "/mood", icon: "✦", label: "Tâm trạng" },
                       { to: "/reminders", icon: "◷", label: "Nhắc nhở" },
                     ].map(({ to, icon, label }) => (
@@ -339,7 +351,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
   /* ══ MOBILE ══════════════════════════════════════ */
   return (
     <>
-      {/* ── Top bar ── */}
       <nav
         style={{
           ...s.navbarMobile,
@@ -361,7 +372,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <NotificationBell />
           <ThemeToggle />
-
           {isLoggedIn && (
             <button
               onClick={() => setShowDrawer(true)}
@@ -370,8 +380,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               <span style={s.avatar}>{avatarChar}</span>
             </button>
           )}
-
-          {/* Hamburger */}
           <button
             onClick={() => setShowDrawer((p) => !p)}
             style={s.hamburger}
@@ -381,7 +389,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               style={{
                 ...s.hamburgerLine,
                 transform: showDrawer
-                  ? "rotate(45deg) translate(3px, 3px)"
+                  ? "rotate(45deg) translate(3px,3px)"
                   : "none",
               }}
             />
@@ -396,7 +404,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               style={{
                 ...s.hamburgerLine,
                 transform: showDrawer
-                  ? "rotate(-45deg) translate(3px, -3px)"
+                  ? "rotate(-45deg) translate(3px,-3px)"
                   : "none",
               }}
             />
@@ -406,7 +414,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
       {solid && <div style={{ height: 52 }} />}
 
-      {/* ── Mobile Drawer overlay ── */}
       <div
         style={{
           ...s.drawerOverlay,
@@ -416,14 +423,12 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         onClick={() => setShowDrawer(false)}
       />
 
-      {/* ── Mobile Drawer panel ── */}
       <div
         style={{
           ...s.drawer,
           transform: showDrawer ? "translateX(0)" : "translateX(100%)",
         }}
       >
-        {/* Drawer header */}
         <div style={s.drawerHeader}>
           <Logo size={22} />
           <button onClick={() => setShowDrawer(false)} style={s.drawerClose}>
@@ -431,7 +436,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           </button>
         </div>
 
-        {/* User info or login */}
         {isLoggedIn ? (
           <div style={s.drawerUser}>
             <span style={{ ...s.avatar, width: 42, height: 42, fontSize: 18 }}>
@@ -454,7 +458,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
         <div style={{ ...s.menuDivider, margin: "12px 0" }} />
 
-        {/* Nav tabs */}
         {isHome && (
           <>
             <p style={s.drawerSectionLabel}>Danh mục phim</p>
@@ -481,10 +484,10 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           </>
         )}
 
-        {/* Links */}
         <p style={s.drawerSectionLabel}>Trang</p>
         {[
           { to: "/mood", icon: "✦", label: "Tâm trạng" },
+          { to: "/recommendations", icon: "◈", label: "Gợi ý cho bạn" }, // ← THÊM
           { to: "/watchlist", icon: "▣", label: "My Watchlist" },
           { to: "/reminders", icon: "◷", label: "Nhắc nhở" },
           { to: "/profile", icon: "◈", label: "Hồ sơ" },
@@ -523,7 +526,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         )}
       </div>
 
-      {/* ── Bottom nav bar (home only) ── */}
       {isHome && (
         <div style={s.bottomNav}>
           {TABS.map(({ key, label, icon }) => {
@@ -534,7 +536,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                 onClick={() => handleTabClick(key)}
                 style={s.bottomTab}
               >
-                {/* Active indicator dot */}
                 <span
                   style={{
                     ...s.bottomDot,
@@ -565,7 +566,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               </button>
             );
           })}
-          {/* Mood shortcut */}
           <Link to="/mood" style={{ ...s.bottomTab, textDecoration: "none" }}>
             <span style={{ ...s.bottomDot, opacity: isMood ? 1 : 0 }} />
             <span
@@ -593,7 +593,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
   );
 }
 
-/* ── Shared CSS (hover states, animations) ─────── */
+/* ── Shared CSS ─────────────────────────────────── */
 const navCSS = `
   @keyframes menuSlideIn {
     from { opacity: 0; transform: translateY(-8px) scale(0.97); }
@@ -603,14 +603,10 @@ const navCSS = `
     from { transform: translateX(100%); }
     to   { transform: translateX(0); }
   }
-  .nav-tab-inner:hover { color: var(--text-secondary) !important; }
-  .user-menu-item:hover { background: var(--bg-card2); }
-  .drawer-tab:hover { background: var(--bg-card2); }
 `;
 
-/* ── STYLES ─────────────────────────────────── */
+/* ── STYLES ─────────────────────────────────────── */
 const s = {
-  /* ── Navbar shell ── */
   navbar: {
     position: "fixed",
     top: 0,
@@ -652,7 +648,6 @@ const s = {
     backdropFilter: "none",
     borderBottom: "1px solid transparent",
   },
-
   navLeft: { display: "flex", alignItems: "center" },
   navCenter: { display: "flex", justifyContent: "center" },
   navRight: {
@@ -661,16 +656,12 @@ const s = {
     justifyContent: "flex-end",
     gap: 8,
   },
-
-  /* ── Page title ── */
   pageTitle: {
     fontFamily: "var(--font-display)",
     fontSize: "var(--text-lg)",
     letterSpacing: "var(--tracking-wider)",
     color: "var(--text-primary)",
   },
-
-  /* ── Tab bar ── */
   tabBar: { display: "flex", alignItems: "center", gap: 2 },
   tab: {
     position: "relative",
@@ -682,7 +673,6 @@ const s = {
     border: "none",
     cursor: "pointer",
     userSelect: "none",
-    transition: "none",
   },
   tabInner: {
     display: "flex",
@@ -693,11 +683,7 @@ const s = {
     transition: "color 0.18s ease",
     whiteSpace: "nowrap",
   },
-  tabIcon: {
-    fontSize: 13,
-    opacity: 0.8,
-    lineHeight: 1,
-  },
+  tabIcon: { fontSize: 13, opacity: 0.8, lineHeight: 1 },
   tabLabel: { letterSpacing: "var(--tracking-normal)" },
   tabUnderline: {
     position: "absolute",
@@ -709,10 +695,8 @@ const s = {
     borderRadius: "var(--radius-full)",
     transformOrigin: "center",
     transition:
-      "transform 0.25s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)), opacity 0.2s ease",
+      "transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease",
   },
-
-  /* New badge */
   newBadge: {
     fontSize: 9,
     fontWeight: 700,
@@ -724,8 +708,6 @@ const s = {
     lineHeight: 1.6,
     textTransform: "uppercase",
   },
-
-  /* ── Mood link ── */
   moodLink: {
     display: "flex",
     alignItems: "center",
@@ -738,8 +720,8 @@ const s = {
     textDecoration: "none",
     fontSize: "var(--text-sm)",
     fontWeight: 500,
-    transition: "all var(--ease-fast) !important",
     whiteSpace: "nowrap",
+    transition: "all 0.15s",
   },
   moodLinkActive: {
     background: "rgba(155,89,182,0.15)",
@@ -747,7 +729,28 @@ const s = {
     color: "#c39bd3",
   },
 
-  /* ── Login btn ── */
+  /* ── Gợi ý link ── */
+  recLink: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "6px 12px",
+    borderRadius: "var(--radius-full)",
+    border: "1px solid var(--border-mid)",
+    background: "transparent",
+    color: "var(--text-muted)",
+    textDecoration: "none",
+    fontSize: "var(--text-sm)",
+    fontWeight: 500,
+    whiteSpace: "nowrap",
+    transition: "all 0.15s",
+  },
+  recLinkActive: {
+    background: "rgba(245,197,24,0.12)",
+    borderColor: "rgba(245,197,24,0.35)",
+    color: "#f5c518",
+  },
+
   loginBtn: {
     background: "var(--red)",
     color: "#fff",
@@ -757,11 +760,7 @@ const s = {
     fontSize: "var(--text-sm)",
     fontWeight: 600,
     letterSpacing: "var(--tracking-wide)",
-    transition:
-      "background var(--ease-fast), box-shadow var(--ease-fast) !important",
   },
-
-  /* ── Avatar btn (desktop) ── */
   avatarBtn: {
     display: "flex",
     alignItems: "center",
@@ -773,8 +772,6 @@ const s = {
     color: "var(--text-secondary)",
     cursor: "pointer",
     fontSize: "var(--text-sm)",
-    transition:
-      "border-color var(--ease-fast), background var(--ease-fast) !important",
   },
   avatarBtnOpen: {
     borderColor: "var(--border-bright)",
@@ -807,13 +804,7 @@ const s = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  chevron: {
-    fontSize: 10,
-    opacity: 0.5,
-    transition: "transform 0.2s ease !important",
-  },
-
-  /* ── User menu dropdown ── */
+  chevron: { fontSize: 10, opacity: 0.5, transition: "transform 0.2s ease" },
   userMenu: {
     position: "absolute",
     right: 0,
@@ -823,14 +814,11 @@ const s = {
     border: "1px solid var(--border-mid)",
     borderRadius: "var(--radius-lg)",
     overflow: "hidden",
-    zIndex: "var(--z-overlay, 100)",
+    zIndex: 100,
     boxShadow: "var(--shadow-menu)",
-    animation: "menuSlideIn 0.2s var(--ease-spring) both",
+    animation: "menuSlideIn 0.2s cubic-bezier(0.34,1.56,0.64,1) both",
   },
-  menuHeader: {
-    padding: "14px 16px 12px",
-    background: "var(--bg-card)",
-  },
+  menuHeader: { padding: "14px 16px 12px", background: "var(--bg-card)" },
   menuHeaderName: {
     display: "block",
     fontSize: "var(--text-base)",
@@ -857,7 +845,6 @@ const s = {
     background: "transparent",
     border: "none",
     cursor: "pointer",
-    transition: "background var(--ease-fast) !important",
     fontFamily: "var(--font-body)",
     width: "100%",
   },
@@ -868,13 +855,7 @@ const s = {
     opacity: 0.65,
     flexShrink: 0,
   },
-  menuDivider: {
-    height: 1,
-    background: "var(--border)",
-    margin: "2px 0",
-  },
-
-  /* ── Mobile: Hamburger ── */
+  menuDivider: { height: 1, background: "var(--border)", margin: "2px 0" },
   hamburger: {
     display: "flex",
     flexDirection: "column",
@@ -887,17 +868,14 @@ const s = {
     border: "1px solid var(--border-mid)",
     cursor: "pointer",
     padding: "0 8px",
-    transition: "none",
   },
   hamburgerLine: {
     display: "block",
     height: 1.5,
     background: "var(--text-secondary)",
     borderRadius: "var(--radius-full)",
-    transition: "transform 0.25s ease, opacity 0.2s ease !important",
+    transition: "transform 0.25s ease, opacity 0.2s ease",
   },
-
-  /* ── Mobile avatar btn ── */
   avatarBtnMobile: {
     display: "flex",
     background: "transparent",
@@ -905,18 +883,14 @@ const s = {
     padding: 0,
     cursor: "pointer",
   },
-
-  /* ── Drawer overlay ── */
   drawerOverlay: {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.65)",
     backdropFilter: "blur(4px)",
     zIndex: 999,
-    transition: "opacity 0.3s ease !important",
+    transition: "opacity 0.3s ease",
   },
-
-  /* ── Drawer panel ── */
   drawer: {
     position: "fixed",
     top: 0,
@@ -928,7 +902,7 @@ const s = {
     zIndex: 1001,
     overflowY: "auto",
     padding: "0 0 40px",
-    transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1) !important",
+    transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
     boxShadow: "-8px 0 32px rgba(0,0,0,0.5)",
   },
   drawerHeader: {
@@ -955,7 +929,6 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "none",
   },
   drawerUser: {
     display: "flex",
@@ -994,7 +967,6 @@ const s = {
     textDecoration: "none",
     fontWeight: 600,
     fontSize: "var(--text-base)",
-    letterSpacing: "var(--tracking-wide)",
   },
   drawerSectionLabel: {
     fontSize: "var(--text-xs)",
@@ -1017,23 +989,16 @@ const s = {
     textDecoration: "none",
     width: "100%",
     position: "relative",
-    transition: "background var(--ease-fast) !important",
     fontFamily: "var(--font-body)",
   },
-  drawerTabActive: {
-    background: "var(--red-dim)",
-    color: "var(--red-text)",
-  },
+  drawerTabActive: { background: "var(--red-dim)", color: "var(--red-text)" },
   drawerTabIcon: {
     width: 24,
     textAlign: "center",
     fontSize: 16,
     flexShrink: 0,
   },
-  drawerTabLabel: {
-    fontSize: "var(--text-base)",
-    fontWeight: 500,
-  },
+  drawerTabLabel: { fontSize: "var(--text-base)", fontWeight: 500 },
   drawerTabDot: {
     marginLeft: "auto",
     width: 6,
@@ -1041,20 +1006,18 @@ const s = {
     borderRadius: "50%",
     background: "var(--red)",
   },
-
-  /* ── Mobile bottom nav ── */
   bottomNav: {
     position: "fixed",
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: "var(--z-navbar, 1000)",
+    zIndex: "var(--z-navbar,1000)",
     display: "flex",
     background: "var(--navbar-bg)",
     backdropFilter: "blur(20px) saturate(1.8)",
     WebkitBackdropFilter: "blur(20px) saturate(1.8)",
     borderTop: "1px solid var(--border)",
-    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    paddingBottom: "env(safe-area-inset-bottom,0px)",
   },
   bottomTab: {
     flex: 1,
@@ -1079,13 +1042,13 @@ const s = {
     borderRadius: "50%",
     background: "var(--red)",
     transition:
-      "opacity 0.2s ease, transform 0.25s var(--ease-spring) !important",
+      "opacity 0.2s ease, transform 0.25s cubic-bezier(0.34,1.56,0.64,1)",
   },
   bottomIcon: {
     fontSize: 18,
     lineHeight: 1,
     transition:
-      "color 0.18s ease, transform 0.25s var(--ease-spring) !important",
+      "color 0.18s ease, transform 0.25s cubic-bezier(0.34,1.56,0.64,1)",
   },
   bottomLabel: {
     fontSize: 10,
@@ -1094,6 +1057,6 @@ const s = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     maxWidth: "100%",
-    transition: "color 0.18s ease !important",
+    transition: "color 0.18s ease",
   },
 };

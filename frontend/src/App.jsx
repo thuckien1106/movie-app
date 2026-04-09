@@ -10,7 +10,8 @@ import PublicWatchlist from "./pages/PublicWatchlist";
 import Profile from "./pages/Profile";
 import MoodDiscovery from "./pages/MoodDiscovery";
 import RemindersPage from "./pages/RemindersPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage"; // ← THÊM MỚI
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import RecommendationsPage from "./pages/RecommendationsPage"; // ← THÊM MỚI
 
 function App() {
   return (
@@ -27,9 +28,10 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/mood" element={<MoodDiscovery />} />
               <Route path="/reminders" element={<RemindersPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route
-                path="/forgot-password"
-                element={<ForgotPasswordPage />}
+                path="/recommendations"
+                element={<RecommendationsPage />}
               />{" "}
               {/* ← THÊM MỚI */}
             </Routes>

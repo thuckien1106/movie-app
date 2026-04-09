@@ -4,11 +4,13 @@ from sqlalchemy.orm import Session
 from app.schemas.user_schema import (
     UserCreate, UserLogin, TokenResponse, UserResponse,
     ProfileUpdate, ChangePassword, ActivityResponse,
+    ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest,
 )
 from app.services.auth_service import (
     create_user, authenticate_user,
     update_profile, change_password, get_activity,
 )
+from app.services import password_reset_service
 from app.utils.security import create_access_token
 from app.utils.dependencies import get_db, get_current_user
 from app.utils.rate_limit import limiter, Limits
@@ -93,3 +95,51 @@ def activity(
 ):
     limiter.check(request, "activity", **Limits.READ_GENERAL)
     return get_activity(db, current_user.id, limit)
+
+
+# ════════════════════════════════════════════
+# PASSWORD RESET — quên mật khẩu
+# ════════════════════════════════════════════
+
+@router.post("/forgot-password")
+def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 1: nhận email → tạo OTP 6 số → gửi email.
+    Rate limit: 3 lần / 5 phút / IP để chặn spam.
+    Luôn trả HTTP 200 dù email không tồn tại (chống user enumeration).
+    """
+    limiter.check(request, "forgot_password", max_calls=3, window_sec=300)
+    return password_reset_service.request_otp(db, body.email)
+
+
+@router.post("/verify-otp")
+def verify_otp(
+    request: Request,
+    body: VerifyOTPRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 2: kiểm tra OTP còn hiệu lực hay không.
+    Dùng để FE chuyển sang bước nhập mật khẩu mới.
+    Rate limit: 10 lần / phút / IP.
+    """
+    limiter.check(request, "verify_otp", max_calls=10, window_sec=60)
+    return password_reset_service.verify_otp(db, body.email, body.otp)
+
+
+@router.post("/reset-password")
+def reset_password(
+    request: Request,
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 3: xác thực OTP + đặt mật khẩu mới, đánh dấu OTP đã dùng.
+    Rate limit: 5 lần / 5 phút / IP.
+    """
+    limiter.check(request, "reset_password", max_calls=5, window_sec=300)
+    return password_reset_service.reset_password(db, body.email, body.otp, body.new_password)

@@ -150,3 +150,52 @@ class ActivityItem(BaseModel):
 
 class ActivityResponse(BaseModel):
     items: List[ActivityItem]
+
+# Thêm vào cuối file app/schemas/user_schema.py
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+# ── Forgot / Reset Password ────────────────────────────────
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str) -> str:
+        return v.lower().strip()
+
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp:   str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str) -> str:
+        return v.lower().strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    email:        EmailStr
+    otp:          str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str) -> str:
+        return v.lower().strip()
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        COMMON = {
+            "123456", "password", "12345678", "qwerty", "abc123",
+            "111111", "123123", "admin", "letmein", "welcome",
+        }
+        if v.lower() in COMMON:
+            raise ValueError("Mật khẩu quá phổ biến.")
+        if v.isdigit():
+            raise ValueError("Mật khẩu không được chỉ chứa số.")
+        return v

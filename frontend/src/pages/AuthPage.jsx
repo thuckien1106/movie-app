@@ -140,7 +140,6 @@ function FloatField({
         marginBottom: isPassword && value ? 28 : 20,
       }}
     >
-      {/* floating label */}
       <label
         style={{
           ...s.floatLabel,
@@ -180,7 +179,6 @@ function FloatField({
         }}
       />
 
-      {/* password toggle */}
       {isPassword && (
         <button
           type="button"
@@ -192,7 +190,6 @@ function FloatField({
         </button>
       )}
 
-      {/* password strength bar */}
       {isPassword && value && (
         <div style={s.strengthWrap}>
           <div style={s.strengthTrack}>
@@ -266,7 +263,6 @@ export default function AuthPage() {
   const showToast = useToast();
   const navigate = useNavigate();
 
-  // page-enter animation trigger
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 60);
     return () => clearTimeout(t);
@@ -318,15 +314,11 @@ export default function AuthPage() {
     <div style={s.page}>
       {/* ── Cinematic background layers ── */}
       <div style={s.bgBase} />
-      {/* Diagonal red slash */}
       <div style={s.bgSlash} />
-      {/* Radial ambient glows */}
       <div style={s.glow1} />
       <div style={s.glow2} />
       <div style={s.glow3} />
-      {/* Noise grain overlay */}
       <div style={s.grain} />
-      {/* Film grid lines */}
       <div style={s.gridLines} />
 
       {/* ── Film strip tickers ── */}
@@ -360,7 +352,6 @@ export default function AuthPage() {
             : "translateY(24px) scale(0.97)",
         }}
       >
-        {/* Card inner glow border */}
         <div style={s.cardInnerGlow} />
 
         {/* ── Header ── */}
@@ -386,10 +377,7 @@ export default function AuthPage() {
             <button
               key={key}
               onClick={() => switchMode(key)}
-              style={{
-                ...s.modeBtn,
-                ...(mode === key ? s.modeBtnActive : {}),
-              }}
+              style={{ ...s.modeBtn, ...(mode === key ? s.modeBtnActive : {}) }}
             >
               {label}
               {mode === key && <span style={s.modeIndicator} />}
@@ -418,26 +406,46 @@ export default function AuthPage() {
             required
             autoComplete="email"
           />
-          <FloatField
-            label="Mật khẩu"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            required
-            autoComplete={
-              mode === "login" ? "current-password" : "new-password"
-            }
-          />
+
+          {/* Password field + forgot password link */}
+          <div style={{ position: "relative" }}>
+            <FloatField
+              label="Mật khẩu"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+            />
+            {/* ── Quên mật khẩu link (chỉ hiện ở tab login) ── */}
+            {mode === "login" && (
+              <div
+                style={{ marginTop: -12, marginBottom: 16, textAlign: "right" }}
+              >
+                <Link
+                  to="/forgot-password"
+                  style={s.forgotLink}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = "#e50914")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = "var(--text-faint)")
+                  }
+                >
+                  Quên mật khẩu?
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Submit button */}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              ...s.submitBtn,
-              opacity: loading ? 0.75 : 1,
-            }}
+            style={{ ...s.submitBtn, opacity: loading ? 0.75 : 1 }}
             onMouseEnter={(e) => {
               if (!loading) {
                 e.currentTarget.style.background = "var(--red-hover, #ff1a1a)";
@@ -558,7 +566,6 @@ const authCSS = `
 
 /* ── Styles ──────────────────────────────────────── */
 const s = {
-  /* ── Page shell ── */
   page: {
     position: "relative",
     minHeight: "100vh",
@@ -569,8 +576,6 @@ const s = {
     overflow: "hidden",
     fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
   },
-
-  /* ── Background ── */
   bgBase: {
     position: "absolute",
     inset: 0,
@@ -646,8 +651,6 @@ const s = {
     backgroundSize: "80px 80px",
     pointerEvents: "none",
   },
-
-  /* ── Film tickers ── */
   ticker: {
     position: "absolute",
     top: 0,
@@ -672,8 +675,6 @@ const s = {
     whiteSpace: "nowrap",
     lineHeight: 1,
   },
-
-  /* ── Back button ── */
   backBtn: {
     position: "absolute",
     top: 20,
@@ -694,8 +695,6 @@ const s = {
     transition:
       "color 0.18s ease, border-color 0.18s ease, background 0.18s ease",
   },
-
-  /* ── Glass card ── */
   card: {
     position: "relative",
     zIndex: 5,
@@ -724,11 +723,7 @@ const s = {
     borderRadius: "50%",
     pointerEvents: "none",
   },
-
-  /* Card header */
-  cardHeader: {
-    marginBottom: 24,
-  },
+  cardHeader: { marginBottom: 24 },
   headerDivider: {
     height: 1,
     background: "linear-gradient(to right, var(--red), transparent)",
@@ -741,8 +736,6 @@ const s = {
     color: "var(--text-secondary)",
     margin: 0,
   },
-
-  /* ── Mode toggle ── */
   modeToggle: {
     display: "flex",
     background: "rgba(255,255,255,0.04)",
@@ -782,14 +775,7 @@ const s = {
     borderRadius: "var(--radius-full, 999px)",
     background: "var(--red)",
   },
-
-  /* ── Form ── */
-  form: {
-    display: "flex",
-    flexDirection: "column",
-  },
-
-  /* ── Floating label input ── */
+  form: { display: "flex", flexDirection: "column" },
   floatLabel: {
     position: "absolute",
     left: 14,
@@ -815,8 +801,6 @@ const s = {
     transition: "border-color 0.2s ease, box-shadow 0.2s ease",
     WebkitAppearance: "none",
   },
-
-  /* password show/hide button */
   eyeBtn: {
     position: "absolute",
     right: 12,
@@ -833,8 +817,6 @@ const s = {
     borderRadius: "var(--radius-sm, 6px)",
     transition: "color 0.15s ease",
   },
-
-  /* strength meter */
   strengthWrap: {
     position: "absolute",
     bottom: -22,
@@ -844,12 +826,7 @@ const s = {
     alignItems: "center",
     gap: 8,
   },
-  strengthTrack: {
-    flex: 1,
-    display: "flex",
-    gap: 3,
-    height: 3,
-  },
+  strengthTrack: { flex: 1, display: "flex", gap: 3, height: 3 },
   strengthSeg: {
     flex: 1,
     height: 3,
@@ -865,7 +842,14 @@ const s = {
     transition: "color 0.3s ease",
   },
 
-  /* ── Submit button ── */
+  /* ── Quên mật khẩu ── */
+  forgotLink: {
+    fontSize: 12,
+    color: "var(--text-faint)",
+    textDecoration: "none",
+    transition: "color 0.15s",
+  },
+
   submitBtn: {
     marginTop: 4,
     padding: "14px",
@@ -903,19 +887,8 @@ const s = {
     borderRadius: "50%",
     animation: "authSpinner 0.7s linear infinite",
   },
-
-  /* ── Divider ── */
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    margin: "20px 0",
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    background: "var(--border)",
-  },
+  divider: { display: "flex", alignItems: "center", gap: 12, margin: "20px 0" },
+  dividerLine: { flex: 1, height: 1, background: "var(--border)" },
   dividerText: {
     fontSize: 12,
     color: "var(--text-faint)",
@@ -923,8 +896,6 @@ const s = {
     letterSpacing: "0.06em",
     whiteSpace: "nowrap",
   },
-
-  /* ── Social buttons ── */
   socialRow: {
     display: "flex",
     flexDirection: "column",
@@ -956,11 +927,7 @@ const s = {
     flexShrink: 0,
     fontFamily: "sans-serif",
   },
-  socialLabel: {
-    flex: 1,
-  },
-
-  /* ── Switch link ── */
+  socialLabel: { flex: 1 },
   switchText: {
     textAlign: "center",
     fontSize: 13,
@@ -979,8 +946,6 @@ const s = {
     textDecoration: "none",
     letterSpacing: "0.01em",
   },
-
-  /* ── Terms ── */
   terms: {
     textAlign: "center",
     fontSize: 11,

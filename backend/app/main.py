@@ -12,12 +12,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.database.connection import engine
 from app.database.base import Base
 from app.models import user, watchlist
+from app.models import reminder as reminder_models
+from app.models import password_reset as password_reset_models  # ← THÊM MỚI
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
-
-# 🔥 THÊM
 from app.routers import reminder as reminder_router
-from app.models import reminder as reminder_models
 from apscheduler.schedulers.background import BackgroundScheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -174,8 +173,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(watchlist_router.router)
-
-# 🔥 thêm đúng vị trí
 app.include_router(mood_router.router)
 app.include_router(reminder_router.router)
 

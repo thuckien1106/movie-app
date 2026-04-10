@@ -1,12 +1,12 @@
+# app/schemas/user_schema.py
 import re
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 
 
-# ── Regex patterns ─────────────────────────────────────────
 _USERNAME_RE = re.compile(r'^[a-zA-Z0-9_.-]+$')
-_SAFE_TEXT_RE = re.compile(r'[<>{}\[\]\\]')         # block HTML/injection chars
+_SAFE_TEXT_RE = re.compile(r'[<>{}\[\]\\]')
 
 COMMON_PASSWORDS = {
     "123456", "password", "12345678", "qwerty", "abc123",
@@ -60,11 +60,13 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id:       int
-    email:    str
-    username: Optional[str]
-    avatar:   Optional[str]
-    bio:      Optional[str]
+    id:         int
+    email:      str
+    username:   Optional[str]
+    avatar:     Optional[str]
+    bio:        Optional[str]
+    avatar_url: Optional[str]   = None   # ← THÊM: URL ảnh Google
+    is_google:  bool            = False  # ← THÊM: đánh dấu tài khoản Google
 
     class Config:
         from_attributes = True
@@ -109,7 +111,6 @@ class ProfileUpdate(BaseModel):
         if v is None:
             return v
         v = v.strip()
-        # avatar phải là 1-2 ký tự (emoji thường là 1-2 codepoint)
         if len(v) > 4:
             raise ValueError("Avatar không hợp lệ.")
         return v
@@ -151,12 +152,8 @@ class ActivityItem(BaseModel):
 class ActivityResponse(BaseModel):
     items: List[ActivityItem]
 
-# Thêm vào cuối file app/schemas/user_schema.py
-
-from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ── Forgot / Reset Password ────────────────────────────────
-
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -190,11 +187,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        COMMON = {
-            "123456", "password", "12345678", "qwerty", "abc123",
-            "111111", "123123", "admin", "letmein", "welcome",
-        }
-        if v.lower() in COMMON:
+        if v.lower() in COMMON_PASSWORDS:
             raise ValueError("Mật khẩu quá phổ biến.")
         if v.isdigit():
             raise ValueError("Mật khẩu không được chỉ chứa số.")

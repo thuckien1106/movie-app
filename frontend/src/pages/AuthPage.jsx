@@ -1,17 +1,15 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+// src/pages/AuthPage.jsx
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { login, register } from "../api/movieApi";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
 
-/* ══════════════════════════════════════════════════════
-   FILMVERSE — AUTH PAGE
-   Layout: Full-bleed cinematic BG + centered glass card
-   Unique detail: animated film-strip ticker on edges,
-   floating labels, password strength meter, page-enter
-══════════════════════════════════════════════════════ */
+/* ── Google OAuth URL helper ──────────────────────────── */
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const googleLoginUrl = `${API_BASE}/auth/google/login`;
 
-/* ── SVG Logo (reuse from Navbar) ─────────────────── */
+/* ── SVG Logo ─────────────────────────────────────────── */
 function Logo({ size = 30 }) {
   return (
     <svg width={size * 2.8} height={size} viewBox="0 0 90 32" fill="none">
@@ -63,7 +61,31 @@ function Logo({ size = 30 }) {
   );
 }
 
-/* ── Eye icon for password toggle ─────────────────── */
+/* ── Google SVG icon ──────────────────────────────────── */
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48">
+      <path
+        fill="#FFC107"
+        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+      />
+    </svg>
+  );
+}
+
+/* ── Eye icon ─────────────────────────────────────────── */
 function EyeIcon({ open }) {
   return open ? (
     <svg
@@ -97,7 +119,7 @@ function EyeIcon({ open }) {
   );
 }
 
-/* ── Password strength ─────────────────────────────── */
+/* ── Password strength ────────────────────────────────── */
 function passwordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "transparent" };
   let score = 0;
@@ -115,7 +137,7 @@ function passwordStrength(pw) {
   return { score, ...map[score] };
 }
 
-/* ── Floating label input ──────────────────────────── */
+/* ── Floating label input ─────────────────────────────── */
 function FloatField({
   label,
   name,
@@ -214,7 +236,7 @@ function FloatField({
   );
 }
 
-/* ── Animated film-strip ticker ───────────────────── */
+/* ── Film strip ticker ────────────────────────────────── */
 const TICKER_ITEMS = [
   "ACTION",
   "DRAMA",
@@ -257,8 +279,10 @@ export default function AuthPage() {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", username: "" });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [entered, setEntered] = useState(false);
 
+  const [searchParams] = useSearchParams();
   const { saveSession } = useAuth();
   const showToast = useToast();
   const navigate = useNavigate();
@@ -266,6 +290,19 @@ export default function AuthPage() {
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 60);
     return () => clearTimeout(t);
+  }, []);
+
+  // Hiện thông báo nếu có oauth_error từ redirect
+  useEffect(() => {
+    const oauthError = searchParams.get("oauth_error");
+    if (oauthError) {
+      const msgs = {
+        cancelled: "Bạn đã huỷ đăng nhập Google.",
+        invalid_state: "Phiên không hợp lệ, vui lòng thử lại.",
+        server_error: "Lỗi máy chủ, vui lòng thử lại sau.",
+      };
+      showToast(msgs[oauthError] || "Đăng nhập Google thất bại.", "error");
+    }
   }, []);
 
   const handleChange = (e) =>
@@ -289,7 +326,6 @@ export default function AuthPage() {
               password: form.password,
               username: form.username || undefined,
             };
-
       const res =
         mode === "login" ? await login(payload) : await register(payload);
       saveSession(res.data.access_token, res.data.user);
@@ -310,9 +346,17 @@ export default function AuthPage() {
     }
   };
 
+  /* ── Google login: redirect trình duyệt sang BE /auth/google/login ── */
+  const handleGoogleLogin = () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    // Redirect trực tiếp — trình duyệt sẽ follow redirect chain:
+    // FE → BE /auth/google/login → Google → BE /auth/google/callback → FE /oauth/callback
+    window.location.href = googleLoginUrl;
+  };
+
   return (
     <div style={s.page}>
-      {/* ── Cinematic background layers ── */}
       <div style={s.bgBase} />
       <div style={s.bgSlash} />
       <div style={s.glow1} />
@@ -321,11 +365,9 @@ export default function AuthPage() {
       <div style={s.grain} />
       <div style={s.gridLines} />
 
-      {/* ── Film strip tickers ── */}
       <FilmTicker side="left" />
       <FilmTicker side="right" />
 
-      {/* ── Back to home ── */}
       <Link to="/" style={s.backBtn}>
         <svg
           width="14"
@@ -354,7 +396,7 @@ export default function AuthPage() {
       >
         <div style={s.cardInnerGlow} />
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={s.cardHeader}>
           <Link
             to="/"
@@ -368,7 +410,35 @@ export default function AuthPage() {
           </p>
         </div>
 
-        {/* ── Mode toggle ── */}
+        {/* ── Google Sign-In button ── */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={googleLoading}
+          style={{ ...s.googleBtn, opacity: googleLoading ? 0.7 : 1 }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--border-mid)";
+            e.currentTarget.style.background = "var(--bg-card)";
+          }}
+        >
+          {googleLoading ? <span style={s.miniSpinner} /> : <GoogleIcon />}
+          <span style={s.googleBtnText}>
+            {googleLoading ? "Đang chuyển hướng…" : "Tiếp tục với Google"}
+          </span>
+        </button>
+
+        {/* Divider */}
+        <div style={s.divider}>
+          <div style={s.dividerLine} />
+          <span style={s.dividerText}>hoặc đăng nhập bằng email</span>
+          <div style={s.dividerLine} />
+        </div>
+
+        {/* Mode toggle */}
         <div style={s.modeToggle}>
           {[
             { key: "login", label: "Đăng nhập" },
@@ -385,7 +455,7 @@ export default function AuthPage() {
           ))}
         </div>
 
-        {/* ── Form ── */}
+        {/* Form */}
         <form onSubmit={handleSubmit} style={s.form}>
           {mode === "register" && (
             <FloatField
@@ -407,7 +477,6 @@ export default function AuthPage() {
             autoComplete="email"
           />
 
-          {/* Password field + forgot password link */}
           <div style={{ position: "relative" }}>
             <FloatField
               label="Mật khẩu"
@@ -420,7 +489,6 @@ export default function AuthPage() {
                 mode === "login" ? "current-password" : "new-password"
               }
             />
-            {/* ── Quên mật khẩu link (chỉ hiện ở tab login) ── */}
             {mode === "login" && (
               <div
                 style={{ marginTop: -12, marginBottom: 16, textAlign: "right" }}
@@ -441,7 +509,6 @@ export default function AuthPage() {
             )}
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
             disabled={loading}
@@ -487,40 +554,7 @@ export default function AuthPage() {
           </button>
         </form>
 
-        {/* ── Divider ── */}
-        <div style={s.divider}>
-          <div style={s.dividerLine} />
-          <span style={s.dividerText}>hoặc</span>
-          <div style={s.dividerLine} />
-        </div>
-
-        {/* ── Social placeholders ── */}
-        <div style={s.socialRow}>
-          {[
-            { label: "Google", icon: "G", color: "#ea4335" },
-            { label: "Facebook", icon: "f", color: "#1877f2" },
-          ].map(({ label, icon, color }) => (
-            <button
-              key={label}
-              type="button"
-              style={s.socialBtn}
-              onClick={() => showToast("Chức năng sắp ra mắt!", "info")}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-bright)";
-                e.currentTarget.style.background = "var(--bg-card2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-mid)";
-                e.currentTarget.style.background = "var(--bg-card)";
-              }}
-            >
-              <span style={{ ...s.socialIcon, color }}>{icon}</span>
-              <span style={s.socialLabel}>Tiếp tục với {label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* ── Switch link ── */}
+        {/* Switch link */}
         <p style={s.switchText}>
           {mode === "login" ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
           <button
@@ -532,7 +566,6 @@ export default function AuthPage() {
           </button>
         </p>
 
-        {/* ── Terms footnote ── */}
         <p style={s.terms}>
           Bằng cách tiếp tục, bạn đồng ý với{" "}
           <span style={s.termsLink}>Điều khoản sử dụng</span> và{" "}
@@ -545,26 +578,15 @@ export default function AuthPage() {
   );
 }
 
-/* ── Global CSS for this page ────────────────────── */
+/* ── CSS ──────────────────────────────────────────────── */
 const authCSS = `
-  @keyframes tickerScroll {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(-50%); }
-  }
-  @keyframes authSpinner {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes glowPulse {
-    0%, 100% { opacity: 0.55; transform: scale(1);    }
-    50%       { opacity: 0.8;  transform: scale(1.08); }
-  }
-  @keyframes slashDrift {
-    0%, 100% { transform: skewY(-12deg) translateX(0);    }
-    50%       { transform: skewY(-12deg) translateX(-8px); }
-  }
+  @keyframes tickerScroll { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+  @keyframes authSpinner { to { transform: rotate(360deg); } }
+  @keyframes glowPulse { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.08); } }
+  @keyframes slashDrift { 0%, 100% { transform: skewY(-12deg) translateX(0); } 50% { transform: skewY(-12deg) translateX(-8px); } }
 `;
 
-/* ── Styles ──────────────────────────────────────── */
+/* ── Styles ───────────────────────────────────────────── */
 const s = {
   page: {
     position: "relative",
@@ -688,12 +710,10 @@ const s = {
     fontSize: 13,
     fontWeight: 500,
     padding: "6px 12px 6px 8px",
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     border: "1px solid var(--border-mid)",
     background: "var(--bg-glass, rgba(14,18,24,0.75))",
     backdropFilter: "blur(12px)",
-    transition:
-      "color 0.18s ease, border-color 0.18s ease, background 0.18s ease",
   },
   card: {
     position: "relative",
@@ -704,7 +724,7 @@ const s = {
     backdropFilter: "blur(28px) saturate(1.6)",
     WebkitBackdropFilter: "blur(28px) saturate(1.6)",
     border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "var(--radius-xl, 20px)",
+    borderRadius: 20,
     padding: "36px 32px 28px",
     boxShadow:
       "0 32px 80px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(229,9,20,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
@@ -723,7 +743,7 @@ const s = {
     borderRadius: "50%",
     pointerEvents: "none",
   },
-  cardHeader: { marginBottom: 24 },
+  cardHeader: { marginBottom: 22 },
   headerDivider: {
     height: 1,
     background: "linear-gradient(to right, var(--red), transparent)",
@@ -736,12 +756,60 @@ const s = {
     color: "var(--text-secondary)",
     margin: 0,
   },
+
+  /* ── Google button ── */
+  googleBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    width: "100%",
+    padding: "13px 16px",
+    background: "var(--bg-card, #111620)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontFamily: "var(--font-body, sans-serif)",
+    fontSize: 14,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    transition: "border-color 0.18s ease, background 0.18s ease",
+    marginBottom: 16,
+    letterSpacing: "0.02em",
+  },
+  googleBtnText: { flex: 1, textAlign: "center" },
+  miniSpinner: {
+    display: "inline-block",
+    width: 18,
+    height: 18,
+    border: "2px solid rgba(255,255,255,0.2)",
+    borderTopColor: "#4285f4",
+    borderRadius: "50%",
+    animation: "authSpinner 0.7s linear infinite",
+    flexShrink: 0,
+  },
+
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    margin: "0 0 18px",
+  },
+  dividerLine: { flex: 1, height: 1, background: "var(--border)" },
+  dividerText: {
+    fontSize: 11,
+    color: "var(--text-faint)",
+    fontWeight: 500,
+    letterSpacing: "0.06em",
+    whiteSpace: "nowrap",
+  },
+
   modeToggle: {
     display: "flex",
     background: "rgba(255,255,255,0.04)",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     padding: 3,
-    marginBottom: 24,
+    marginBottom: 22,
     border: "1px solid var(--border)",
     gap: 3,
   },
@@ -750,7 +818,7 @@ const s = {
     position: "relative",
     padding: "9px 0",
     border: "none",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     background: "transparent",
     color: "var(--text-faint)",
     cursor: "pointer",
@@ -772,9 +840,10 @@ const s = {
     transform: "translateX(-50%)",
     width: 20,
     height: 2,
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     background: "var(--red)",
   },
+
   form: { display: "flex", flexDirection: "column" },
   floatLabel: {
     position: "absolute",
@@ -792,7 +861,7 @@ const s = {
     padding: "24px 16px 10px",
     background: "rgba(255,255,255,0.04)",
     border: "1px solid",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     color: "var(--text-primary)",
     fontSize: 14,
     fontFamily: "var(--font-body, sans-serif)",
@@ -814,7 +883,7 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "var(--radius-sm, 6px)",
+    borderRadius: 6,
     transition: "color 0.15s ease",
   },
   strengthWrap: {
@@ -830,7 +899,7 @@ const s = {
   strengthSeg: {
     flex: 1,
     height: 3,
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     transition: "background 0.3s ease, opacity 0.3s ease",
   },
   strengthLabel: {
@@ -841,21 +910,18 @@ const s = {
     textAlign: "right",
     transition: "color 0.3s ease",
   },
-
-  /* ── Quên mật khẩu ── */
   forgotLink: {
     fontSize: 12,
     color: "var(--text-faint)",
     textDecoration: "none",
     transition: "color 0.15s",
   },
-
   submitBtn: {
     marginTop: 4,
     padding: "14px",
     background: "var(--red)",
     border: "none",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     color: "#fff",
     fontSize: 15,
     fontWeight: 700,
@@ -887,52 +953,11 @@ const s = {
     borderRadius: "50%",
     animation: "authSpinner 0.7s linear infinite",
   },
-  divider: { display: "flex", alignItems: "center", gap: 12, margin: "20px 0" },
-  dividerLine: { flex: 1, height: 1, background: "var(--border)" },
-  dividerText: {
-    fontSize: 12,
-    color: "var(--text-faint)",
-    fontWeight: 500,
-    letterSpacing: "0.06em",
-    whiteSpace: "nowrap",
-  },
-  socialRow: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    marginBottom: 20,
-  },
-  socialBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "11px 16px",
-    background: "var(--bg-card, #111620)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md, 10px)",
-    cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
-    fontSize: 13,
-    fontWeight: 500,
-    color: "var(--text-secondary)",
-    transition: "border-color 0.18s ease, background 0.18s ease",
-    textAlign: "left",
-    width: "100%",
-  },
-  socialIcon: {
-    fontSize: 16,
-    fontWeight: 900,
-    width: 22,
-    textAlign: "center",
-    flexShrink: 0,
-    fontFamily: "sans-serif",
-  },
-  socialLabel: { flex: 1 },
   switchText: {
     textAlign: "center",
     fontSize: 13,
     color: "var(--text-faint)",
-    margin: "0 0 16px",
+    margin: "16px 0 10px",
   },
   switchLink: {
     background: "none",

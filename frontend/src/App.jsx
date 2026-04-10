@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastProvider } from "./components/ToastContext";
 import { AuthProvider } from "./context/AuthContext";
@@ -12,7 +13,8 @@ import MoodDiscovery from "./pages/MoodDiscovery";
 import RemindersPage from "./pages/RemindersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import RecommendationsPage from "./pages/RecommendationsPage";
-import PersonPage from "./pages/PersonPage"; // ← THÊM MỚI
+import PersonPage from "./pages/PersonPage";
+import OAuthCallbackPage from "./pages/OAuthCallbackPage"; // ← THÊM MỚI
 
 function App() {
   return (
@@ -34,7 +36,11 @@ function App() {
                 path="/recommendations"
                 element={<RecommendationsPage />}
               />
-              <Route path="/person/:id" element={<PersonPage />} />{" "}
+              <Route path="/person/:id" element={<PersonPage />} />
+              <Route
+                path="/oauth/callback"
+                element={<OAuthCallbackPage />}
+              />{" "}
               {/* ← THÊM MỚI */}
             </Routes>
           </BrowserRouter>

@@ -11,7 +11,8 @@ import Profile from "./pages/Profile";
 import MoodDiscovery from "./pages/MoodDiscovery";
 import RemindersPage from "./pages/RemindersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import RecommendationsPage from "./pages/RecommendationsPage"; // ← THÊM MỚI
+import RecommendationsPage from "./pages/RecommendationsPage";
+import PersonPage from "./pages/PersonPage"; // ← THÊM MỚI
 
 function App() {
   return (
@@ -32,7 +33,8 @@ function App() {
               <Route
                 path="/recommendations"
                 element={<RecommendationsPage />}
-              />{" "}
+              />
+              <Route path="/person/:id" element={<PersonPage />} />{" "}
               {/* ← THÊM MỚI */}
             </Routes>
           </BrowserRouter>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getMovieDetail,
   getTrailer,
@@ -28,8 +28,6 @@ function fmtMoney(n) {
     ? `$${(n / 1_000_000_000).toFixed(2)}B`
     : `$${(n / 1_000_000).toFixed(1)}M`;
 }
-
-/* ── score helpers ────────────────────────────── */
 function scoreColor(n) {
   if (n >= 7.5)
     return { stroke: "#22c55e", text: "#22c55e", glow: "rgba(34,197,94,0.4)" };
@@ -193,8 +191,8 @@ function BigRating({ rating, votes }) {
   );
 }
 
-/* ── Section title component ────────────────── */
-function SectionTitle({ children, scrollRef, onScroll }) {
+/* ── Section title ───────────────────────────── */
+function SectionTitle({ children, onScroll }) {
   return (
     <div style={s.sectionHeader}>
       <div style={s.sectionTitleWrap}>
@@ -203,85 +201,142 @@ function SectionTitle({ children, scrollRef, onScroll }) {
       </div>
       {onScroll && (
         <div style={s.scrollBtns}>
-          <button
-            style={s.scrollBtn}
-            onClick={() => onScroll(-1)}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--red-dim)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--bg-card2)")
-            }
-          >
-            <IconChevLeft />
-          </button>
-          <button
-            style={s.scrollBtn}
-            onClick={() => onScroll(1)}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--red-dim)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--bg-card2)")
-            }
-          >
-            <IconChevRight />
-          </button>
+          {[-1, 1].map((dir) => (
+            <button
+              key={dir}
+              style={s.scrollBtn}
+              onClick={() => onScroll(dir)}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--red-dim)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--bg-card2)")
+              }
+            >
+              {dir === -1 ? <IconChevLeft /> : <IconChevRight />}
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Cast portrait card ──────────────────────── */
+/* ── Cast card — NOW CLICKABLE → /person/:id ─── */
 function CastCard({ person }) {
   const [err, setErr] = useState(false);
   const [hov, setHov] = useState(false);
   return (
-    <div
-      style={{
-        ...s.castCard,
-        transform: hov ? "translateY(-4px)" : "translateY(0)",
-        boxShadow: hov ? "0 12px 32px rgba(0,0,0,0.7)" : "var(--shadow-card)",
-      }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+    <Link
+      to={`/person/${person.id}`}
+      style={{ textDecoration: "none", flexShrink: 0 }}
+      title={`Xem thông tin ${person.name}`}
     >
-      <div style={s.castImgWrap}>
-        {person.profile && !err ? (
-          <img
-            src={person.profile}
-            alt={person.name}
-            style={s.castImg}
-            onError={() => setErr(true)}
-            loading="lazy"
-          />
-        ) : (
-          <div style={s.castImgFallback}>
-            <span
+      <div
+        style={{
+          ...s.castCard,
+          transform: hov ? "translateY(-6px) scale(1.04)" : "translateY(0)",
+          boxShadow: hov
+            ? "0 16px 40px rgba(0,0,0,0.8), 0 0 0 1.5px rgba(229,9,20,0.4)"
+            : "var(--shadow-card)",
+        }}
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+      >
+        <div style={s.castImgWrap}>
+          {person.profile && !err ? (
+            <img
+              src={person.profile}
+              alt={person.name}
               style={{
-                fontSize: 28,
-                fontWeight: 700,
-                color: "var(--text-faint)",
-                fontFamily: "var(--font-display)",
+                ...s.castImg,
+                transform: hov ? "scale(1.08)" : "scale(1)",
               }}
-            >
-              {person.name?.[0]?.toUpperCase() || "?"}
-            </span>
+              onError={() => setErr(true)}
+              loading="lazy"
+            />
+          ) : (
+            <div style={s.castImgFallback}>
+              <span
+                style={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: "var(--text-faint)",
+                  fontFamily: "var(--font-display)",
+                }}
+              >
+                {person.name?.[0]?.toUpperCase() || "?"}
+              </span>
+            </div>
+          )}
+          <div style={{ ...s.castImgOverlay, opacity: hov ? 1 : 0 }} />
+
+          {/* Hover hint */}
+          <div
+            style={{
+              ...s.castHoverHint,
+              opacity: hov ? 1 : 0,
+              transform: hov ? "translateY(0)" : "translateY(4px)",
+            }}
+          >
+            Xem tiểu sử →
           </div>
-        )}
-        {/* overlay on hover */}
-        <div style={{ ...s.castImgOverlay, opacity: hov ? 1 : 0 }} />
+        </div>
+        <div style={s.castInfo}>
+          <p style={s.castName}>{person.name}</p>
+          {person.character && <p style={s.castChar}>{person.character}</p>}
+        </div>
       </div>
-      <div style={s.castInfo}>
-        <p style={s.castName}>{person.name}</p>
-        {person.character && <p style={s.castChar}>{person.character}</p>}
-      </div>
-    </div>
+    </Link>
   );
 }
 
-/* ── Similar movie mini-card ─────────────────── */
+/* ── Crew card ────────────────────────────────── */
+function CrewCard({ person }) {
+  const [err, setErr] = useState(false);
+  const [hov, setHov] = useState(false);
+  return (
+    <Link
+      to={`/person/${person.id}`}
+      style={{ textDecoration: "none", flexShrink: 0 }}
+    >
+      <div
+        style={{
+          ...s.crewCard,
+          transform: hov ? "translateY(-4px)" : "none",
+          boxShadow: hov
+            ? "0 12px 32px rgba(0,0,0,0.7), 0 0 0 1.5px rgba(229,9,20,0.3)"
+            : "var(--shadow-card)",
+        }}
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+      >
+        {/* Avatar */}
+        <div style={s.crewAvatar}>
+          {person.profile && !err ? (
+            <img
+              src={person.profile}
+              alt={person.name}
+              style={s.crewAvatarImg}
+              onError={() => setErr(true)}
+              loading="lazy"
+            />
+          ) : (
+            <div style={s.crewAvatarFallback}>
+              {person.name?.[0]?.toUpperCase() || "?"}
+            </div>
+          )}
+        </div>
+        <div style={s.crewInfo}>
+          <p style={s.crewName}>{person.name}</p>
+          <p style={s.crewJob}>{person.job}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Similar movie card ──────────────────────── */
 function SimilarCard({ movie, onClick }) {
   const [hov, setHov] = useState(false);
   const [err, setErr] = useState(false);
@@ -311,7 +366,6 @@ function SimilarCard({ movie, onClick }) {
       ) : (
         <div style={s.simImgFallback}>🎬</div>
       )}
-      {/* poster gradient + info */}
       <div style={s.simGrad} />
       <div style={s.simInfo}>
         <p style={s.simTitle}>{movie.title}</p>
@@ -328,7 +382,6 @@ function SimilarCard({ movie, onClick }) {
           )}
         </div>
       </div>
-      {/* hover badge */}
       <div
         style={{
           ...s.simBadge,
@@ -342,7 +395,7 @@ function SimilarCard({ movie, onClick }) {
   );
 }
 
-/* ── Info stat card ──────────────────────────── */
+/* ── Stat card ───────────────────────────────── */
 function StatCard({ icon, label, value }) {
   return (
     <div style={s.statCard}>
@@ -371,32 +424,18 @@ function LoadingSkeleton() {
         <div style={s.shimmerEl} />
       </div>
       <div style={{ padding: "40px clamp(20px,5vw,64px)" }}>
-        <div
-          style={{
-            height: 32,
-            width: 280,
-            borderRadius: 8,
-            background: "var(--bg-card)",
-            marginBottom: 16,
-          }}
-        />
-        <div
-          style={{
-            height: 16,
-            width: "70%",
-            borderRadius: 6,
-            background: "var(--bg-card)",
-            marginBottom: 10,
-          }}
-        />
-        <div
-          style={{
-            height: 16,
-            width: "55%",
-            borderRadius: 6,
-            background: "var(--bg-card)",
-          }}
-        />
+        {[280, "70%", "55%"].map((w, i) => (
+          <div
+            key={i}
+            style={{
+              height: i === 0 ? 32 : 16,
+              width: w,
+              borderRadius: i === 0 ? 8 : 6,
+              background: "var(--bg-card)",
+              marginBottom: i === 0 ? 16 : 10,
+            }}
+          />
+        ))}
       </div>
       <style>{css}</style>
     </div>
@@ -411,12 +450,14 @@ function MovieDetail() {
   const navigate = useNavigate();
   const showToast = useToast();
   const castRef = useRef(null);
+  const crewRef = useRef(null);
   const simRef = useRef(null);
   const backdropRef = useRef(null);
 
   const [movie, setMovie] = useState(null);
   const [youtubeKey, setYoutubeKey] = useState(null);
   const [cast, setCast] = useState([]);
+  const [crew, setCrew] = useState([]);
   const [similar, setSimilar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addingToList, setAdding] = useState(false);
@@ -426,7 +467,7 @@ function MovieDetail() {
   const [parallaxY, setParallaxY] = useState(0);
   const [entered, setEntered] = useState(false);
 
-  /* ── parallax backdrop ── */
+  /* parallax */
   useEffect(() => {
     const onScroll = () => {
       if (backdropRef.current) {
@@ -438,12 +479,13 @@ function MovieDetail() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* ── data fetch ── */
+  /* data fetch */
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
     setShowTrailer(false);
     setCast([]);
+    setCrew([]);
     setSimilar([]);
     setAdded(false);
     setEntered(false);
@@ -457,7 +499,18 @@ function MovieDetail() {
         const m = d.data;
         setMovie(m);
         setYoutubeKey(t.data?.youtube_key || null);
-        setCast(c.data || []);
+        // getCast now returns { cast, crew }
+        const castData = c.data;
+        if (
+          castData &&
+          typeof castData === "object" &&
+          !Array.isArray(castData)
+        ) {
+          setCast(castData.cast || []);
+          setCrew(castData.crew || []);
+        } else {
+          setCast(Array.isArray(castData) ? castData : []);
+        }
         setSimilar(
           Array.isArray(sim.data) ? sim.data : sim.data?.results || [],
         );
@@ -500,7 +553,6 @@ function MovieDetail() {
   const n = Number(movie.rating) || 0;
   const { stroke: ratingStroke } = scoreColor(n);
 
-  /* stat cards data */
   const stats = [
     movie.runtime > 0 && {
       icon: "⏱",
@@ -530,11 +582,8 @@ function MovieDetail() {
     <div style={s.page}>
       <Navbar />
 
-      {/* ════════════════════════════════
-          HERO — fullscreen backdrop
-      ════════════════════════════════ */}
+      {/* ════ HERO ════ */}
       <div ref={backdropRef} style={s.hero}>
-        {/* Backdrop image with parallax */}
         {movie.backdrop && (
           <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
             <img
@@ -547,14 +596,11 @@ function MovieDetail() {
             />
           </div>
         )}
-
-        {/* Multi-layer gradients */}
         <div style={s.gradLeft} />
         <div style={s.gradBottom} />
         <div style={s.gradTop} />
         <div style={s.gradVignette} />
 
-        {/* Back button */}
         <button
           style={s.backBtn}
           onClick={() => navigate(-1)}
@@ -570,7 +616,6 @@ function MovieDetail() {
           <IconBack /> <span>Quay lại</span>
         </button>
 
-        {/* ── Main content ── */}
         <div
           style={{
             ...s.heroContent,
@@ -580,13 +625,8 @@ function MovieDetail() {
               "opacity 0.55s ease, transform 0.55s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          {/* Tagline */}
           {movie.tagline && <p style={s.tagline}>"{movie.tagline}"</p>}
-
-          {/* Title */}
           <h1 style={s.title}>{movie.title}</h1>
-
-          {/* Meta chips */}
           <div style={s.metaRow}>
             {year && <span style={s.metaChip}>{year}</span>}
             {fmt(movie.runtime) && (
@@ -599,8 +639,6 @@ function MovieDetail() {
             )}
             <BigRating rating={movie.rating} votes={movie.vote_count} />
           </div>
-
-          {/* Genre pills */}
           {movie.genres?.length > 0 && (
             <div style={s.genreRow}>
               {movie.genres.map((g) => (
@@ -610,11 +648,7 @@ function MovieDetail() {
               ))}
             </div>
           )}
-
-          {/* Overview */}
           {movie.overview && <p style={s.overview}>{movie.overview}</p>}
-
-          {/* Action buttons */}
           <div style={s.btnRow}>
             {youtubeKey && (
               <button
@@ -642,7 +676,6 @@ function MovieDetail() {
                 <span>{showTrailer ? "Ẩn Trailer" : "Xem Trailer"}</span>
               </button>
             )}
-
             <button
               style={{
                 ...s.btnSecondary,
@@ -669,7 +702,6 @@ function MovieDetail() {
                 {added ? "Đã lưu" : addingToList ? "Đang thêm…" : "My List"}
               </span>
             </button>
-
             {isUpcoming(movie.release_date) && (
               <RemindButton
                 movie={movie}
@@ -681,7 +713,6 @@ function MovieDetail() {
           </div>
         </div>
 
-        {/* ── Floating poster ── */}
         {movie.poster && (
           <div
             style={{
@@ -693,7 +724,6 @@ function MovieDetail() {
             }}
           >
             <img src={movie.poster} alt={movie.title} style={s.poster} />
-            {/* rating badge on poster */}
             <div
               style={{
                 ...s.posterRatingBadge,
@@ -707,11 +737,9 @@ function MovieDetail() {
         )}
       </div>
 
-      {/* ════════════════════════════════
-          BODY CONTENT
-      ════════════════════════════════ */}
+      {/* ════ BODY ════ */}
       <div style={s.body}>
-        {/* ── Trailer embed ── */}
+        {/* Trailer */}
         {youtubeKey && showTrailer && (
           <div
             style={{ ...s.section, animation: "fadeSlideUp 0.4s ease both" }}
@@ -729,7 +757,7 @@ function MovieDetail() {
           </div>
         )}
 
-        {/* ── Stats row ── */}
+        {/* Stats */}
         {stats.length > 0 && (
           <div style={s.section}>
             <SectionTitle>Thông tin phim</SectionTitle>
@@ -746,21 +774,36 @@ function MovieDetail() {
           </div>
         )}
 
-        {/* ── Cast ── */}
+        {/* Crew (Director, Writer...) */}
+        {crew.length > 0 && (
+          <div style={s.section}>
+            <SectionTitle onScroll={(dir) => scrollList(crewRef, dir)}>
+              Đạo diễn &amp; Ê-kíp
+            </SectionTitle>
+            <div ref={crewRef} style={s.scrollRow}>
+              {crew.map((p) => (
+                <CrewCard key={p.id} person={p} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cast */}
         {cast.length > 0 && (
           <div style={s.section}>
             <SectionTitle onScroll={(dir) => scrollList(castRef, dir)}>
               Diễn viên
             </SectionTitle>
+            <p style={s.castHint}>Nhấn vào diễn viên để xem tiểu sử</p>
             <div ref={castRef} style={s.scrollRow}>
-              {cast.slice(0, 20).map((p) => (
+              {cast.map((p) => (
                 <CastCard key={p.id} person={p} />
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Similar movies ── */}
+        {/* Similar */}
         {similar.length > 0 && (
           <div style={{ ...s.section, paddingBottom: 80 }}>
             <SectionTitle onScroll={(dir) => scrollList(simRef, dir)}>
@@ -786,16 +829,9 @@ function MovieDetail() {
 
 /* ── CSS ─────────────────────────────────────── */
 const css = `
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes shimmerLoad {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-  ::-webkit-scrollbar { display: none; }
+  @keyframes fadeSlideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes shimmerLoad { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  ::-webkit-scrollbar { display:none; }
 `;
 
 /* ── Styles ──────────────────────────────────── */
@@ -804,20 +840,15 @@ const s = {
     background: "var(--bg-page)",
     minHeight: "100vh",
     color: "var(--text-primary)",
-    /* NO paddingTop — hero slides under the transparent navbar */
-    fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
   },
-
-  /* ── Hero ── */
   hero: {
     position: "relative",
     width: "100%",
-    /* full viewport height minus nothing — navbar floats on top */
-    height: "min(72vh, 700px)",
+    height: "min(72vh,700px)",
     minHeight: 500,
     overflow: "hidden",
     background: "var(--bg-page)",
-    /* pull up behind fixed navbar so backdrop starts at y=0 */
     marginTop: -60,
     paddingTop: 60,
   },
@@ -858,37 +889,33 @@ const s = {
     background:
       "radial-gradient(ellipse 130% 100% at 72% 50%, transparent 38%, rgba(0,0,0,0.28) 100%)",
   },
-
-  /* Back button */
   backBtn: {
     position: "absolute",
-    top: "clamp(76px, 12vh, 96px)",
-    left: "clamp(16px, 3.5vw, 48px)",
+    top: "clamp(76px,12vh,96px)",
+    left: "clamp(16px,3.5vw,48px)",
     zIndex: 10,
     display: "flex",
     alignItems: "center",
     gap: 7,
-    background: "var(--bg-glass, rgba(14,18,24,0.75))",
+    background: "var(--bg-glass,rgba(14,18,24,0.75))",
     border: "1px solid var(--border-mid)",
     color: "var(--text-secondary)",
     padding: "7px 14px 7px 10px",
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 500,
     backdropFilter: "blur(12px)",
-    fontFamily: "var(--font-body, sans-serif)",
-    transition: "background 0.18s ease, border-color 0.18s ease !important",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "all 0.18s ease",
   },
-
-  /* Hero content */
   heroContent: {
     position: "absolute",
-    bottom: "clamp(48px, 9vh, 80px)",
-    left: "clamp(24px, 5vw, 72px)",
-    maxWidth: "min(560px, 50vw)",
+    bottom: "clamp(48px,9vh,80px)",
+    left: "clamp(24px,5vw,72px)",
+    maxWidth: "min(560px,50vw)",
     zIndex: 10,
-    willChange: "opacity, transform",
+    willChange: "opacity,transform",
   },
   tagline: {
     fontSize: 14,
@@ -898,8 +925,8 @@ const s = {
     letterSpacing: "0.01em",
   },
   title: {
-    fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
-    fontSize: "clamp(34px, 5vw, 66px)",
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: "clamp(34px,5vw,66px)",
     fontWeight: 400,
     lineHeight: 1.0,
     letterSpacing: "0.02em",
@@ -920,7 +947,7 @@ const s = {
     letterSpacing: "0.04em",
     background: "rgba(255,255,255,0.09)",
     border: "1px solid rgba(255,255,255,0.15)",
-    borderRadius: "var(--radius-sm, 6px)",
+    borderRadius: 6,
     padding: "4px 11px",
     color: "rgba(255,255,255,0.82)",
     backdropFilter: "blur(6px)",
@@ -929,8 +956,8 @@ const s = {
   genrePill: {
     background: "rgba(229,9,20,0.14)",
     border: "1px solid rgba(229,9,20,0.35)",
-    color: "var(--red-text, #ff6b6b)",
-    borderRadius: "var(--radius-full, 999px)",
+    color: "var(--red-text,#ff6b6b)",
+    borderRadius: 999,
     padding: "4px 13px",
     fontSize: 12,
     fontWeight: 600,
@@ -956,18 +983,17 @@ const s = {
     border: "none",
     color: "#fff",
     padding: "12px 24px",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     fontSize: 14,
     fontWeight: 700,
     letterSpacing: "0.05em",
     cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
+    fontFamily: "var(--font-body,sans-serif)",
     boxShadow: "0 4px 20px rgba(229,9,20,0.35)",
-    transition:
-      "background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease !important",
+    transition: "all 0.18s ease",
   },
   btnPrimaryActive: {
-    background: "var(--red-hover, #ff1a1a)",
+    background: "var(--red-hover,#ff1a1a)",
     boxShadow: "var(--red-glow)",
   },
   btnSecondary: {
@@ -978,31 +1004,29 @@ const s = {
     border: "1px solid rgba(255,255,255,0.2)",
     color: "rgba(255,255,255,0.88)",
     padding: "11px 22px",
-    borderRadius: "var(--radius-md, 10px)",
+    borderRadius: 10,
     fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
+    fontFamily: "var(--font-body,sans-serif)",
     backdropFilter: "blur(8px)",
-    transition: "background 0.18s ease, border-color 0.18s ease !important",
+    transition: "all 0.18s ease",
   },
   btnAdded: {
-    color: "var(--green, #22c55e)",
+    color: "var(--green,#22c55e)",
     borderColor: "rgba(34,197,94,0.4)",
     cursor: "default",
   },
-
-  /* Floating poster */
   posterWrap: {
     position: "absolute",
-    right: "clamp(20px, 5vw, 72px)",
-    bottom: "clamp(28px, 6vh, 56px)",
+    right: "clamp(20px,5vw,72px)",
+    bottom: "clamp(28px,6vh,56px)",
     zIndex: 10,
-    willChange: "opacity, transform",
+    willChange: "opacity,transform",
   },
   poster: {
-    width: "clamp(120px, 12vw, 180px)",
-    borderRadius: "var(--radius-lg, 14px)",
+    width: "clamp(120px,12vw,180px)",
+    borderRadius: 14,
     boxShadow: "0 24px 64px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08)",
     display: "block",
   },
@@ -1010,9 +1034,9 @@ const s = {
     position: "absolute",
     top: -12,
     right: -12,
-    background: "var(--bg-overlay, #1a2030)",
+    background: "var(--bg-overlay,#1a2030)",
     border: "1.5px solid",
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     padding: "4px 10px",
     fontSize: 12,
     fontWeight: 800,
@@ -1020,38 +1044,26 @@ const s = {
     boxShadow: "0 4px 14px rgba(0,0,0,0.5)",
     whiteSpace: "nowrap",
   },
-
-  /* ── Body ── */
-  body: {
-    maxWidth: 1200,
-    margin: "0 auto",
-    padding: "0 clamp(20px,5vw,64px)",
-  },
+  body: { maxWidth: 1200, margin: "0 auto", padding: "0 clamp(20px,5vw,64px)" },
   section: { paddingTop: 48 },
-
-  /* Section header */
   sectionHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-  sectionTitleWrap: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-  },
+  sectionTitleWrap: { display: "flex", alignItems: "center", gap: 14 },
   sectionAccent: {
     width: 4,
     height: 22,
-    borderRadius: "var(--radius-full, 999px)",
+    borderRadius: 999,
     background: "var(--red)",
     boxShadow: "0 0 10px rgba(229,9,20,0.45)",
     flexShrink: 0,
   },
   sectionTitle: {
-    fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
-    fontSize: "var(--text-2xl, 30px)",
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: "var(--text-2xl,30px)",
     fontWeight: 400,
     letterSpacing: "0.06em",
     margin: 0,
@@ -1069,7 +1081,7 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "background 0.15s ease !important",
+    transition: "background 0.15s ease",
   },
   scrollRow: {
     display: "flex",
@@ -1079,12 +1091,16 @@ const s = {
     paddingBottom: 8,
     paddingTop: 2,
   },
-
-  /* ── Trailer ── */
+  castHint: {
+    margin: "-12px 0 14px",
+    fontSize: 12,
+    color: "var(--text-faint)",
+    fontStyle: "italic",
+  },
   trailerWrap: {
     position: "relative",
     paddingTop: "56.25%",
-    borderRadius: "var(--radius-lg, 14px)",
+    borderRadius: 14,
     overflow: "hidden",
     background: "#000",
     boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
@@ -1098,22 +1114,19 @@ const s = {
     height: "100%",
     border: "none",
   },
-
-  /* ── Stats grid ── */
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
     gap: 12,
   },
   statCard: {
     display: "flex",
     alignItems: "center",
     gap: 14,
-    background: "var(--bg-surface, #0e1218)",
+    background: "var(--bg-surface,#0e1218)",
     border: "1px solid var(--border)",
-    borderRadius: "var(--radius-lg, 14px)",
+    borderRadius: 14,
     padding: "14px 18px",
-    transition: "border-color 0.18s ease !important",
   },
   statIcon: { fontSize: 20, flexShrink: 0, lineHeight: 1 },
   statLabel: {
@@ -1132,17 +1145,69 @@ const s = {
     marginTop: 2,
   },
 
-  /* ── Cast card ── */
-  castCard: {
+  /* Crew card */
+  crewCard: {
     flexShrink: 0,
-    width: 110,
-    borderRadius: "var(--radius-lg, 14px)",
+    width: 140,
+    borderRadius: 12,
     overflow: "hidden",
-    background: "var(--bg-surface, #0e1218)",
+    background: "var(--bg-surface,#0e1218)",
     border: "1px solid var(--border)",
-    cursor: "default",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "12px 14px",
     transition:
-      "transform 0.25s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.25s ease !important",
+      "transform 0.25s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.25s ease",
+  },
+  crewAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: "50%",
+    overflow: "hidden",
+    flexShrink: 0,
+    background: "var(--bg-card2)",
+  },
+  crewAvatarImg: { width: "100%", height: "100%", objectFit: "cover" },
+  crewAvatarFallback: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 18,
+    fontWeight: 700,
+    color: "var(--text-faint)",
+    background: "var(--bg-card2)",
+  },
+  crewInfo: { minWidth: 0 },
+  crewName: {
+    margin: 0,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    lineHeight: 1.3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  crewJob: {
+    margin: "3px 0 0",
+    fontSize: 10,
+    color: "#f5c518",
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+  },
+
+  /* Cast card */
+  castCard: {
+    width: 110,
+    borderRadius: 14,
+    overflow: "hidden",
+    background: "var(--bg-surface,#0e1218)",
+    border: "1px solid var(--border)",
+    transition:
+      "transform 0.25s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.25s ease",
   },
   castImgWrap: {
     position: "relative",
@@ -1157,7 +1222,7 @@ const s = {
     height: "100%",
     objectFit: "cover",
     display: "block",
-    transition: "transform 0.4s ease !important",
+    transition: "transform 0.4s ease",
   },
   castImgFallback: {
     width: "100%",
@@ -1170,8 +1235,20 @@ const s = {
   castImgOverlay: {
     position: "absolute",
     inset: 0,
-    background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)",
-    transition: "opacity 0.22s ease !important",
+    background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 55%)",
+    transition: "opacity 0.22s ease",
+  },
+  castHoverHint: {
+    position: "absolute",
+    bottom: 7,
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 9,
+    fontWeight: 700,
+    color: "rgba(255,255,255,0.85)",
+    letterSpacing: "0.04em",
+    transition: "opacity 0.2s ease, transform 0.2s ease",
   },
   castInfo: { padding: "10px 10px 12px" },
   castName: {
@@ -1198,18 +1275,18 @@ const s = {
     overflow: "hidden",
   },
 
-  /* ── Similar card ── */
+  /* Similar */
   simCard: {
     flexShrink: 0,
     width: 140,
-    borderRadius: "var(--radius-lg, 14px)",
+    borderRadius: 14,
     overflow: "hidden",
     cursor: "pointer",
     position: "relative",
     background: "var(--bg-card)",
     border: "1px solid var(--border)",
     transition:
-      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease !important",
+      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease",
   },
   simImg: {
     width: "100%",
@@ -1261,17 +1338,15 @@ const s = {
     fontWeight: 700,
     letterSpacing: "0.05em",
     padding: "3px 7px",
-    borderRadius: "var(--radius-sm, 6px)",
+    borderRadius: 6,
     backdropFilter: "blur(4px)",
-    transition: "opacity 0.18s ease, transform 0.18s ease !important",
+    transition: "opacity 0.18s ease, transform 0.18s ease",
   },
-
-  /* Shimmer skeleton el */
   shimmerEl: {
     position: "absolute",
     inset: 0,
     background:
-      "linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.035) 50%, transparent 62%)",
+      "linear-gradient(105deg,transparent 38%,rgba(255,255,255,0.035) 50%,transparent 62%)",
     backgroundSize: "250% 100%",
     animation: "shimmerLoad 1.9s ease-in-out infinite",
   },

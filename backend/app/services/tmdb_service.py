@@ -252,3 +252,149 @@ def get_similar_movies(movie_id: int, page: int = 1):
     if "error" in data:
         return []
     return format_movie_list(data.get("results", [])[:12])
+
+# ════════════════════════════════════════════
+# PERSON (DIỄN VIÊN / ĐẠO DIỄN) APIs
+# ════════════════════════════════════════════
+
+def get_person_detail(person_id: int) -> dict:
+    """
+    Trả về thông tin cá nhân: tên, tiểu sử, ngày sinh, ảnh đại diện.
+    Gọi cả endpoint /person/{id} lẫn /person/{id}/external_ids.
+    """
+    url    = f"{BASE_URL}/person/{person_id}"
+    params = {"api_key": settings.TMDB_API_KEY, "language": "vi-VN"}
+    data   = safe_request(url, params)
+    if "error" in data:
+        return data
+
+    # Nếu tiểu sử trống → thử lại bằng tiếng Anh
+    biography = data.get("biography") or ""
+    if not biography.strip():
+        params_en = {"api_key": settings.TMDB_API_KEY, "language": "en-US"}
+        en_data   = safe_request(url, params_en)
+        biography = en_data.get("biography", "")
+
+    profile_path = data.get("profile_path")
+    return {
+        "id":            data.get("id"),
+        "name":          data.get("name"),
+        "biography":     biography,
+        "birthday":      data.get("birthday"),
+        "deathday":      data.get("deathday"),
+        "place_of_birth":data.get("place_of_birth"),
+        "profile":       f"{PROFILE_BASE}{profile_path}" if profile_path else None,
+        "profile_hd":    f"https://image.tmdb.org/t/p/w500{profile_path}" if profile_path else None,
+        "known_for_department": data.get("known_for_department"),
+        "gender":        data.get("gender"),   # 1=Nữ, 2=Nam, 0=Không xác định
+        "popularity":    data.get("popularity"),
+    }
+
+
+def get_person_credits(person_id: int) -> dict:
+    """
+    Trả về toàn bộ filmography (phim tham gia):
+      - cast:  vai diễn (diễn viên)
+      - crew:  đạo diễn / biên kịch / sản xuất...
+    Đã format, sắp xếp theo năm phát hành mới nhất.
+    """
+    url    = f"{BASE_URL}/person/{person_id}/combined_credits"
+    params = {"api_key": settings.TMDB_API_KEY, "language": "vi-VN"}
+    data   = safe_request(url, params)
+    if "error" in data:
+        return {"cast": [], "crew": []}
+
+    def fmt_credit(m: dict, role: str = None, character: str = None) -> dict:
+        poster_path   = m.get("poster_path")
+        backdrop_path = m.get("backdrop_path")
+        # Ưu tiên movie, fallback TV show
+        title = m.get("title") or m.get("name") or "Unknown"
+        date  = m.get("release_date") or m.get("first_air_date") or ""
+        return {
+            "id":           m.get("id"),
+            "title":        title,
+            "media_type":   m.get("media_type", "movie"),
+            "poster":       f"{IMAGE_BASE}{poster_path}" if poster_path else None,
+            "backdrop":     f"{BACKDROP_BASE}{backdrop_path}" if backdrop_path else None,
+            "rating":       m.get("vote_average"),
+            "vote_count":   m.get("vote_count", 0),
+            "release_date": date,
+            "character":    character or m.get("character"),
+            "job":          role or m.get("job"),
+            "overview":     m.get("overview"),
+            "genre_ids":    m.get("genre_ids", []),
+        }
+
+    # Cast: chỉ lấy movie (bỏ TV nếu muốn)
+    raw_cast = data.get("cast", [])
+    cast = [
+        fmt_credit(m, character=m.get("character"))
+        for m in raw_cast
+        if m.get("media_type") == "movie" and m.get("poster_path")
+    ]
+    cast.sort(key=lambda m: m.get("release_date") or "", reverse=True)
+
+    # Crew: đạo diễn, biên kịch, sản xuất — chỉ lấy job quan trọng
+    IMPORTANT_JOBS = {"Director", "Screenplay", "Writer", "Producer", "Executive Producer", "Story"}
+    raw_crew = data.get("crew", [])
+    crew_seen = set()
+    crew = []
+    for m in raw_crew:
+        if m.get("media_type") != "movie":
+            continue
+        if m.get("job") not in IMPORTANT_JOBS:
+            continue
+        key = (m.get("id"), m.get("job"))
+        if key in crew_seen:
+            continue
+        crew_seen.add(key)
+        if m.get("poster_path"):
+            crew.append(fmt_credit(m, role=m.get("job")))
+
+    crew.sort(key=lambda m: m.get("release_date") or "", reverse=True)
+
+    return {
+        "cast": cast[:100],   # tối đa 100 phim
+        "crew": crew[:20],
+    }
+
+
+def get_movie_cast_with_crew(movie_id: int, cast_limit: int = 20) -> dict:
+    """
+    Mở rộng get_movie_cast: trả thêm crew (đạo diễn, biên kịch).
+    Dùng cho MovieDetail page.
+    """
+    url    = f"{BASE_URL}/movie/{movie_id}/credits"
+    params = {"api_key": settings.TMDB_API_KEY, "language": "vi-VN"}
+    data   = safe_request(url, params)
+    if "error" in data:
+        return {"cast": [], "crew": []}
+
+    cast = [
+        {
+            "id":        p.get("id"),
+            "name":      p.get("name"),
+            "character": p.get("character"),
+            "profile":   f"{PROFILE_BASE}{p.get('profile_path')}" if p.get("profile_path") else None,
+            "order":     p.get("order", 999),
+        }
+        for p in data.get("cast", [])[:cast_limit]
+    ]
+
+    DIRECTOR_JOBS = {"Director", "Screenplay", "Writer", "Producer"}
+    crew_seen = set()
+    crew = []
+    for p in data.get("crew", []):
+        if p.get("job") not in DIRECTOR_JOBS:
+            continue
+        if p.get("id") in crew_seen:
+            continue
+        crew_seen.add(p.get("id"))
+        crew.append({
+            "id":      p.get("id"),
+            "name":    p.get("name"),
+            "job":     p.get("job"),
+            "profile": f"{PROFILE_BASE}{p.get('profile_path')}" if p.get("profile_path") else None,
+        })
+
+    return {"cast": cast, "crew": crew}

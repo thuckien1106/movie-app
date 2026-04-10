@@ -8,7 +8,7 @@ from app.models.user import User
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
-# Whitelist sort_by values — chặn injection qua query param
+# Whitelist sort_by values
 VALID_SORT_BY = {
     "popularity.desc", "popularity.asc",
     "vote_average.desc", "vote_average.asc",
@@ -18,7 +18,6 @@ VALID_SORT_BY = {
     "original_title.asc", "original_title.desc",
 }
 
-# Regex: chỉ cho phép ký tự an toàn trong query tìm kiếm
 _SAFE_QUERY_RE = re.compile(
     r'^[\w\s\-\.\'\,\!\?\(\)àáảãạăắặằẳẵâấầẩẫậèéẻẽẹêếềệểễìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẶẰẲẴÂẤẦẨẪẬÈÉẺẼẸÊẾỀỆỂỄÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]+$',
     re.UNICODE
@@ -78,13 +77,11 @@ def get_all_movies(
     sort_by: str = Query("popularity.desc"),
 ):
     limiter.check(request, "movies_read", **Limits.READ_GENERAL)
-
     if sort_by not in VALID_SORT_BY:
         raise HTTPException(
             status_code=422,
             detail=f"sort_by không hợp lệ. Các giá trị cho phép: {', '.join(sorted(VALID_SORT_BY))}",
         )
-
     return tmdb_service.get_all_movies(page, genre_id, year, min_rating, sort_by)
 
 
@@ -97,6 +94,31 @@ def search(
     limiter.check(request, "search", **Limits.SEARCH)
     q = validate_search_query(q)
     return tmdb_service.search_movies(q, page)
+
+
+# ── PERSON (DIỄN VIÊN / ĐẠO DIỄN) ────────────────────────
+
+@router.get("/person/{person_id}")
+def person_detail(
+    request: Request,
+    person_id: int = Path(..., ge=1, le=10_000_000),
+):
+    """Thông tin cá nhân: tên, tiểu sử, ngày sinh, ảnh đại diện."""
+    limiter.check(request, "movies_read", **Limits.READ_GENERAL)
+    data = tmdb_service.get_person_detail(person_id)
+    if "error" in data:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người này.")
+    return data
+
+
+@router.get("/person/{person_id}/credits")
+def person_credits(
+    request: Request,
+    person_id: int = Path(..., ge=1, le=10_000_000),
+):
+    """Filmography: tất cả phim đã tham gia (vai diễn + đạo diễn/biên kịch)."""
+    limiter.check(request, "movies_read", **Limits.READ_GENERAL)
+    return tmdb_service.get_person_credits(person_id)
 
 
 # ── SINGLE MOVIE ───────────────────────────────────────────
@@ -125,8 +147,10 @@ def cast(
     movie_id: int = Path(..., ge=1, le=10_000_000),
     limit: int = Query(15, ge=1, le=30),
 ):
+    """Trả về cast + crew (đạo diễn, biên kịch) của bộ phim."""
     limiter.check(request, "movies_read", **Limits.READ_GENERAL)
-    return tmdb_service.get_movie_cast(movie_id, limit)
+    # Dùng hàm mới trả về cả cast lẫn crew
+    return tmdb_service.get_movie_cast_with_crew(movie_id, cast_limit=limit)
 
 
 @router.get("/{movie_id}/similar")

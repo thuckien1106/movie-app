@@ -67,12 +67,15 @@ def remove_from_watchlist(db: Session, user_id: int, movie_id: int):
 
 
 def mark_as_watched(db: Session, user_id: int, movie_id: int):
+    from datetime import datetime, timezone
     item = db.query(Watchlist).filter(
         Watchlist.user_id == user_id,
         Watchlist.movie_id == movie_id
     ).first()
     if item:
-        item.is_watched = not item.is_watched   # toggle
+        item.is_watched = not item.is_watched
+        # Ghi lại thời điểm đánh dấu đã xem, xóa khi bỏ đánh dấu
+        item.watched_at = datetime.now(timezone.utc) if item.is_watched else None
         db.commit()
         db.refresh(item)
     return item
@@ -108,6 +111,36 @@ def move_to_collection(db: Session, user_id: int, movie_id: int, collection_id: 
 # STATS
 # ════════════════════════════════════════════
 
+# Map TMDB genre ID → tên tiếng Việt
+# Nguồn: https://api.themoviedb.org/3/genre/movie/list
+_TMDB_GENRES: dict[str, str] = {
+    "28":    "Hành động",
+    "12":    "Phiêu lưu",
+    "16":    "Hoạt hình",
+    "35":    "Hài hước",
+    "80":    "Tội phạm",
+    "99":    "Tài liệu",
+    "18":    "Chính kịch",
+    "10751": "Gia đình",
+    "14":    "Giả tưởng",
+    "36":    "Lịch sử",
+    "27":    "Kinh dị",
+    "10402": "Âm nhạc",
+    "9648":  "Bí ẩn",
+    "10749": "Tình cảm",
+    "878":   "Khoa học viễn tưởng",
+    "10770": "Phim truyền hình",
+    "53":    "Giật gân",
+    "10752": "Chiến tranh",
+    "37":    "Cao bồi",
+}
+
+
+def _genre_name(genre_id: str) -> str:
+    """Trả về tên thể loại từ TMDB genre ID, fallback về ID nếu chưa có."""
+    return _TMDB_GENRES.get(genre_id.strip(), f"Thể loại {genre_id}")
+
+
 def get_watchlist_stats(db: Session, user_id: int) -> WatchlistStats:
     movies = db.query(Watchlist).filter(Watchlist.user_id == user_id).all()
 
@@ -123,7 +156,7 @@ def get_watchlist_stats(db: Session, user_id: int) -> WatchlistStats:
             all_genre_ids.extend(m.genre_ids.split(","))
     genre_counter = Counter(all_genre_ids)
     top_genres = [
-        GenreStat(genre_id=gid, count=cnt)
+        GenreStat(genre_id=gid, genre_name=_genre_name(gid), count=cnt)
         for gid, cnt in genre_counter.most_common(5)
     ]
 

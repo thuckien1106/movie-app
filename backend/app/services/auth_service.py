@@ -52,10 +52,10 @@ def get_activity(db: Session, user_id: int, limit: int = 30) -> ActivityResponse
     """Merge watchlist additions + watched events + collection creations into a timeline."""
     items = []
 
-    # Movies added (most recent first)
+    # Fetch đủ records để sau khi merge + sort vẫn còn đủ `limit` items
     added = db.query(Watchlist).filter(
         Watchlist.user_id == user_id
-    ).order_by(Watchlist.added_at.desc()).limit(limit).all()
+    ).order_by(Watchlist.added_at.desc()).limit(limit * 2).all()
 
     for m in added:
         if m.added_at:
@@ -63,11 +63,11 @@ def get_activity(db: Session, user_id: int, limit: int = 30) -> ActivityResponse
                 type="added", title=m.title, poster=m.poster,
                 movie_id=m.movie_id, col_name=None, at=m.added_at,
             ))
-        # Also surface "watched" milestone separately
-        if m.is_watched and m.added_at:
+        # Dùng watched_at thay vì added_at — đây là thời điểm thực sự đánh dấu
+        if m.is_watched and m.watched_at:
             items.append(ActivityItem(
                 type="watched", title=m.title, poster=m.poster,
-                movie_id=m.movie_id, col_name=None, at=m.added_at,
+                movie_id=m.movie_id, col_name=None, at=m.watched_at,
             ))
 
     # Collections created

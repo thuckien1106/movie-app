@@ -69,6 +69,7 @@ class WatchlistResponse(BaseModel):
     title:         str
     poster:        Optional[str]
     is_watched:    bool
+    watched_at:    Optional[datetime]
     note:          Optional[str]
     runtime:       Optional[int]
     genre_ids:     Optional[str]
@@ -82,8 +83,9 @@ class WatchlistResponse(BaseModel):
 # ── Stats ──────────────────────────────────────────────────
 
 class GenreStat(BaseModel):
-    genre_id: str
-    count:    int
+    genre_id:   str
+    genre_name: str        # Tên thể loại đã được map từ TMDB genre ID
+    count:      int
 
 
 class WatchlistStats(BaseModel):

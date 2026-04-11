@@ -1078,6 +1078,143 @@ function EmptyState() {
   );
 }
 
+/* ── Confirm Dialog ─────────────────────────────── */
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = "Xoá",
+  onConfirm,
+  onCancel,
+}) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 600,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--bg-overlay, #1a2030)",
+          border: "1px solid var(--border-mid)",
+          borderRadius: "var(--radius-xl)",
+          padding: "28px 28px 24px",
+          width: "100%",
+          maxWidth: 360,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+          animation: "confirmIn 0.2s cubic-bezier(0.34,1.3,0.64,1) both",
+        }}
+      >
+        {/* Icon */}
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "rgba(239,68,68,0.15)",
+            border: "1px solid rgba(239,68,68,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          <IconTrash />
+        </div>
+
+        <p
+          style={{
+            margin: "0 0 8px",
+            fontSize: 16,
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            lineHeight: 1.3,
+          }}
+        >
+          {title}
+        </p>
+        <p
+          style={{
+            margin: "0 0 24px",
+            fontSize: 13,
+            color: "var(--text-muted)",
+            lineHeight: 1.6,
+          }}
+        >
+          {message}
+        </p>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              background: "var(--bg-card2)",
+              border: "1px solid var(--border-mid)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--font-body,sans-serif)",
+              transition: "background 0.15s ease",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--bg-card)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--bg-card2)")
+            }
+          >
+            Huỷ
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              background: "#ef4444",
+              border: "none",
+              borderRadius: "var(--radius-md)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "var(--font-body,sans-serif)",
+              boxShadow: "0 4px 14px rgba(239,68,68,0.35)",
+              transition: "background 0.15s ease, box-shadow 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#dc2626";
+              e.currentTarget.style.boxShadow =
+                "0 4px 18px rgba(239,68,68,0.5)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#ef4444";
+              e.currentTarget.style.boxShadow =
+                "0 4px 14px rgba(239,68,68,0.35)";
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Mobile bottom drawer ───────────────────────── */
 function Drawer({ open, onClose, children }) {
   useEffect(() => {
@@ -1161,6 +1298,7 @@ export default function Watchlist() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null); // { movieId, title } | null
 
   const uid = user?.id ?? user?.email ?? "guest";
 
@@ -1208,10 +1346,21 @@ export default function Watchlist() {
     });
   }, [movies]);
 
-  const handleDelete = async (id) => {
-    await deleteMovie(id);
-    showToast("Đã xoá.", "success");
-    load();
+  const handleDelete = (id) => {
+    const movie = orderedMovies.find((m) => m.movie_id === id);
+    setConfirmDialog({ movieId: id, title: movie?.title || "phim này" });
+  };
+  const confirmDelete = async () => {
+    if (!confirmDialog) return;
+    try {
+      await deleteMovie(confirmDialog.movieId);
+      showToast("Đã xoá.", "success");
+      load();
+    } catch {
+      showToast("Xoá thất bại, vui lòng thử lại.", "error");
+    } finally {
+      setConfirmDialog(null);
+    }
   };
   const handleToggle = async (id) => {
     await toggleWatched(id);
@@ -1624,11 +1773,29 @@ export default function Watchlist() {
         </Drawer>
       )}
 
+      {/* Confirm delete dialog */}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title="Xoá phim khỏi watchlist?"
+        message={
+          confirmDialog
+            ? `"${confirmDialog.title}" sẽ bị xoá khỏi watchlist của bạn. Hành động này không thể hoàn tác.`
+            : ""
+        }
+        confirmLabel="Xoá"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDialog(null)}
+      />
+
       <style>{`
         [draggable=true] { cursor: grab; }
         [draggable=true]:active { cursor: grabbing; }
         ::-webkit-scrollbar { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes confirmIn {
+          from { opacity: 0; transform: scale(0.94) translateY(8px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0); }
+        }
       `}</style>
     </div>
   );

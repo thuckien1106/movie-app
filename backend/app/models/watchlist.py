@@ -23,6 +23,7 @@ class Watchlist(Base):
     title = Column(String(255), nullable=False)
     poster = Column(String(500), nullable=True)
     is_watched = Column(Boolean, default=False)
+    watched_at = Column(DateTime(timezone=True), nullable=True)  # Thời điểm đánh dấu đã xem
     note = Column(Text, nullable=True)                      # Ghi chú cá nhân
     runtime = Column(Integer, nullable=True)                # Thời lượng phim (phút) — cho stats
     genre_ids = Column(String(200), nullable=True)          # "28,12,35" — cho stats thể loại

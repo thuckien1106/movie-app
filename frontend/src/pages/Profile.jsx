@@ -427,6 +427,7 @@ export default function Profile() {
   const [avatar, setAvatar] = useState(user?.avatar || "🎬");
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false); // lock đồng bộ — tránh double-submit
 
   /* password */
   const [curPwd, setCurPwd] = useState("");
@@ -434,6 +435,7 @@ export default function Profile() {
   const [confPwd, setConfPwd] = useState("");
   const [showPwds, setShowPwds] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+  const savingPwdRef = useRef(false); // lock đồng bộ cho đổi mật khẩu
 
   useEffect(() => {
     if (!isLoggedIn) navigate("/login");
@@ -471,6 +473,9 @@ export default function Profile() {
 
   /* ── save profile ── */
   const handleSaveProfile = async () => {
+    // useRef làm gate đồng bộ — chặn double-submit dù click liên tiếp nhanh
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const res = await updateProfile({
@@ -484,6 +489,7 @@ export default function Profile() {
     } catch (err) {
       showToast(err.response?.data?.detail || "Lưu thất bại.", "error");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -498,6 +504,8 @@ export default function Profile() {
       showToast("Mật khẩu mới cần ít nhất 6 ký tự.", "error");
       return;
     }
+    if (savingPwdRef.current) return;
+    savingPwdRef.current = true;
     setSavingPwd(true);
     try {
       await changePassword({ current_password: curPwd, new_password: newPwd });
@@ -515,6 +523,7 @@ export default function Profile() {
         "error",
       );
     } finally {
+      savingPwdRef.current = false;
       setSavingPwd(false);
     }
   };
@@ -805,7 +814,7 @@ export default function Profile() {
                           "#f5c518",
                         ];
                         return (
-                          <div key={g.name || i}>
+                          <div key={g.genre_id || i}>
                             <div
                               style={{
                                 display: "flex",
@@ -820,7 +829,7 @@ export default function Profile() {
                                   fontWeight: 500,
                                 }}
                               >
-                                {g.name || g}
+                                {g.genre_name}
                               </span>
                               <span
                                 style={{

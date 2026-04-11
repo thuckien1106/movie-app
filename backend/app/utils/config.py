@@ -13,6 +13,11 @@ class Settings:
 
     TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
+    # ── Internal API key (dùng cho cron job / scheduler) ─
+    # Đặt giá trị ngẫu nhiên mạnh trong .env, VD:
+    #   INTERNAL_API_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+    INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+
     # ── Google OAuth2 ─────────────────────────────────
     GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")

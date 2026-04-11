@@ -19,7 +19,7 @@ DELETE /reminders/notifications/{id}         → xoá 1 thông báo
 POST   /reminders/internal/fire              → trigger thủ công (dev/admin)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Header
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -30,9 +30,34 @@ from app.schemas.reminder_schema import (
 from app.services import reminder_service
 from app.utils.dependencies import get_db, get_current_user
 from app.utils.rate_limit import limiter, Limits
+from app.utils.config import settings
 from app.models.user import User
 
 router = APIRouter(prefix="/reminders", tags=["Reminders"])
+
+
+# ── Internal key dependency ───────────────────────────────────────────────
+def verify_internal_key(x_internal_key: str = Header(..., alias="X-Internal-Key")) -> None:
+    """
+    Kiểm tra header X-Internal-Key khớp với INTERNAL_API_KEY trong .env.
+
+    Cron job / scheduler gọi endpoint này phải gửi kèm header:
+        X-Internal-Key: <giá trị trong .env>
+
+    Dùng secrets.compare_digest để chống timing attack.
+    """
+    import secrets as _secrets
+
+    configured = settings.INTERNAL_API_KEY
+    if not configured:
+        # Chưa cấu hình key → chặn hoàn toàn, tránh vô tình expose
+        raise HTTPException(
+            status_code=503,
+            detail="Endpoint nội bộ chưa được cấu hình. Đặt INTERNAL_API_KEY trong .env.",
+        )
+
+    if not _secrets.compare_digest(configured, x_internal_key):
+        raise HTTPException(status_code=401, detail="X-Internal-Key không hợp lệ.")
 
 
 # ════════════════════════════════════════════
@@ -161,13 +186,20 @@ def delete_notification(
 
 @router.post("/internal/fire")
 def fire_reminders(
-    request: Request,
-    db:      Session = Depends(get_db),
+    request:  Request,
+    db:       Session = Depends(get_db),
+    _:        None    = Depends(verify_internal_key),
 ):
     """
     Trigger kiểm tra và gửi thông báo thủ công.
-    Dùng để test hoặc chạy từ cron job bên ngoài.
-    Không cần auth — bảo vệ bằng rate limit chặt.
+    Dùng để test hoặc gọi từ cron job bên ngoài.
+
+    Yêu cầu header:
+        X-Internal-Key: <INTERNAL_API_KEY trong .env>
+
+    Ví dụ gọi từ cron (curl):
+        curl -X POST http://localhost:8000/reminders/internal/fire \\
+             -H "X-Internal-Key: your_secret_key_here"
     """
     limiter.check(request, "internal_fire", max_calls=5, window_sec=60)
     fired = reminder_service.check_and_fire(db)

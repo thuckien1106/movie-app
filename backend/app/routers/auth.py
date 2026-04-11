@@ -1,5 +1,7 @@
 # app/routers/auth.py
 import secrets
+import time
+from threading import Lock
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -129,25 +131,71 @@ def reset_password(request: Request, body: ResetPasswordRequest, db: Session = D
 # GOOGLE OAUTH2
 # ════════════════════════════════════════════
 
-# In-memory state store (chống CSRF)
-# Production nên dùng Redis với TTL 10 phút
-_oauth_states: set[str] = set()
+# TTL-aware in-memory state store (chống CSRF).
+# Mỗi state tự hết hạn sau STATE_TTL_SECONDS giây.
+# Thread-safe qua Lock — FastAPI chạy handler trong threadpool.
+# Production nên migrate sang Redis để hỗ trợ multi-process.
+STATE_TTL_SECONDS = 600   # 10 phút — đủ cho user hoàn thành OAuth flow
+STATE_MAX_SIZE    = 1000  # hard cap để tránh OOM nếu bị tấn công
+
+
+class OAuthStateStore:
+    """
+    Dict { state_token → expires_at } với TTL và hard cap.
+
+    - add(state)    : thêm state mới, tự purge các state hết hạn trước
+    - pop(state)    : xác thực và xóa state (one-time use)
+    - _purge_expired: xóa đúng các entry hết hạn, không clear toàn bộ
+    """
+
+    def __init__(self) -> None:
+        self._store: dict[str, float] = {}   # state → expires_at (epoch)
+        self._lock  = Lock()
+
+    def add(self, state: str) -> None:
+        with self._lock:
+            self._purge_expired()
+            # Nếu vẫn còn đầy sau purge → từ chối (tránh OOM)
+            if len(self._store) >= STATE_MAX_SIZE:
+                raise RuntimeError("OAuth state store đầy — thử lại sau.")
+            self._store[state] = time.monotonic() + STATE_TTL_SECONDS
+
+    def pop(self, state: str) -> bool:
+        """Trả về True nếu state hợp lệ và chưa hết hạn, đồng thời xóa nó."""
+        with self._lock:
+            expires_at = self._store.pop(state, None)
+            if expires_at is None:
+                return False
+            return time.monotonic() < expires_at
+
+    def _purge_expired(self) -> None:
+        """Xóa đúng các state đã hết hạn — KHÔNG clear toàn bộ."""
+        now = time.monotonic()
+        expired = [s for s, exp in self._store.items() if exp <= now]
+        for s in expired:
+            del self._store[s]
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._store)
+
+
+_oauth_states = OAuthStateStore()
 
 
 @router.get("/google/login")
 def google_login(request: Request):
     """
     Bước 1: FE gọi endpoint này (hoặc redirect thẳng trình duyệt vào đây).
-    BE tạo state ngẫu nhiên, lưu lại, rồi redirect sang Google consent screen.
+    BE tạo state ngẫu nhiên, lưu vào store có TTL, rồi redirect sang Google.
     """
     limiter.check(request, "google_login", max_calls=20, window_sec=60)
 
     state = secrets.token_urlsafe(32)
-    _oauth_states.add(state)
-
-    # Dọn dẹp states cũ nếu quá nhiều (tránh memory leak)
-    if len(_oauth_states) > 1000:
-        _oauth_states.clear()
+    try:
+        _oauth_states.add(state)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Máy chủ bận, vui lòng thử lại.")
 
     auth_url = google_auth_service.build_google_auth_url(state)
     return RedirectResponse(url=auth_url)
@@ -163,8 +211,8 @@ def google_callback(
 ):
     """
     Bước 2: Google redirect về đây với code + state.
-    BE xác thực state, đổi code lấy userinfo, upsert User, phát JWT,
-    rồi redirect sang FE kèm token.
+    BE xác thực state (one-time use + TTL), đổi code lấy userinfo,
+    upsert User, phát JWT, rồi redirect sang FE kèm token.
     """
     frontend = settings.FRONTEND_ORIGIN
 
@@ -172,10 +220,9 @@ def google_callback(
     if error:
         return RedirectResponse(url=f"{frontend}/login?oauth_error=cancelled")
 
-    # Kiểm tra CSRF state
-    if state not in _oauth_states:
+    # Kiểm tra CSRF state — pop() vừa xác thực vừa xóa (one-time use)
+    if not _oauth_states.pop(state):
         return RedirectResponse(url=f"{frontend}/login?oauth_error=invalid_state")
-    _oauth_states.discard(state)
 
     # Đổi code → userinfo
     try:

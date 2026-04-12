@@ -305,6 +305,7 @@ function Sidebar({
   onCreateCol,
   isMobile,
   onClose,
+  maxCollections = 20,
 }) {
   const pct =
     stats?.total > 0 ? Math.round((stats.watched / stats.total) * 100) : 0;
@@ -527,44 +528,111 @@ function Sidebar({
 
       {/* New collection */}
       <div style={{ marginTop: 14 }}>
-        <p
+        <div
           style={{
-            margin: "0 0 8px",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "var(--text-faint)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 8,
           }}
         >
-          TẠO MỚI
-        </p>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input
-            value={newColName}
-            onChange={(e) => setNewColName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onCreateCol()}
-            placeholder="Tên bộ sưu tập..."
-            style={w.colInput}
-            onFocus={(e) => (e.target.style.borderColor = "var(--red-border)")}
-            onBlur={(e) => (e.target.style.borderColor = "var(--border-mid)")}
-          />
-          <button
-            onClick={onCreateCol}
-            style={w.addBtn}
-            title="Tạo"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--red-hover)";
-              e.currentTarget.style.boxShadow = "var(--red-glow)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--red)";
-              e.currentTarget.style.boxShadow = "none";
+          <p
+            style={{
+              margin: 0,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--text-faint)",
             }}
           >
-            <IconPlus />
-          </button>
+            TẠO MỚI
+          </p>
+          <span
+            style={{
+              fontSize: 10,
+              color:
+                collections.length >= maxCollections
+                  ? "var(--red-text)"
+                  : "var(--text-faint)",
+              fontWeight: 600,
+            }}
+          >
+            {collections.length}/{maxCollections}
+          </span>
         </div>
+
+        {collections.length >= maxCollections ? (
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--text-faint)",
+              fontStyle: "italic",
+              lineHeight: 1.5,
+              margin: 0,
+              padding: "8px 10px",
+              background: "var(--bg-card)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            Đã đạt giới hạn {maxCollections} bộ sưu tập. Xoá bớt để tạo mới.
+          </p>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={newColName}
+                onChange={(e) => setNewColName(e.target.value.slice(0, 100))}
+                onKeyDown={(e) => e.key === "Enter" && onCreateCol()}
+                placeholder="Tên bộ sưu tập..."
+                maxLength={100}
+                style={w.colInput}
+                onFocus={(e) =>
+                  (e.target.style.borderColor = "var(--red-border)")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderColor = "var(--border-mid)")
+                }
+              />
+              <button
+                onClick={onCreateCol}
+                disabled={!newColName.trim()}
+                style={{
+                  ...w.addBtn,
+                  opacity: newColName.trim() ? 1 : 0.4,
+                  cursor: newColName.trim() ? "pointer" : "not-allowed",
+                }}
+                title="Tạo"
+                onMouseEnter={(e) => {
+                  if (!newColName.trim()) return;
+                  e.currentTarget.style.background = "var(--red-hover)";
+                  e.currentTarget.style.boxShadow = "var(--red-glow)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--red)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <IconPlus />
+              </button>
+            </div>
+            {newColName.length > 80 && (
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  fontSize: 10,
+                  color:
+                    newColName.length >= 100
+                      ? "var(--red-text)"
+                      : "var(--text-faint)",
+                }}
+              >
+                {newColName.length}/100 ký tự
+              </p>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -1376,12 +1444,27 @@ export default function Watchlist() {
     });
     load();
   };
+  const MAX_COLLECTIONS = 20;
+
   const handleCreateCol = async () => {
-    if (!newColName.trim()) return;
-    await createCollection({ name: newColName.trim() });
-    showToast(`Tạo "${newColName}" thành công!`, "success");
-    setNewColName("");
-    load();
+    const name = newColName.trim();
+    if (!name) return;
+    if (name.length > 100) {
+      showToast("Tên bộ sưu tập không được quá 100 ký tự.", "error");
+      return;
+    }
+    if (collections.length >= MAX_COLLECTIONS) {
+      showToast(`Đã đạt giới hạn ${MAX_COLLECTIONS} bộ sưu tập.`, "error");
+      return;
+    }
+    try {
+      await createCollection({ name });
+      showToast(`Tạo "${name}" thành công!`, "success");
+      setNewColName("");
+      load();
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Tạo thất bại.", "error");
+    }
   };
   const handleDeleteCol = async (id) => {
     await deleteCollection(id);

@@ -10,9 +10,6 @@ import {
 } from "../api/movieApi";
 import Navbar from "../components/Navbar";
 
-/* ══════════════════════════════════════════════
-   AVATAR PALETTE  — 5 categories
-══════════════════════════════════════════════ */
 const AVATAR_GROUPS = [
   { label: "Phim", items: ["🎬", "🎭", "🍿", "🎥", "🎞", "📽", "🎦", "🎪"] },
   {
@@ -24,11 +21,12 @@ const AVATAR_GROUPS = [
     items: ["🚀", "🌙", "⭐", "🌌", "☄️", "🛸", "🌠", "🔭"],
   },
   { label: "Vui vẻ", items: ["🔥", "🌊", "🌸", "🍉", "🎮", "💎", "⚡", "🌈"] },
-  { label: "Ký tự", items: ["👾", "🤖", "👻", "💀", "🎃", "🧙", "🦸", "🧝"] },
+  {
+    label: "Nhân vật",
+    items: ["👾", "🤖", "👻", "💀", "🎃", "🧙", "🦸", "🧝"],
+  },
 ];
-const ALL_AVATARS = AVATAR_GROUPS.flatMap((g) => g.items);
 
-/* ── helpers ──────────────────────────────────── */
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
   if (diff < 60) return "vừa xong";
@@ -50,39 +48,45 @@ function pwdScore(pw) {
 const PWD_LABELS = ["", "Yếu", "Trung bình", "Khá", "Tốt", "Mạnh"];
 const PWD_COLORS = ["", "#ef4444", "#f97316", "#eab308", "#22c55e", "#16a34a"];
 
-/* ── activity config ──────────────────────────── */
+function validateUsername(name) {
+  if (!name) return null;
+  if (name.length < 2) return "Tên cần ít nhất 2 ký tự.";
+  if (name.length > 50) return "Tên không được quá 50 ký tự.";
+  if (/[<>{}\[\]\\]/.test(name)) return "Tên chứa ký tự không hợp lệ.";
+  return null;
+}
+
 const ACT = {
   added: {
     icon: "＋",
-    bg: "rgba(59,130,246,0.18)",
-    border: "rgba(59,130,246,0.4)",
+    bg: "rgba(59,130,246,0.15)",
+    border: "rgba(59,130,246,0.35)",
     color: "#93c5fd",
     label: "Thêm vào watchlist",
   },
   watched: {
     icon: "✓",
-    bg: "rgba(34,197,94,0.18)",
-    border: "rgba(34,197,94,0.4)",
+    bg: "rgba(34,197,94,0.15)",
+    border: "rgba(34,197,94,0.35)",
     color: "#86efac",
     label: "Đã xem",
   },
   collection_created: {
     icon: "▣",
-    bg: "rgba(234,179,8,0.18)",
-    border: "rgba(234,179,8,0.4)",
+    bg: "rgba(234,179,8,0.15)",
+    border: "rgba(234,179,8,0.35)",
     color: "#fde047",
     label: "Tạo bộ sưu tập",
   },
   default: {
     icon: "•",
-    bg: "rgba(148,163,184,0.15)",
-    border: "rgba(148,163,184,0.3)",
+    bg: "rgba(148,163,184,0.12)",
+    border: "rgba(148,163,184,0.25)",
     color: "#94a3b8",
     label: "Hoạt động",
   },
 };
 
-/* ── SVG icons ────────────────────────────────── */
 const IconEye = ({ open }) =>
   open ? (
     <svg
@@ -113,7 +117,6 @@ const IconEye = ({ open }) =>
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
-
 const IconEdit = () => (
   <svg
     width="13"
@@ -129,35 +132,41 @@ const IconEdit = () => (
     <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
   </svg>
 );
+const IconCheck = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
 
-/* ── Trophy ring component ────────────────────── */
 function TrophyRing({ value, max, label, sublabel, color, icon, delay = 0 }) {
   const [animated, setAnimated] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), delay + 200);
     return () => clearTimeout(t);
   }, [delay]);
-
   const R = 30,
     SW = 4,
     C = R + SW + 2;
   const len = 2 * Math.PI * R;
   const pct = max > 0 ? Math.min(value / max, 1) : 0;
   const arc = animated ? pct * len : 0;
-
   return (
-    <div style={t.ringCard}>
+    <div style={s.ringCard}>
       <svg
         width={C * 2}
         height={C * 2}
         viewBox={`0 0 ${C * 2} ${C * 2}`}
-        style={{
-          display: "block",
-          overflow: "visible",
-          filter: `drop-shadow(0 0 6px ${color}55)`,
-        }}
+        style={{ display: "block", overflow: "visible" }}
       >
-        {/* track */}
         <circle
           cx={C}
           cy={C}
@@ -166,7 +175,6 @@ function TrophyRing({ value, max, label, sublabel, color, icon, delay = 0 }) {
           stroke="var(--border)"
           strokeWidth={SW}
         />
-        {/* arc */}
         <circle
           cx={C}
           cy={C}
@@ -183,7 +191,6 @@ function TrophyRing({ value, max, label, sublabel, color, icon, delay = 0 }) {
               : "none",
           }}
         />
-        {/* icon */}
         <text
           x={C}
           y={C - 5}
@@ -194,7 +201,6 @@ function TrophyRing({ value, max, label, sublabel, color, icon, delay = 0 }) {
         >
           {icon}
         </text>
-        {/* value */}
         <text
           x={C}
           y={C + 10}
@@ -208,56 +214,66 @@ function TrophyRing({ value, max, label, sublabel, color, icon, delay = 0 }) {
           {value}
         </text>
       </svg>
-      <p style={t.ringLabel}>{label}</p>
-      {sublabel && <p style={t.ringSublabel}>{sublabel}</p>}
+      <p style={s.ringLabel}>{label}</p>
+      {sublabel && <p style={s.ringSublabel}>{sublabel}</p>}
     </div>
   );
 }
 
-/* ── Avatar Picker Modal ──────────────────────── */
 function AvatarPickerModal({ current, onSelect, onClose }) {
   const [activeGroup, setActiveGroup] = useState(0);
   return (
-    <div style={t.modalOverlay} onClick={onClose}>
-      <div style={t.modal} onClick={(e) => e.stopPropagation()}>
-        {/* header */}
-        <div style={t.modalHeader}>
-          <div style={t.modalTitleWrap}>
-            <div style={t.modalAccent} />
-            <h3 style={t.modalTitle}>Chọn Avatar</h3>
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={s.modalHeader}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 3,
+                height: 18,
+                borderRadius: 99,
+                background: "var(--red)",
+                flexShrink: 0,
+              }}
+            />
+            <h3
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-xl)",
+                fontWeight: 400,
+                letterSpacing: "0.06em",
+              }}
+            >
+              Chọn Avatar
+            </h3>
           </div>
-          <button
-            style={t.modalClose}
-            onClick={onClose}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--red-dim)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--bg-card2)")
-            }
-          >
+          <button style={s.modalClose} onClick={onClose}>
             ✕
           </button>
         </div>
-
-        {/* group tabs */}
-        <div style={t.groupTabs}>
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
           {AVATAR_GROUPS.map((g, i) => (
             <button
               key={i}
-              style={{
-                ...t.groupTab,
-                ...(activeGroup === i ? t.groupTabActive : {}),
-              }}
               onClick={() => setActiveGroup(i)}
+              style={{
+                ...s.groupTab,
+                ...(activeGroup === i ? s.groupTabActive : {}),
+              }}
             >
               {g.label}
             </button>
           ))}
         </div>
-
-        {/* grid */}
-        <div style={t.avatarGrid}>
+        <div style={s.avatarGrid}>
           {AVATAR_GROUPS[activeGroup].items.map((emoji) => {
             const isActive = emoji === current;
             return (
@@ -268,32 +284,119 @@ function AvatarPickerModal({ current, onSelect, onClose }) {
                   onClose();
                 }}
                 style={{
-                  ...t.avatarGridBtn,
-                  ...(isActive ? t.avatarGridBtnActive : {}),
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.background = "var(--bg-card2)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.background = "transparent";
+                  ...s.avatarGridBtn,
+                  ...(isActive ? s.avatarGridBtnActive : {}),
                 }}
               >
                 <span style={{ fontSize: 32, lineHeight: 1 }}>{emoji}</span>
-                {isActive && <div style={t.avatarCheck}>✓</div>}
+                {isActive && <div style={s.avatarCheck}>✓</div>}
               </button>
             );
           })}
         </div>
-
-        <p style={t.modalFooter}>Nhấn vào emoji để chọn làm avatar của bạn</p>
+        <p
+          style={{
+            margin: "14px 0 0",
+            fontSize: 11,
+            color: "var(--text-faint)",
+            textAlign: "center",
+          }}
+        >
+          Nhấn vào emoji để chọn làm avatar
+        </p>
       </div>
     </div>
   );
 }
 
-/* ── Section title with red accent ───────────── */
+function Field({ label, hint, error, children }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          color: error ? "#ef4444" : "var(--text-faint)",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </label>
+      {children}
+      {error && (
+        <p style={{ margin: "5px 0 0", fontSize: 11, color: "#ef4444" }}>
+          {error}
+        </p>
+      )}
+      {!error && hint && (
+        <p
+          style={{
+            margin: "5px 0 0",
+            fontSize: 11,
+            color: "var(--text-faint)",
+            lineHeight: 1.5,
+          }}
+        >
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StyledInput({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  type = "text",
+  error,
+  extra = {},
+}) {
+  const [focused, setFocused] = useState(false);
+  const borderColor = error
+    ? "#ef4444"
+    : focused
+      ? "var(--red-border)"
+      : "var(--border-mid)";
+  const shadow = error
+    ? "0 0 0 3px rgba(239,68,68,0.15)"
+    : focused
+      ? "0 0 0 3px var(--red-dim)"
+      : "none";
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        padding: "11px 14px",
+        background: disabled ? "rgba(255,255,255,0.03)" : "var(--bg-input)",
+        border: `1px solid ${borderColor}`,
+        borderRadius: "var(--radius-md)",
+        color: disabled ? "var(--text-faint)" : "var(--text-primary)",
+        fontSize: 14,
+        fontFamily: "var(--font-body,sans-serif)",
+        outline: "none",
+        boxSizing: "border-box",
+        cursor: disabled ? "not-allowed" : "text",
+        boxShadow: shadow,
+        opacity: disabled ? 0.5 : 1,
+        transition: "border-color 0.18s,box-shadow 0.18s",
+        ...extra,
+      }}
+    />
+  );
+}
+
 function SectionHead({ children }) {
   return (
     <div
@@ -310,7 +413,7 @@ function SectionHead({ children }) {
         style={{
           width: 3,
           height: 18,
-          borderRadius: "var(--radius-full)",
+          borderRadius: 99,
           background: "var(--red)",
           boxShadow: "0 0 8px rgba(229,9,20,0.4)",
           flexShrink: 0,
@@ -332,84 +435,6 @@ function SectionHead({ children }) {
   );
 }
 
-/* ── Form field wrapper ───────────────────────── */
-function Field({ label, hint, children }) {
-  return (
-    <div style={{ marginBottom: 22 }}>
-      <label
-        style={{
-          display: "block",
-          fontSize: 10,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          color: "var(--text-faint)",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--text-faint)",
-            marginTop: 5,
-            display: "block",
-            lineHeight: 1.5,
-          }}
-        >
-          {hint}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/* ── Styled input ─────────────────────────────── */
-function StyledInput({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  type = "text",
-  extra = {},
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={{
-        width: "100%",
-        padding: "11px 14px",
-        background: disabled ? "rgba(255,255,255,0.03)" : "var(--bg-input)",
-        border: `1px solid ${focused ? "var(--red-border)" : "var(--border-mid)"}`,
-        borderRadius: "var(--radius-md)",
-        color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-        fontSize: 14,
-        fontFamily: "var(--font-body, sans-serif)",
-        outline: "none",
-        boxSizing: "border-box",
-        cursor: disabled ? "not-allowed" : "text",
-        boxShadow: focused ? "0 0 0 3px var(--red-dim)" : "none",
-        transition: "border-color 0.18s ease, box-shadow 0.18s ease",
-        opacity: disabled ? 0.5 : 1,
-        ...extra,
-      }}
-    />
-  );
-}
-
-/* ══════════════════════════════════════════════
-   MAIN PAGE
-══════════════════════════════════════════════ */
 export default function Profile() {
   const { user, isLoggedIn, saveSession, logout } = useAuth();
   const navigate = useNavigate();
@@ -421,21 +446,20 @@ export default function Profile() {
   const [loadingAct, setLoadAct] = useState(false);
   const [entered, setEntered] = useState(false);
 
-  /* profile */
   const [username, setUsername] = useState(user?.username || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [avatar, setAvatar] = useState(user?.avatar || "🎬");
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false); // lock đồng bộ — tránh double-submit
+  const [usernameError, setUsernameError] = useState("");
+  const savingRef = useRef(false);
 
-  /* password */
   const [curPwd, setCurPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confPwd, setConfPwd] = useState("");
   const [showPwds, setShowPwds] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
-  const savingPwdRef = useRef(false); // lock đồng bộ cho đổi mật khẩu
+  const savingPwdRef = useRef(false);
 
   useEffect(() => {
     if (!isLoggedIn) navigate("/login");
@@ -444,15 +468,13 @@ export default function Profile() {
     const t = setTimeout(() => setEntered(true), 80);
     return () => clearTimeout(t);
   }, []);
-
-  /* load data per tab */
   useEffect(() => {
     if (tab === "activity" && activity.length === 0) {
       setLoadAct(true);
       Promise.all([getActivity(40), getWatchlistStats()])
-        .then(([a, s]) => {
+        .then(([a, st]) => {
           setActivity(a.data?.items || []);
-          setStats(s.data);
+          setStats(st.data);
         })
         .catch(() => showToast("Không tải được lịch sử.", "error"))
         .finally(() => setLoadAct(false));
@@ -466,35 +488,51 @@ export default function Profile() {
 
   if (!isLoggedIn || !user) return null;
 
-  const displayName = user.username || user.email?.split("@")[0] || "User";
+  const displayName =
+    username.trim() || user.username || user.email?.split("@")[0] || "User";
   const strength = pwdScore(newPwd);
   const completePct =
     stats?.total > 0 ? Math.round((stats.watched / stats.total) * 100) : 0;
 
-  /* ── save profile ── */
+  const handleUsernameChange = (val) => {
+    setUsername(val);
+    setUsernameError(val.trim() ? validateUsername(val.trim()) || "" : "");
+  };
+
   const handleSaveProfile = async () => {
-    // useRef làm gate đồng bộ — chặn double-submit dù click liên tiếp nhanh
     if (savingRef.current) return;
+    const trimmedUsername = username.trim();
+    const trimmedBio = bio.trim();
+    const err = trimmedUsername ? validateUsername(trimmedUsername) : null;
+    if (err) {
+      setUsernameError(err);
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     try {
       const res = await updateProfile({
-        username: username.trim() || null,
-        bio: bio.trim() || null,
+        username: trimmedUsername || null,
+        bio: trimmedBio || null,
         avatar,
       });
-      const token = localStorage.getItem("token");
-      saveSession(token, { ...user, ...res.data });
+      saveSession(localStorage.getItem("token"), { ...user, ...res.data });
       showToast("Đã lưu hồ sơ!", "success");
     } catch (err) {
-      showToast(err.response?.data?.detail || "Lưu thất bại.", "error");
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail))
+        showToast(
+          detail.map((d) => d.message || d.msg).join(", ") ||
+            "Dữ liệu không hợp lệ.",
+          "error",
+        );
+      else showToast(detail || "Lưu thất bại, vui lòng thử lại.", "error");
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   };
 
-  /* ── change password ── */
   const handleChangePwd = async () => {
     if (newPwd !== confPwd) {
       showToast("Mật khẩu xác nhận không khớp.", "error");
@@ -535,32 +573,27 @@ export default function Profile() {
   ];
 
   return (
-    <div style={t.page}>
+    <div style={s.page}>
       <Navbar />
 
-      {/* ════════════════════════════════
-          HERO BANNER
-      ════════════════════════════════ */}
-      <div style={t.heroBanner}>
-        {/* Background layers */}
-        <div style={t.heroBg} />
-        <div style={t.heroGlow1} />
-        <div style={t.heroGlow2} />
-        <div style={t.heroGrid} />
-
+      {/* ═══ HERO ═══ */}
+      <div style={s.heroBanner}>
+        <div style={s.heroBg} />
+        <div style={s.heroGlow1} />
+        <div style={s.heroGlow2} />
+        <div style={s.heroGrid} />
         <div
           style={{
-            ...t.heroContent,
+            ...s.heroContent,
             opacity: entered ? 1 : 0,
             transform: entered ? "translateY(0)" : "translateY(16px)",
             transition:
-              "opacity 0.5s ease, transform 0.5s cubic-bezier(0.4,0,0.2,1)",
+              "opacity 0.5s ease,transform 0.5s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          {/* Avatar */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
-              style={t.avatarBtn}
+              style={s.avatarBtn}
               onClick={() => setShowPicker(true)}
               title="Đổi avatar"
             >
@@ -568,30 +601,28 @@ export default function Profile() {
                 {avatar}
               </span>
             </button>
-            <div style={t.avatarEditBadge} onClick={() => setShowPicker(true)}>
+            <div style={s.avatarEditBadge} onClick={() => setShowPicker(true)}>
               <IconEdit />
             </div>
           </div>
-
-          {/* Info */}
-          <div style={t.heroInfo}>
-            <div style={t.memberBadge}>✦ Thành viên Filmverse</div>
-            <h1 style={t.heroName}>{displayName}</h1>
-            <p style={t.heroEmail}>{user.email}</p>
-            {user.bio && <p style={t.heroBio}>"{user.bio}"</p>}
+          <div style={s.heroInfo}>
+            <div style={s.memberBadge}>✦ Thành viên Filmverse</div>
+            <h1 style={s.heroName}>{displayName}</h1>
+            <p style={s.heroEmail}>{user.email}</p>
+            {(user.bio || bio.trim()) && (
+              <p style={s.heroBio}>"{bio.trim() || user.bio}"</p>
+            )}
           </div>
-
-          {/* Quick stats */}
           {stats && (
-            <div style={t.heroStats}>
+            <div style={s.heroStats}>
               {[
                 { v: stats.total, l: "Phim đã lưu" },
                 { v: stats.watched, l: "Đã xem" },
                 { v: completePct + "%", l: "Hoàn thành" },
               ].map(({ v, l }) => (
-                <div key={l} style={t.heroStat}>
-                  <span style={t.heroStatVal}>{v}</span>
-                  <span style={t.heroStatLabel}>{l}</span>
+                <div key={l} style={s.heroStat}>
+                  <span style={s.heroStatVal}>{v}</span>
+                  <span style={s.heroStatLabel}>{l}</span>
                 </div>
               ))}
             </div>
@@ -599,18 +630,16 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* ════════════════════════════════
-          TAB BAR
-      ════════════════════════════════ */}
-      <div style={t.tabBar}>
-        <div style={t.tabBarInner}>
+      {/* ═══ TAB BAR ═══ */}
+      <div style={s.tabBar}>
+        <div style={s.tabBarInner}>
           {TABS.map(({ key, label, icon }) => {
             const active = tab === key;
             return (
-              <button key={key} style={t.tabBtn} onClick={() => setTab(key)}>
+              <button key={key} style={s.tabBtn} onClick={() => setTab(key)}>
                 <span
                   style={{
-                    ...t.tabBtnInner,
+                    ...s.tabBtnInner,
                     color: active ? "var(--text-primary)" : "var(--text-muted)",
                   }}
                 >
@@ -619,7 +648,7 @@ export default function Profile() {
                 </span>
                 <span
                   style={{
-                    ...t.tabUnderline,
+                    ...s.tabUnderline,
                     transform: active ? "scaleX(1)" : "scaleX(0)",
                     opacity: active ? 1 : 0,
                   }}
@@ -630,26 +659,47 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* ════════════════════════════════
-          CONTENT PANELS
-      ════════════════════════════════ */}
-      <div style={t.body}>
-        {/* ══ PROFILE TAB ══ */}
+      {/* ═══ CONTENT ═══ */}
+      <div style={s.body}>
+        {/* ── PROFILE TAB ── */}
         {tab === "profile" && (
-          <div style={t.twoCol}>
-            {/* Left: form */}
-            <div style={t.formCol}>
+          <div style={s.twoCol}>
+            <div style={s.formCol}>
               <SectionHead>Thông tin cá nhân</SectionHead>
 
               <Field
                 label="Tên hiển thị"
-                hint="Tên này sẽ xuất hiện trên watchlist chia sẻ của bạn."
+                error={usernameError}
+                hint={
+                  !usernameError
+                    ? "Cho phép tiếng Việt có dấu, khoảng trắng, số, dấu _ . -"
+                    : undefined
+                }
               >
-                <StyledInput
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Đặt username của bạn..."
-                />
+                <div>
+                  <StyledInput
+                    value={username}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    placeholder="VD: Nguyễn Văn A"
+                    error={usernameError}
+                  />
+                  {username.trim() && !usernameError && (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        marginTop: 7,
+                        fontSize: 11,
+                        color: "#22c55e",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <IconCheck /> Tên hiển thị:{" "}
+                      <strong>{username.trim()}</strong>
+                    </div>
+                  )}
+                </div>
               </Field>
 
               <Field label="Email" hint="Email không thể thay đổi.">
@@ -666,19 +716,7 @@ export default function Profile() {
                   placeholder="Một vài câu về sở thích phim ảnh của bạn..."
                   rows={3}
                   maxLength={200}
-                  style={{
-                    width: "100%",
-                    padding: "11px 14px",
-                    background: "var(--bg-input)",
-                    border: "1px solid var(--border-mid)",
-                    borderRadius: "var(--radius-md)",
-                    color: "var(--text-primary)",
-                    fontSize: 14,
-                    fontFamily: "var(--font-body, sans-serif)",
-                    outline: "none",
-                    resize: "vertical",
-                    boxSizing: "border-box",
-                  }}
+                  style={s.textarea}
                   onFocus={(e) => {
                     e.target.style.borderColor = "var(--red-border)";
                     e.target.style.boxShadow = "0 0 0 3px var(--red-dim)";
@@ -693,7 +731,7 @@ export default function Profile() {
               <Field label="Avatar">
                 <button
                   onClick={() => setShowPicker(true)}
-                  style={t.changeAvatarBtn}
+                  style={s.changeAvatarBtn}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "var(--border-bright)";
                     e.currentTarget.style.background = "var(--bg-card2)";
@@ -730,10 +768,14 @@ export default function Profile() {
 
               <button
                 onClick={handleSaveProfile}
-                disabled={saving}
-                style={{ ...t.btnPrimary, opacity: saving ? 0.7 : 1 }}
+                disabled={saving || !!usernameError}
+                style={{
+                  ...s.btnPrimary,
+                  opacity: saving || !!usernameError ? 0.55 : 1,
+                  cursor: saving || !!usernameError ? "not-allowed" : "pointer",
+                }}
                 onMouseEnter={(e) => {
-                  if (!saving) {
+                  if (!saving && !usernameError) {
                     e.currentTarget.style.background = "var(--red-hover)";
                     e.currentTarget.style.boxShadow = "var(--red-glow)";
                   }
@@ -748,11 +790,10 @@ export default function Profile() {
               </button>
             </div>
 
-            {/* Right: trophy shelf */}
             {stats && (
-              <div style={t.trophyCol}>
+              <div style={s.trophyCol}>
                 <SectionHead>Thống kê</SectionHead>
-                <div style={t.trophyGrid}>
+                <div style={s.trophyGrid}>
                   <TrophyRing
                     value={stats.total}
                     max={100}
@@ -773,34 +814,22 @@ export default function Profile() {
                   {stats.collections != null && (
                     <TrophyRing
                       value={stats.collections}
-                      max={10}
+                      max={20}
                       label="Bộ sưu tập"
                       icon="▣"
                       color="#f5c518"
                       delay={240}
                     />
                   )}
-                  {stats.avg_rating != null && (
-                    <TrophyRing
-                      value={parseFloat(stats.avg_rating).toFixed(1)}
-                      max={10}
-                      label="Điểm TB"
-                      icon="★"
-                      color="#eab308"
-                      delay={360}
-                    />
-                  )}
                 </div>
-
-                {/* Favorite genres */}
                 {stats.top_genres?.length > 0 && (
                   <div style={{ marginTop: 24 }}>
-                    <p style={t.trophySubhead}>Thể loại yêu thích</p>
+                    <p style={s.trophySubhead}>Thể loại yêu thích</p>
                     <div
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: 8,
+                        gap: 10,
                       }}
                     >
                       {stats.top_genres.slice(0, 4).map((g, i) => {
@@ -819,12 +848,12 @@ export default function Profile() {
                               style={{
                                 display: "flex",
                                 justifyContent: "space-between",
-                                marginBottom: 4,
+                                marginBottom: 5,
                               }}
                             >
                               <span
                                 style={{
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   color: "var(--text-secondary)",
                                   fontWeight: 500,
                                 }}
@@ -842,9 +871,9 @@ export default function Profile() {
                             </div>
                             <div
                               style={{
-                                height: 4,
+                                height: 5,
                                 background: "var(--border)",
-                                borderRadius: "var(--radius-full)",
+                                borderRadius: 99,
                                 overflow: "hidden",
                               }}
                             >
@@ -853,7 +882,7 @@ export default function Profile() {
                                   height: "100%",
                                   width: `${pct}%`,
                                   background: colors[i],
-                                  borderRadius: "var(--radius-full)",
+                                  borderRadius: 99,
                                   transition: "width 1s ease",
                                 }}
                               />
@@ -869,166 +898,182 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ══ PASSWORD TAB ══ */}
+        {/* ── PASSWORD TAB ── */}
         {tab === "password" && (
           <div style={{ maxWidth: 480 }}>
             <SectionHead>Đổi mật khẩu</SectionHead>
-
-            {/* Security notice */}
-            <div style={t.securityNote}>
-              <span style={{ fontSize: 20 }}>🔒</span>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.6,
-                }}
-              >
-                Sau khi đổi mật khẩu thành công, bạn sẽ được đăng xuất tự động
-                để bảo mật tài khoản.
-              </p>
-            </div>
-
-            {[
-              {
-                label: "Mật khẩu hiện tại",
-                val: curPwd,
-                set: setCurPwd,
-                ph: "Nhập mật khẩu hiện tại",
-              },
-              {
-                label: "Mật khẩu mới",
-                val: newPwd,
-                set: setNewPwd,
-                ph: "Ít nhất 6 ký tự",
-                showStrength: true,
-              },
-              {
-                label: "Xác nhận mật khẩu",
-                val: confPwd,
-                set: setConfPwd,
-                ph: "Nhập lại mật khẩu mới",
-                showMatch: true,
-              },
-            ].map(({ label, val, set, ph, showStrength, showMatch }) => (
-              <Field key={label} label={label}>
-                <div style={{ position: "relative" }}>
-                  <StyledInput
-                    type={showPwds ? "text" : "password"}
-                    value={val}
-                    onChange={(e) => set(e.target.value)}
-                    placeholder={ph}
-                    extra={{ paddingRight: 44 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwds((p) => !p)}
-                    style={t.eyeBtn}
-                  >
-                    <IconEye open={showPwds} />
-                  </button>
-                </div>
-                {showStrength && val && (
-                  <div style={{ marginTop: 8 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 3,
-                        height: 3,
-                        marginBottom: 5,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div
-                          key={i}
-                          style={{
-                            flex: 1,
-                            height: 3,
-                            borderRadius: "var(--radius-full)",
-                            background:
-                              i <= strength
-                                ? PWD_COLORS[strength]
-                                : "var(--border)",
-                            opacity: i <= strength ? 1 : 0.3,
-                            transition: "background 0.3s ease",
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: PWD_COLORS[strength],
-                        fontWeight: 600,
-                      }}
-                    >
-                      {PWD_LABELS[strength]}
-                    </span>
-                  </div>
-                )}
-                {showMatch && confPwd && newPwd !== confPwd && (
-                  <span
+            {user.is_google ? (
+              <div style={s.infoNote}>
+                <span style={{ fontSize: 20 }}>🔑</span>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Tài khoản của bạn đăng nhập qua Google. Vui lòng đổi mật khẩu
+                  trực tiếp trong tài khoản Google.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div style={{ ...s.infoNote, marginBottom: 24 }}>
+                  <span style={{ fontSize: 20 }}>🔒</span>
+                  <p
                     style={{
-                      fontSize: 11,
-                      color: "#ef4444",
-                      marginTop: 5,
-                      display: "block",
+                      margin: 0,
+                      fontSize: 13,
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.6,
                     }}
                   >
-                    Mật khẩu không khớp
-                  </span>
-                )}
-                {showMatch &&
-                  confPwd &&
-                  newPwd === confPwd &&
-                  confPwd.length > 0 && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "#22c55e",
-                        marginTop: 5,
-                        display: "block",
-                      }}
-                    >
-                      ✓ Mật khẩu khớp
-                    </span>
-                  )}
-              </Field>
-            ))}
-
-            <button
-              onClick={handleChangePwd}
-              disabled={savingPwd || !curPwd || !newPwd || newPwd !== confPwd}
-              style={{
-                ...t.btnPrimary,
-                opacity:
-                  savingPwd || !curPwd || !newPwd || newPwd !== confPwd
-                    ? 0.45
-                    : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!savingPwd && curPwd && newPwd && newPwd === confPwd) {
-                  e.currentTarget.style.background = "var(--red-hover)";
-                  e.currentTarget.style.boxShadow = "var(--red-glow)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--red)";
-                e.currentTarget.style.boxShadow =
-                  "0 4px 18px rgba(229,9,20,0.3)";
-              }}
-            >
-              {savingPwd ? "Đang xử lý…" : "Đổi mật khẩu"}
-            </button>
+                    Sau khi đổi mật khẩu thành công, bạn sẽ được đăng xuất tự
+                    động để bảo mật tài khoản.
+                  </p>
+                </div>
+                {[
+                  {
+                    label: "Mật khẩu hiện tại",
+                    val: curPwd,
+                    set: setCurPwd,
+                    ph: "Nhập mật khẩu hiện tại",
+                  },
+                  {
+                    label: "Mật khẩu mới",
+                    val: newPwd,
+                    set: setNewPwd,
+                    ph: "Ít nhất 6 ký tự",
+                    showStrength: true,
+                  },
+                  {
+                    label: "Xác nhận mật khẩu",
+                    val: confPwd,
+                    set: setConfPwd,
+                    ph: "Nhập lại mật khẩu mới",
+                    showMatch: true,
+                  },
+                ].map(({ label, val, set, ph, showStrength, showMatch }) => (
+                  <Field key={label} label={label}>
+                    <div style={{ position: "relative" }}>
+                      <StyledInput
+                        type={showPwds ? "text" : "password"}
+                        value={val}
+                        onChange={(e) => set(e.target.value)}
+                        placeholder={ph}
+                        extra={{ paddingRight: 44 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPwds((p) => !p)}
+                        style={s.eyeBtn}
+                      >
+                        <IconEye open={showPwds} />
+                      </button>
+                    </div>
+                    {showStrength && val && (
+                      <div style={{ marginTop: 8 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 3,
+                            height: 3,
+                            marginBottom: 5,
+                          }}
+                        >
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <div
+                              key={i}
+                              style={{
+                                flex: 1,
+                                height: 3,
+                                borderRadius: 99,
+                                background:
+                                  i <= strength
+                                    ? PWD_COLORS[strength]
+                                    : "var(--border)",
+                                opacity: i <= strength ? 1 : 0.3,
+                                transition: "background 0.3s",
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: PWD_COLORS[strength],
+                            fontWeight: 600,
+                          }}
+                        >
+                          {PWD_LABELS[strength]}
+                        </span>
+                      </div>
+                    )}
+                    {showMatch && confPwd && newPwd !== confPwd && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#ef4444",
+                          marginTop: 5,
+                          display: "block",
+                        }}
+                      >
+                        Mật khẩu không khớp
+                      </span>
+                    )}
+                    {showMatch &&
+                      confPwd &&
+                      newPwd === confPwd &&
+                      confPwd.length > 0 && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "#22c55e",
+                            marginTop: 5,
+                            display: "block",
+                          }}
+                        >
+                          ✓ Mật khẩu khớp
+                        </span>
+                      )}
+                  </Field>
+                ))}
+                <button
+                  onClick={handleChangePwd}
+                  disabled={
+                    savingPwd || !curPwd || !newPwd || newPwd !== confPwd
+                  }
+                  style={{
+                    ...s.btnPrimary,
+                    opacity:
+                      savingPwd || !curPwd || !newPwd || newPwd !== confPwd
+                        ? 0.45
+                        : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!savingPwd && curPwd && newPwd && newPwd === confPwd) {
+                      e.currentTarget.style.background = "var(--red-hover)";
+                      e.currentTarget.style.boxShadow = "var(--red-glow)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--red)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 18px rgba(229,9,20,0.3)";
+                  }}
+                >
+                  {savingPwd ? "Đang xử lý…" : "Đổi mật khẩu"}
+                </button>
+              </>
+            )}
           </div>
         )}
 
-        {/* ══ ACTIVITY TAB ══ */}
+        {/* ── ACTIVITY TAB ── */}
         {tab === "activity" && (
           <div style={{ maxWidth: 640 }}>
             <SectionHead>Lịch sử hoạt động</SectionHead>
-
             {loadingAct ? (
               <div
                 style={{
@@ -1038,7 +1083,7 @@ export default function Profile() {
                   padding: "48px 0",
                 }}
               >
-                <div style={t.spinner} />
+                <div style={s.spinner} />
                 <span style={{ color: "var(--text-faint)", fontSize: 14 }}>
                   Đang tải lịch sử…
                 </span>
@@ -1046,15 +1091,20 @@ export default function Profile() {
             ) : activity.length === 0 ? (
               <div style={{ textAlign: "center", padding: "64px 0" }}>
                 <p style={{ fontSize: 48, marginBottom: 12 }}>📭</p>
-                <p style={{ color: "var(--text-faint)", fontSize: 15 }}>
+                <p
+                  style={{
+                    color: "var(--text-faint)",
+                    fontSize: 15,
+                    marginBottom: 20,
+                  }}
+                >
                   Chưa có hoạt động nào.
                 </p>
                 <Link
                   to="/"
                   style={{
-                    ...t.btnPrimary,
+                    ...s.btnPrimary,
                     display: "inline-flex",
-                    marginTop: 20,
                     textDecoration: "none",
                   }}
                 >
@@ -1062,17 +1112,37 @@ export default function Profile() {
                 </Link>
               </div>
             ) : (
-              <div style={t.timeline}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {activity.map((item, i) => {
                   const meta = ACT[item.type] || ACT.default;
                   const isLast = i === activity.length - 1;
                   return (
-                    <div key={i} style={t.timelineRow}>
-                      {/* spine */}
-                      <div style={t.spine}>
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        gap: 14,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          flexShrink: 0,
+                          width: 32,
+                        }}
+                      >
                         <div
                           style={{
-                            ...t.spineDot,
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             background: meta.bg,
                             border: `1.5px solid ${meta.border}`,
                           }}
@@ -1088,12 +1158,31 @@ export default function Profile() {
                             {meta.icon}
                           </span>
                         </div>
-                        {!isLast && <div style={t.spineConnector} />}
+                        {!isLast && (
+                          <div
+                            style={{
+                              width: 2,
+                              flex: 1,
+                              minHeight: 16,
+                              background: "var(--border)",
+                              margin: "3px 0",
+                            }}
+                          />
+                        )}
                       </div>
-
-                      {/* card */}
                       <div
-                        style={{ ...t.actCard, marginBottom: isLast ? 0 : 8 }}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          background: "var(--bg-surface,#0e1218)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "var(--radius-md)",
+                          padding: "12px 14px",
+                          marginBottom: isLast ? 0 : 8,
+                        }}
                       >
                         {item.poster && (
                           <Link
@@ -1103,7 +1192,13 @@ export default function Profile() {
                             <img
                               src={item.poster}
                               alt={item.title || ""}
-                              style={t.actPoster}
+                              style={{
+                                width: 38,
+                                height: 54,
+                                objectFit: "cover",
+                                borderRadius: "var(--radius-sm)",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                              }}
                               loading="lazy"
                               onError={(e) =>
                                 (e.currentTarget.style.display = "none")
@@ -1176,7 +1271,6 @@ export default function Profile() {
         )}
       </div>
 
-      {/* ── Avatar picker modal ── */}
       {showPicker && (
         <AvatarPickerModal
           current={avatar}
@@ -1185,35 +1279,26 @@ export default function Profile() {
         />
       )}
 
-      <style>{profileCSS}</style>
+      <style>{`
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+      `}</style>
     </div>
   );
 }
 
-/* ── Global CSS ────────────────────────────────── */
-const profileCSS = `
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes modalIn {
-    from { opacity: 0; transform: scale(0.96) translateY(8px); }
-    to   { opacity: 1; transform: scale(1)    translateY(0); }
-  }
-`;
-
-/* ── Styles ─────────────────────────────────────── */
-const t = {
+const s = {
   page: {
     background: "var(--bg-page)",
     minHeight: "100vh",
     color: "var(--text-primary)",
-    fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
     paddingTop: 60,
   },
-
-  /* ── Hero banner ── */
   heroBanner: {
     position: "relative",
     overflow: "hidden",
-    padding: "clamp(32px, 5vh, 56px) clamp(24px, 6vw, 72px)",
+    padding: "clamp(32px,5vh,56px) clamp(24px,6vw,72px)",
     display: "flex",
     alignItems: "center",
     borderBottom: "1px solid var(--border)",
@@ -1223,7 +1308,7 @@ const t = {
     position: "absolute",
     inset: 0,
     background:
-      "linear-gradient(135deg, rgba(229,9,20,0.07) 0%, var(--bg-surface,#0e1218) 50%, rgba(59,130,246,0.04) 100%)",
+      "linear-gradient(135deg,rgba(229,9,20,0.07) 0%,var(--bg-surface,#0e1218) 50%,rgba(59,130,246,0.04) 100%)",
   },
   heroGlow1: {
     position: "absolute",
@@ -1232,8 +1317,7 @@ const t = {
     width: 400,
     height: 400,
     borderRadius: "50%",
-    background:
-      "radial-gradient(circle, rgba(229,9,20,0.1) 0%, transparent 65%)",
+    background: "radial-gradient(circle,rgba(229,9,20,0.1) 0%,transparent 65%)",
     pointerEvents: "none",
   },
   heroGlow2: {
@@ -1244,14 +1328,14 @@ const t = {
     height: 350,
     borderRadius: "50%",
     background:
-      "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 65%)",
+      "radial-gradient(circle,rgba(59,130,246,0.07) 0%,transparent 65%)",
     pointerEvents: "none",
   },
   heroGrid: {
     position: "absolute",
     inset: 0,
     backgroundImage:
-      "linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)",
+      "linear-gradient(rgba(255,255,255,0.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.012) 1px,transparent 1px)",
     backgroundSize: "60px 60px",
     pointerEvents: "none",
   },
@@ -1260,12 +1344,10 @@ const t = {
     zIndex: 2,
     display: "flex",
     alignItems: "center",
-    gap: "clamp(20px, 3vw, 40px)",
+    gap: "clamp(20px,3vw,40px)",
     flexWrap: "wrap",
     width: "100%",
   },
-
-  /* avatar in hero */
   avatarBtn: {
     width: 90,
     height: 90,
@@ -1278,8 +1360,7 @@ const t = {
     cursor: "pointer",
     padding: 0,
     boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
-    transition:
-      "border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease",
+    transition: "border-color 0.2s,transform 0.2s,box-shadow 0.2s",
     position: "relative",
   },
   avatarEditBadge: {
@@ -1306,17 +1387,17 @@ const t = {
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: "0.12em",
-    color: "var(--gold-text, #f5c518)",
-    background: "var(--gold-dim, rgba(245,197,24,0.1))",
+    color: "var(--gold-text,#f5c518)",
+    background: "var(--gold-dim,rgba(245,197,24,0.1))",
     border: "1px solid rgba(245,197,24,0.2)",
-    borderRadius: "var(--radius-full)",
+    borderRadius: 99,
     padding: "3px 10px",
     marginBottom: 10,
     textTransform: "uppercase",
   },
   heroName: {
-    fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
-    fontSize: "clamp(28px, 4vw, 46px)",
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: "clamp(28px,4vw,46px)",
     fontWeight: 400,
     letterSpacing: "0.04em",
     margin: "0 0 4px",
@@ -1363,21 +1444,15 @@ const t = {
     textTransform: "uppercase",
     whiteSpace: "nowrap",
   },
-
-  /* ── Tab bar ── */
   tabBar: {
-    background: "var(--bg-surface, #0e1218)",
+    background: "var(--bg-surface,#0e1218)",
     borderBottom: "1px solid var(--border)",
     position: "sticky",
     top: 60,
     zIndex: 50,
     backdropFilter: "blur(14px)",
   },
-  tabBarInner: {
-    display: "flex",
-    gap: 0,
-    padding: "0 clamp(24px,6vw,72px)",
-  },
+  tabBarInner: { display: "flex", gap: 0, padding: "0 clamp(24px,6vw,72px)" },
   tabBtn: {
     position: "relative",
     display: "flex",
@@ -1395,7 +1470,7 @@ const t = {
     gap: 7,
     fontSize: 13,
     fontWeight: 500,
-    transition: "color 0.18s ease",
+    transition: "color 0.18s",
     whiteSpace: "nowrap",
   },
   tabUnderline: {
@@ -1405,20 +1480,15 @@ const t = {
     right: 12,
     height: 2,
     background: "var(--red)",
-    borderRadius: "var(--radius-full) var(--radius-full) 0 0",
+    borderRadius: "99px 99px 0 0",
     transformOrigin: "center",
-    transition:
-      "transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease",
+    transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1),opacity 0.2s",
   },
-
-  /* ── Body ── */
   body: {
     maxWidth: 1100,
     margin: "0 auto",
     padding: "40px clamp(24px,6vw,72px) 80px",
   },
-
-  /* Two-col layout for profile tab */
   twoCol: {
     display: "grid",
     gridTemplateColumns: "minmax(0,1fr) minmax(0,380px)",
@@ -1429,22 +1499,19 @@ const t = {
   trophyCol: {},
   trophyGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))",
     gap: 12,
     marginBottom: 24,
   },
-
-  /* trophy ring card */
   ringCard: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 8,
-    background: "var(--bg-surface, #0e1218)",
+    background: "var(--bg-surface,#0e1218)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-lg)",
     padding: "16px 12px",
-    transition: "border-color 0.18s ease",
   },
   ringLabel: {
     margin: 0,
@@ -1468,8 +1535,20 @@ const t = {
     textTransform: "uppercase",
     color: "var(--text-faint)",
   },
-
-  /* change avatar btn in form */
+  textarea: {
+    width: "100%",
+    padding: "11px 14px",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-md)",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    fontFamily: "var(--font-body,sans-serif)",
+    outline: "none",
+    resize: "vertical",
+    boxSizing: "border-box",
+    transition: "border-color 0.18s,box-shadow 0.18s",
+  },
   changeAvatarBtn: {
     display: "flex",
     alignItems: "center",
@@ -1482,10 +1561,8 @@ const t = {
     cursor: "pointer",
     fontFamily: "var(--font-body)",
     textAlign: "left",
-    transition: "border-color 0.18s ease, background 0.18s ease",
+    transition: "border-color 0.18s,background 0.18s",
   },
-
-  /* buttons */
   btnPrimary: {
     display: "inline-flex",
     alignItems: "center",
@@ -1499,13 +1576,11 @@ const t = {
     fontWeight: 700,
     letterSpacing: "0.05em",
     cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
+    fontFamily: "var(--font-body,sans-serif)",
     boxShadow: "0 4px 18px rgba(229,9,20,0.3)",
-    transition: "background 0.18s ease, box-shadow 0.18s ease",
+    transition: "background 0.18s,box-shadow 0.18s",
   },
-
-  /* password tab */
-  securityNote: {
+  infoNote: {
     display: "flex",
     alignItems: "flex-start",
     gap: 14,
@@ -1513,7 +1588,6 @@ const t = {
     border: "1px solid rgba(59,130,246,0.2)",
     borderRadius: "var(--radius-lg)",
     padding: "14px 16px",
-    marginBottom: 24,
   },
   eyeBtn: {
     position: "absolute",
@@ -1527,58 +1601,8 @@ const t = {
     padding: 4,
     display: "flex",
     alignItems: "center",
-    transition: "color 0.15s ease",
+    transition: "color 0.15s",
   },
-
-  /* activity timeline */
-  timeline: { display: "flex", flexDirection: "column" },
-  timelineRow: { display: "flex", gap: 14, alignItems: "flex-start" },
-  spine: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    flexShrink: 0,
-    width: 32,
-  },
-  spineDot: {
-    width: 32,
-    height: 32,
-    borderRadius: "50%",
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  spineConnector: {
-    width: 2,
-    flex: 1,
-    minHeight: 16,
-    background: "var(--border)",
-    margin: "3px 0",
-  },
-  actCard: {
-    flex: 1,
-    minWidth: 0,
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    background: "var(--bg-surface, #0e1218)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-md)",
-    padding: "12px 14px",
-    marginBottom: 8,
-    transition: "border-color 0.15s ease",
-  },
-  actPoster: {
-    width: 38,
-    height: 54,
-    objectFit: "cover",
-    borderRadius: "var(--radius-sm)",
-    flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-  },
-
-  /* spinner */
   spinner: {
     width: 22,
     height: 22,
@@ -1588,27 +1612,25 @@ const t = {
     animation: "spin 0.75s linear infinite",
     flexShrink: 0,
   },
-
-  /* ── Avatar picker modal ── */
   modalOverlay: {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.72)",
     backdropFilter: "blur(6px)",
-    zIndex: "var(--z-modal, 2000)",
+    zIndex: "var(--z-modal,2000)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "20px",
+    padding: 20,
   },
   modal: {
-    background: "var(--bg-overlay, #1a2030)",
+    background: "var(--bg-overlay,#1a2030)",
     border: "1px solid var(--border-mid)",
     borderRadius: "var(--radius-xl)",
-    padding: "24px",
+    padding: 24,
     width: "100%",
     maxWidth: 440,
-    boxShadow: "0 32px 80px rgba(0,0,0,0.8), 0 0 0 0.5px rgba(229,9,20,0.15)",
+    boxShadow: "0 32px 80px rgba(0,0,0,0.8),0 0 0 0.5px rgba(229,9,20,0.15)",
     animation: "modalIn 0.3s cubic-bezier(0.34,1.2,0.64,1) both",
   },
   modalHeader: {
@@ -1616,21 +1638,6 @@ const t = {
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 18,
-  },
-  modalTitleWrap: { display: "flex", alignItems: "center", gap: 10 },
-  modalAccent: {
-    width: 3,
-    height: 18,
-    borderRadius: "var(--radius-full)",
-    background: "var(--red)",
-    flexShrink: 0,
-  },
-  modalTitle: {
-    margin: 0,
-    fontFamily: "var(--font-display)",
-    fontSize: "var(--text-xl)",
-    fontWeight: 400,
-    letterSpacing: "0.06em",
   },
   modalClose: {
     width: 32,
@@ -1644,21 +1651,20 @@ const t = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "background 0.15s ease",
+    transition: "background 0.15s",
   },
-  groupTabs: { display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" },
   groupTab: {
     padding: "5px 12px",
     background: "transparent",
     border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-full)",
+    borderRadius: 99,
     color: "var(--text-muted)",
     cursor: "pointer",
     fontSize: 11,
     fontWeight: 600,
     letterSpacing: "0.04em",
     fontFamily: "var(--font-body)",
-    transition: "all 0.15s ease",
+    transition: "all 0.15s",
   },
   groupTabActive: {
     background: "var(--red-dim)",
@@ -1684,7 +1690,7 @@ const t = {
     borderRadius: "var(--radius-md)",
     cursor: "pointer",
     padding: 0,
-    transition: "background 0.12s ease",
+    transition: "background 0.12s",
   },
   avatarGridBtnActive: {
     background: "var(--red-dim)",
@@ -1704,12 +1710,5 @@ const t = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-  },
-  modalFooter: {
-    margin: "14px 0 0",
-    fontSize: 11,
-    color: "var(--text-faint)",
-    textAlign: "center",
-    letterSpacing: "0.02em",
   },
 };

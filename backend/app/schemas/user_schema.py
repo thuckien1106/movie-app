@@ -5,8 +5,14 @@ from typing import Optional, List
 from datetime import datetime
 
 
-_USERNAME_RE = re.compile(r'^[a-zA-Z0-9_.-]+$')
-_SAFE_TEXT_RE = re.compile(r'[<>{}\[\]\\]')
+_USERNAME_RE   = re.compile(
+    r'^[\w\s\u00C0-\u024F\u1E00-\u1EFF'
+    r'\u0300-\u036F'
+    r'._\-]'
+    r'+$',
+    re.UNICODE,
+)
+_SAFE_TEXT_RE  = re.compile(r'[<>{}\[\]\\]')
 
 COMMON_PASSWORDS = {
     "123456", "password", "12345678", "qwerty", "abc123",
@@ -85,14 +91,25 @@ class ProfileUpdate(BaseModel):
     avatar:   Optional[str] = Field(None, max_length=10)
     bio:      Optional[str] = Field(None, max_length=200)
 
+    @model_validator(mode="before")
+    @classmethod
+    def trim_fields(cls, values: dict) -> dict:
+        """Trim whitespace trước khi các field validator chạy.
+        Tránh 422 khi FE gửi string chỉ có spaces hoặc chưa trim."""
+        for field in ("username", "bio", "avatar"):
+            if isinstance(values.get(field), str):
+                stripped = values[field].strip()
+                # Chuỗi rỗng sau trim → coi như None (không cập nhật field)
+                values[field] = stripped if stripped else None
+        return values
+
     @field_validator("username")
     @classmethod
     def username_format(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        v = v.strip()
         if not _USERNAME_RE.match(v):
-            raise ValueError("Username chỉ được chứa chữ cái, số, dấu _ . -")
+            raise ValueError("Tên hiển thị chứa ký tự không hợp lệ.")
         return v
 
     @field_validator("bio")
@@ -100,7 +117,6 @@ class ProfileUpdate(BaseModel):
     def bio_safe(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        v = v.strip()
         if _SAFE_TEXT_RE.search(v):
             raise ValueError("Bio chứa ký tự không hợp lệ.")
         return v
@@ -110,7 +126,6 @@ class ProfileUpdate(BaseModel):
     def avatar_is_emoji(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        v = v.strip()
         if len(v) > 4:
             raise ValueError("Avatar không hợp lệ.")
         return v

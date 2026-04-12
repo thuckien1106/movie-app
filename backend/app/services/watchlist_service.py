@@ -192,7 +192,17 @@ def get_collections(db: Session, user_id: int):
     return result
 
 
+MAX_COLLECTIONS_PER_USER = 20   # Giới hạn số collection mỗi user
+
+
 def create_collection(db: Session, user_id: int, data: CollectionCreate):
+    from fastapi import HTTPException
+    current_count = db.query(Collection).filter(Collection.user_id == user_id).count()
+    if current_count >= MAX_COLLECTIONS_PER_USER:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bạn đã đạt giới hạn {MAX_COLLECTIONS_PER_USER} bộ sưu tập. Xoá bớt trước khi tạo mới.",
+        )
     col = Collection(user_id=user_id, name=data.name, description=data.description)
     db.add(col)
     db.commit()

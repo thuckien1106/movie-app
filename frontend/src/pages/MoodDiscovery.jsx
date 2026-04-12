@@ -93,7 +93,7 @@ const MOODS = [
 ];
 
 /* ── Mood Card ─────────────────────────────── */
-function MoodCard({ mood, isSelected, onClick }) {
+function MoodCard({ mood, isSelected, onClick, compact = false }) {
   const [hov, setHov] = useState(false);
   const active = isSelected || hov;
   return (
@@ -106,8 +106,8 @@ function MoodCard({ mood, isSelected, onClick }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 10,
-        padding: "20px 14px 16px",
+        gap: compact ? 6 : 10,
+        padding: compact ? "14px 8px 12px" : "20px 14px 16px",
         borderRadius: "var(--radius-xl, 20px)",
         border: `1.5px solid ${isSelected ? mood.color : hov ? mood.color + "55" : "var(--border)"}`,
         background: isSelected
@@ -126,6 +126,8 @@ function MoodCard({ mood, isSelected, onClick }) {
             ? `0 8px 24px rgba(0,0,0,0.45)`
             : "var(--shadow-card)",
         fontFamily: "var(--font-body, sans-serif)",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
       {/* top color bar */}
@@ -193,7 +195,17 @@ function MoodCard({ mood, isSelected, onClick }) {
       {/* emoji */}
       <span
         style={{
-          fontSize: isSelected ? 38 : hov ? 34 : 30,
+          fontSize: compact
+            ? isSelected
+              ? 30
+              : hov
+                ? 28
+                : 26
+            : isSelected
+              ? 38
+              : hov
+                ? 34
+                : 30,
           lineHeight: 1,
           filter: active ? `drop-shadow(0 0 10px ${mood.color}88)` : "none",
           transition: "font-size 0.28s ease, filter 0.25s ease",
@@ -210,7 +222,7 @@ function MoodCard({ mood, isSelected, onClick }) {
       {/* label */}
       <span
         style={{
-          fontSize: 13,
+          fontSize: compact ? 11 : 13,
           fontWeight: 700,
           color: isSelected
             ? mood.color
@@ -220,27 +232,31 @@ function MoodCard({ mood, isSelected, onClick }) {
           transition: "color 0.2s ease",
           position: "relative",
           zIndex: 1,
+          textAlign: "center",
+          lineHeight: 1.2,
         }}
       >
         {mood.label}
       </span>
-      {/* desc */}
-      <span
-        style={{
-          fontSize: 10,
-          color: "var(--text-faint)",
-          lineHeight: 1.4,
-          textAlign: "center",
-          maxHeight: active ? 32 : 0,
-          overflow: "hidden",
-          opacity: active ? 1 : 0,
-          transition: "max-height 0.25s ease, opacity 0.2s ease",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {mood.desc}
-      </span>
+      {/* desc — ẩn trong compact mode */}
+      {!compact && (
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--text-faint)",
+            lineHeight: 1.4,
+            textAlign: "center",
+            maxHeight: active ? 32 : 0,
+            overflow: "hidden",
+            opacity: active ? 1 : 0,
+            transition: "max-height 0.25s ease, opacity 0.2s ease",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          {mood.desc}
+        </span>
+      )}
     </button>
   );
 }
@@ -375,6 +391,7 @@ function MoodPickerSheet({ selectedMood, onSelect, onClose }) {
           </button>
         </div>
         <div
+          className="mood-picker-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
@@ -387,6 +404,7 @@ function MoodPickerSheet({ selectedMood, onSelect, onClose }) {
               mood={mood}
               isSelected={selectedMood?.id === mood.id}
               onClick={() => onSelect(mood)}
+              compact={true}
             />
           ))}
         </div>
@@ -757,9 +775,10 @@ export default function MoodDiscovery() {
       <div
         style={{
           borderBottom: "1px solid var(--border)",
-          padding: "14px 0",
+          padding: "12px 0",
           overflowX: "auto",
           scrollbarWidth: "none",
+          WebkitOverflowScrolling: "touch",
           position: "sticky",
           top: 60,
           zIndex: 50,
@@ -771,10 +790,10 @@ export default function MoodDiscovery() {
           style={{
             display: "flex",
             gap: 8,
-            padding: "0 clamp(16px,4vw,48px)",
+            padding: "2px clamp(16px,4vw,48px)",
             width: "max-content",
             minWidth: "100%",
-            justifyContent: "center",
+            boxSizing: "border-box",
           }}
         >
           {MOODS.map((mood) => {
@@ -796,6 +815,7 @@ export default function MoodDiscovery() {
                   fontWeight: active ? 700 : 500,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  flexShrink: 0,
                   fontFamily: "var(--font-body, sans-serif)",
                   transition: "all 0.2s ease",
                   boxShadow: active ? `0 0 12px ${mood.glow}` : "none",
@@ -863,11 +883,12 @@ export default function MoodDiscovery() {
               </h2>
             </div>
             <div
+              className="mood-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
                 gap: 14,
-                maxWidth: 900,
+                maxWidth: 960,
                 margin: "0 auto",
               }}
             >
@@ -920,6 +941,7 @@ export default function MoodDiscovery() {
               </p>
             </div>
             <div
+              className="movie-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
@@ -1027,6 +1049,7 @@ export default function MoodDiscovery() {
               </button>
             </div>
             <div
+              className="movie-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
@@ -1038,6 +1061,7 @@ export default function MoodDiscovery() {
                   key={movie.id}
                   style={{
                     animation: `fadeSlideUp 0.35s ease ${Math.min(i, 8) * 0.04}s both`,
+                    minWidth: 0,
                   }}
                 >
                   <MovieCard movie={movie} onPlay={() => setTrailer(movie)} />
@@ -1168,6 +1192,59 @@ export default function MoodDiscovery() {
         @keyframes checkPop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
         @keyframes sheetUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
         ::-webkit-scrollbar { display:none; }
+
+        /* ── Mobile: 480px trở xuống ── */
+        @media (max-width: 480px) {
+          /* Mood grid chính: 2 cột cố định, gap nhỏ hơn */
+          .mood-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+            max-width: 100% !important;
+          }
+
+          /* Picker sheet grid: 4 cột icon-only nhỏ gọn */
+          .mood-picker-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 8px !important;
+          }
+
+          /* Movie grid: 2 cột trên mobile nhỏ */
+          .movie-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+        }
+
+        /* ── Mobile vừa: 481px – 640px ── */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .mood-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 10px !important;
+            max-width: 100% !important;
+          }
+          .mood-picker-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 8px !important;
+          }
+          .movie-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 12px !important;
+          }
+        }
+
+        /* ── Tablet: 641px – 900px ── */
+        @media (min-width: 641px) and (max-width: 900px) {
+          .mood-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            max-width: 100% !important;
+          }
+          .mood-picker-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+          }
+          .movie-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+        }
       `}</style>
     </div>
   );

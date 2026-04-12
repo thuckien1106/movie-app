@@ -1,5 +1,6 @@
 import secrets
 from collections import Counter
+from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models.watchlist import Watchlist, Collection, WatchlistShare
@@ -252,7 +253,7 @@ def toggle_share(db: Session, user_id: int) -> WatchlistShare:
 
 
 def get_public_watchlist(db: Session, share_token: str):
-    """Trả về watchlist public không cần auth"""
+    """Trả về watchlist public không cần auth — bao gồm collections, stats, avatar"""
     share = db.query(WatchlistShare).filter(
         WatchlistShare.share_token == share_token,
         WatchlistShare.is_active == True
@@ -265,9 +266,65 @@ def get_public_watchlist(db: Session, share_token: str):
         Watchlist.user_id == share.user_id
     ).order_by(Watchlist.added_at.desc()).all()
 
+    # ── Stats ──────────────────────────────────────────────
+    total_runtime = sum(m.runtime or 0 for m in movies)
+
+    all_genre_ids = []
+    for m in movies:
+        if m.genre_ids:
+            all_genre_ids.extend(gid.strip() for gid in m.genre_ids.split(",") if gid.strip())
+    genre_counter = Counter(all_genre_ids)
+    top_genres = [
+        GenreStat(genre_id=gid, genre_name=_genre_name(gid), count=cnt)
+        for gid, cnt in genre_counter.most_common(5)
+    ]
+
+    # ── Group theo collection ───────────────────────────────
+    # Lấy tất cả collection của user có phim trong watchlist
+    col_ids = {m.collection_id for m in movies if m.collection_id is not None}
+    col_map: dict[int, Collection] = {}
+    if col_ids:
+        cols = db.query(Collection).filter(Collection.id.in_(col_ids)).all()
+        col_map = {c.id: c for c in cols}
+
+    # Nhóm phim theo collection
+    groups_dict: dict[Optional[int], list] = {}
+    for m in movies:
+        key = m.collection_id
+        groups_dict.setdefault(key, []).append(m)
+
+    # Sắp xếp: collection có tên lên trước, "Không có bộ sưu tập" xuống cuối
+    from app.schemas.watchlist_schema import PublicCollectionGroup
+    collection_groups = []
+    for col_id, col_movies in sorted(
+        groups_dict.items(),
+        key=lambda kv: (kv[0] is None, col_map.get(kv[0], Collection()).name if kv[0] else ""),
+    ):
+        if col_id is not None and col_id in col_map:
+            col = col_map[col_id]
+            collection_groups.append(PublicCollectionGroup(
+                id=col_id,
+                name=col.name,
+                description=col.description,
+                movies=col_movies,
+            ))
+        else:
+            collection_groups.append(PublicCollectionGroup(
+                id=None,
+                name="Chưa phân loại",
+                description=None,
+                movies=col_movies,
+            ))
+
     return {
-        "owner_username": user.username if user else None,
-        "total": len(movies),
-        "watched": sum(1 for m in movies if m.is_watched),
-        "movies": movies,
+        "owner_username":        user.username if user else None,
+        "owner_avatar":          user.avatar if user else None,
+        "owner_avatar_url":      user.avatar_url if user else None,
+        "owner_bio":             user.bio if user else None,
+        "total":                 len(movies),
+        "watched":               sum(1 for m in movies if m.is_watched),
+        "total_runtime_minutes": total_runtime,
+        "top_genres":            top_genres,
+        "collections":           collection_groups,
+        "movies":                movies,
     }

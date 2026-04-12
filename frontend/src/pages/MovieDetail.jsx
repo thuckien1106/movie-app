@@ -408,39 +408,293 @@ function StatCard({ icon, label, value }) {
   );
 }
 
+/* ── Skeleton primitives ─────────────────────── */
+function Bone({ w = "100%", h = 16, r = 8, mb = 0, style = {} }) {
+  return (
+    <div
+      style={{
+        width: w,
+        height: h,
+        borderRadius: r,
+        background: "var(--bg-card2, #1a1f2a)",
+        marginBottom: mb,
+        position: "relative",
+        overflow: "hidden",
+        flexShrink: 0,
+        ...style,
+      }}
+    >
+      <div style={sk.shine} />
+    </div>
+  );
+}
+
 /* ── Loading skeleton ────────────────────────── */
 function LoadingSkeleton() {
   return (
     <div style={{ background: "var(--bg-page)", minHeight: "100vh" }}>
       <Navbar />
-      <div
-        style={{
-          height: "min(70vh,660px)",
-          background: "var(--bg-surface)",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <div style={s.shimmerEl} />
-      </div>
-      <div style={{ padding: "40px clamp(20px,5vw,64px)" }}>
-        {[280, "70%", "55%"].map((w, i) => (
-          <div
-            key={i}
-            style={{
-              height: i === 0 ? 32 : 16,
-              width: w,
-              borderRadius: i === 0 ? 8 : 6,
-              background: "var(--bg-card)",
-              marginBottom: i === 0 ? 16 : 10,
-            }}
-          />
-        ))}
-      </div>
       <style>{css}</style>
+      <style>{`
+        @keyframes skeletonShine {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+
+      {/* ── Hero ── */}
+      <div style={sk.hero}>
+        {/* Backdrop shimmer */}
+        <div style={sk.backdrop}>
+          <div style={sk.shine} />
+        </div>
+
+        {/* Gradient overlays — same as real page */}
+        <div style={s.gradLeft} />
+        <div style={s.gradBottom} />
+        <div style={s.gradTop} />
+
+        {/* Back button ghost */}
+        <Bone w={100} h={36} r={999} style={sk.backBtn} />
+
+        {/* Left content: tagline + title + meta + genres + overview + buttons */}
+        <div style={sk.heroContent}>
+          {/* Tagline */}
+          <Bone w={160} h={13} r={6} mb={14} />
+
+          {/* Title — 2 lines */}
+          <Bone w="72%" h={44} r={10} mb={8} />
+          <Bone w="48%" h={44} r={10} mb={20} />
+
+          {/* Meta chips row */}
+          <div style={sk.row}>
+            <Bone w={52} h={28} r={7} />
+            <Bone w={68} h={28} r={7} />
+            <Bone w={40} h={28} r={7} />
+            {/* Rating ring ghost */}
+            <Bone w={76} h={76} r="50%" />
+          </div>
+
+          {/* Genre pills */}
+          <div style={{ ...sk.row, marginTop: 14, marginBottom: 16 }}>
+            {[72, 88, 64, 80].map((w, i) => (
+              <Bone key={i} w={w} h={26} r={999} />
+            ))}
+          </div>
+
+          {/* Overview lines */}
+          <Bone w="96%" h={14} r={6} mb={8} />
+          <Bone w="88%" h={14} r={6} mb={8} />
+          <Bone w="76%" h={14} r={6} mb={8} />
+          <Bone w="60%" h={14} r={6} mb={24} />
+
+          {/* Buttons */}
+          <div style={sk.row}>
+            <Bone w={148} h={46} r={10} />
+            <Bone w={120} h={46} r={10} />
+          </div>
+        </div>
+
+        {/* Right: poster */}
+        <div style={sk.posterWrap}>
+          <Bone w="100%" h="100%" r={14} />
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div style={sk.body}>
+        {/* Stats grid */}
+        <div style={sk.section}>
+          {/* Section title */}
+          <div style={sk.sectionHeader}>
+            <div style={sk.row}>
+              <Bone w={4} h={22} r={999} />
+              <Bone w={160} h={30} r={6} />
+            </div>
+          </div>
+          <div style={sk.statsGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={sk.statCard}>
+                <Bone w={36} h={36} r={8} />
+                <div style={{ flex: 1 }}>
+                  <Bone w="55%" h={10} r={4} mb={8} />
+                  <Bone w="75%" h={16} r={5} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Crew row */}
+        <div style={sk.section}>
+          <div style={sk.sectionHeader}>
+            <div style={sk.row}>
+              <Bone w={4} h={22} r={999} />
+              <Bone w={200} h={30} r={6} />
+            </div>
+          </div>
+          <div style={sk.scrollRow}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={sk.crewCard}>
+                <Bone w={44} h={44} r="50%" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Bone w="80%" h={12} r={5} mb={6} />
+                  <Bone w="55%" h={10} r={4} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cast row */}
+        <div style={sk.section}>
+          <div style={sk.sectionHeader}>
+            <div style={sk.row}>
+              <Bone w={4} h={22} r={999} />
+              <Bone w={120} h={30} r={6} />
+            </div>
+          </div>
+          <div style={sk.scrollRow}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} style={sk.castCard}>
+                {/* Portrait */}
+                <Bone w={110} h={165} r={0} />
+                {/* Info */}
+                <div style={{ padding: "10px 10px 12px" }}>
+                  <Bone w="85%" h={12} r={5} mb={6} />
+                  <Bone w="65%" h={10} r={4} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Similar movies row */}
+        <div style={{ ...sk.section, paddingBottom: 80 }}>
+          <div style={sk.sectionHeader}>
+            <div style={sk.row}>
+              <Bone w={4} h={22} r={999} />
+              <Bone w={150} h={30} r={6} />
+            </div>
+          </div>
+          <div style={sk.scrollRow}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Bone key={i} w={140} h={210} r={14} style={{ flexShrink: 0 }} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
+/* ── Skeleton styles ─────────────────────────── */
+const sk = {
+  shine: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.055) 50%, transparent 100%)",
+    animation: "skeletonShine 1.6s ease-in-out infinite",
+    transform: "translateX(-100%)",
+  },
+  hero: {
+    position: "relative",
+    width: "100%",
+    height: "min(72vh,700px)",
+    minHeight: 500,
+    overflow: "hidden",
+    background: "var(--bg-surface, #0e1218)",
+    marginTop: -60,
+    paddingTop: 60,
+  },
+  backdrop: {
+    position: "absolute",
+    inset: 0,
+    background: "var(--bg-card2, #1a1f2a)",
+    overflow: "hidden",
+  },
+  backBtn: {
+    position: "absolute",
+    top: "clamp(76px,12vh,96px)",
+    left: "clamp(16px,3.5vw,48px)",
+    zIndex: 10,
+  },
+  heroContent: {
+    position: "absolute",
+    bottom: "clamp(48px,9vh,80px)",
+    left: "clamp(24px,5vw,72px)",
+    width: "min(520px,48vw)",
+    zIndex: 10,
+  },
+  posterWrap: {
+    position: "absolute",
+    right: "clamp(20px,5vw,72px)",
+    bottom: "clamp(28px,6vh,56px)",
+    width: "clamp(120px,12vw,180px)",
+    aspectRatio: "2/3",
+    zIndex: 10,
+    overflow: "hidden",
+    borderRadius: 14,
+  },
+  row: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  body: {
+    maxWidth: 1200,
+    margin: "0 auto",
+    padding: "0 clamp(20px,5vw,64px)",
+  },
+  section: { paddingTop: 48 },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
+    gap: 12,
+  },
+  statCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    background: "var(--bg-surface, #0e1218)",
+    border: "1px solid var(--border)",
+    borderRadius: 14,
+    padding: "14px 18px",
+  },
+  scrollRow: {
+    display: "flex",
+    gap: 12,
+    overflowX: "hidden", // hidden trong skeleton — không cần scroll
+    paddingBottom: 8,
+  },
+  crewCard: {
+    flexShrink: 0,
+    width: 180,
+    background: "var(--bg-surface, #0e1218)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "12px 14px",
+  },
+  castCard: {
+    flexShrink: 0,
+    width: 110,
+    borderRadius: 14,
+    overflow: "hidden",
+    background: "var(--bg-surface, #0e1218)",
+    border: "1px solid var(--border)",
+  },
+};
 
 /* ══════════════════════════════════════════════
    MAIN PAGE
@@ -1341,14 +1595,6 @@ const s = {
     borderRadius: 6,
     backdropFilter: "blur(4px)",
     transition: "opacity 0.18s ease, transform 0.18s ease",
-  },
-  shimmerEl: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(105deg,transparent 38%,rgba(255,255,255,0.035) 50%,transparent 62%)",
-    backgroundSize: "250% 100%",
-    animation: "shimmerLoad 1.9s ease-in-out infinite",
   },
 };
 

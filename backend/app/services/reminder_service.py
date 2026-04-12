@@ -12,7 +12,7 @@ Luồng chính:
 """
 
 import logging
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime as datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -99,8 +99,12 @@ def check_and_fire(db: Session) -> int:
     Quét tất cả reminder chưa gửi có notify_on <= hôm nay.
     Tạo InAppNotification cho từng user, đánh dấu is_sent = True.
     Trả về số lượng notification đã tạo.
+
+    Idempotent: chạy nhiều lần trong ngày vẫn an toàn — đã kiểm tra
+    duplicate trước khi insert và dùng is_sent flag để không xử lý lại.
     """
     today = date.today().isoformat()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     pending = db.query(Reminder).filter(
         and_(
@@ -110,15 +114,25 @@ def check_and_fire(db: Session) -> int:
         )
     ).all()
 
+    if not pending:
+        logger.debug(f"[reminder] {now_str} — no pending reminders")
+        return 0
+
+    logger.info(f"[reminder] {now_str} — found {len(pending)} pending reminder(s)")
+
     fired = 0
     for r in pending:
-        # Kiểm tra đã có notification chưa (tránh duplicate nếu chạy 2 lần)
+        # Idempotency: kiểm tra notification đã tồn tại chưa (tránh duplicate
+        # nếu job chạy 2 lần gần nhau hoặc sau khi server restart)
         already = db.query(InAppNotification).filter(
             InAppNotification.user_id == r.user_id,
             InAppNotification.movie_id == r.movie_id,
         ).first()
         if already:
-            r.is_sent = True
+            # Notification đã có → chỉ đánh dấu is_sent nếu chưa làm
+            if not r.is_sent:
+                r.is_sent = True
+                logger.debug(f"[reminder] reminder id={r.id} already notified, marking sent")
             continue
 
         # Tạo nội dung thông báo
@@ -140,9 +154,10 @@ def check_and_fire(db: Session) -> int:
         db.add(notif)
         r.is_sent = True
         fired += 1
+        logger.info(f"[reminder] fired → user_id={r.user_id} movie='{r.title}' days_left={days_left}")
 
     db.commit()
-    logger.info(f"[reminder] Fired {fired} notifications for {today}")
+    logger.info(f"[reminder] done — fired {fired} new notification(s) for {today}")
     return fired
 
 

@@ -1,6 +1,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -19,6 +20,7 @@ from app.routers import mood as mood_router
 from app.routers import reminder as reminder_router
 from app.routers import recommendations as recommendations_router  # ← THÊM MỚI
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
@@ -72,12 +74,29 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     logger.info("🎬 Films API v2.3 starting up...")
 
-    scheduler = BackgroundScheduler(timezone="Asia/Ho_Chi_Minh")
-    scheduler.add_job(_run_check_and_fire, trigger="cron", hour=8, minute=0, id="reminder_check")
+    scheduler = BackgroundScheduler(
+        timezone="Asia/Ho_Chi_Minh",
+        executors={"default": ThreadPoolExecutor(max_workers=1)},
+        job_defaults={
+            # Nếu server restart và bỏ lỡ lần chạy, cho phép chạy bù trong 10 phút
+            "misfire_grace_time": 600,
+            # Không chạy chồng nhau nếu job trước chưa xong
+            "coalesce": True,
+            "max_instances": 1,
+        },
+    )
+    scheduler.add_job(
+        _run_check_and_fire,
+        trigger="interval",
+        minutes=10,
+        id="reminder_check",
+        # Chạy ngay lần đầu khi startup thay vì đợi 10 phút
+        next_run_time=datetime.now(tz=scheduler.timezone),
+    )
 
     if not scheduler.running:
         scheduler.start()
-        logger.info("🔔 Reminder scheduler started.")
+        logger.info("🔔 Reminder scheduler started (interval: 10 min).")
 
     yield
 

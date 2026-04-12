@@ -143,8 +143,21 @@ class ShareResponse(BaseModel):
     is_active:   bool
 
 
+class PublicCollectionGroup(BaseModel):
+    id:          Optional[int]       # None = phim không thuộc collection nào
+    name:        str                 # "Không có bộ sưu tập" nếu id là None
+    description: Optional[str]
+    movies:      List[WatchlistResponse]
+
+
 class PublicWatchlistResponse(BaseModel):
-    owner_username: Optional[str]
-    total:          int
-    watched:        int
-    movies:         List[WatchlistResponse]
+    owner_username:      Optional[str]
+    owner_avatar:        Optional[str]   # emoji avatar
+    owner_avatar_url:    Optional[str]   # URL ảnh Google profile
+    owner_bio:           Optional[str]
+    total:               int
+    watched:             int
+    total_runtime_minutes: int
+    top_genres:          List[GenreStat]
+    collections:         List[PublicCollectionGroup]
+    movies:              List[WatchlistResponse]  # flat list giữ lại cho compatibility

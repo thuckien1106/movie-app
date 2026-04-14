@@ -130,6 +130,17 @@ def get_stats(
     return watchlist_service.get_watchlist_stats(db, current_user.id)
 
 
+@router.get("/stats/detail")
+def get_stats_detail(
+    request:      Request,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """Stats chi tiết cho trang Statistics dashboard — monthly activity, streak, all genres."""
+    limiter.check(request, "watchlist_read", **Limits.READ_GENERAL)
+    return watchlist_service.get_detailed_stats(db, current_user.id)
+
+
 # ════════════════════════════════════════════
 # COLLECTIONS
 # ════════════════════════════════════════════
@@ -228,3 +239,23 @@ def public_watchlist(
     if data is None:
         raise HTTPException(status_code=404, detail="Watchlist không tìm thấy hoặc chưa bật chia sẻ.")
     return data
+
+
+# ════════════════════════════════════════════
+# BACKFILL — cập nhật runtime + genre_ids cho phim thiếu data
+# ════════════════════════════════════════════
+
+@router.post("/backfill-runtime")
+def backfill_runtime(
+    request:      Request,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """
+    Quét toàn bộ watchlist của user, tìm các phim thiếu runtime,
+    gọi TMDB lấy thông tin rồi cập nhật vào DB.
+    Trả về số phim đã được cập nhật.
+    """
+    limiter.check(request, "backfill", max_calls=3, window_sec=300)
+    updated = watchlist_service.backfill_missing_runtime(db, current_user.id)
+    return {"updated": updated, "message": f"Đã cập nhật {updated} phim."}

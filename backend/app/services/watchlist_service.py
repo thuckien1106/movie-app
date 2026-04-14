@@ -16,13 +16,25 @@ from app.schemas.watchlist_schema import (
 # ════════════════════════════════════════════
 
 def add_to_watchlist(db: Session, user_id: int, data: WatchlistCreate):
-    # Tránh trùng lặp
+    # Tránh trùng lặp — nếu đã có thì cập nhật runtime/genre_ids nếu thiếu
     existing = db.query(Watchlist).filter(
         Watchlist.user_id == user_id,
         Watchlist.movie_id == data.movie_id
     ).first()
     if existing:
-        return existing  # idempotent — không báo lỗi, trả về item cũ
+        changed = False
+        # Cập nhật runtime nếu record cũ thiếu nhưng lần này có
+        if data.runtime and (not existing.runtime or existing.runtime == 0):
+            existing.runtime = data.runtime
+            changed = True
+        # Cập nhật genre_ids nếu record cũ thiếu
+        if data.genre_ids and not existing.genre_ids:
+            existing.genre_ids = data.genre_ids
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(existing)
+        return existing
 
     item = Watchlist(
         user_id=user_id,
@@ -328,3 +340,205 @@ def get_public_watchlist(db: Session, share_token: str):
         "collections":           collection_groups,
         "movies":                movies,
     }
+
+# ════════════════════════════════════════════
+# DETAILED STATS (dùng cho Statistics dashboard)
+# ════════════════════════════════════════════
+
+def get_detailed_stats(db: Session, user_id: int):
+    """
+    Trả về stats đầy đủ cho trang Statistics:
+    - Tất cả genres (không giới hạn top 5)
+    - Monthly activity 12 tháng gần nhất (added + watched)
+    - Streak tháng liên tiếp có xem phim
+    - Avg runtime của phim đã xem
+    """
+    from datetime import date, timezone
+    from collections import defaultdict
+    from app.schemas.watchlist_schema import (
+        GenreStat, MonthlyActivity, DetailedStats,
+    )
+
+    movies = db.query(Watchlist).filter(Watchlist.user_id == user_id).all()
+    watched_items = [m for m in movies if m.is_watched]
+
+    # ── Runtimes ──────────────────────────────
+    total_runtime   = sum(m.runtime or 0 for m in movies)
+    watched_runtime = sum(m.runtime or 0 for m in watched_items)
+    avg_runtime = (
+        watched_runtime // len(watched_items) if watched_items else 0
+    )
+
+    # ── All genres ────────────────────────────
+    all_genre_ids: list[str] = []
+    for m in movies:
+        if m.genre_ids:
+            all_genre_ids.extend(gid.strip() for gid in m.genre_ids.split(",") if gid.strip())
+    genre_counter = Counter(all_genre_ids)
+    top_genres = [
+        GenreStat(genre_id=gid, genre_name=_genre_name(gid), count=cnt)
+        for gid, cnt in genre_counter.most_common(5)
+    ]
+    all_genres = [
+        GenreStat(genre_id=gid, genre_name=_genre_name(gid), count=cnt)
+        for gid, cnt in genre_counter.most_common()
+    ]
+
+    # ── Monthly activity (12 tháng gần nhất) ──
+    today = date.today()
+    months: list[tuple[int, int]] = []
+    for i in range(11, -1, -1):
+        m_offset = today.month - 1 - i
+        y = today.year + m_offset // 12
+        mo = m_offset % 12 + 1
+        months.append((y, mo))
+
+    added_map:   dict[tuple, int] = defaultdict(int)
+    watched_map: dict[tuple, int] = defaultdict(int)
+
+    for item in movies:
+        if item.added_at:
+            try:
+                dt = item.added_at
+                if hasattr(dt, "tzinfo") and dt.tzinfo:
+                    dt = dt.replace(tzinfo=None)
+                key = (dt.year, dt.month)
+                added_map[key] += 1
+            except Exception:
+                pass
+
+    for item in watched_items:
+        if item.watched_at:
+            try:
+                dt = item.watched_at
+                if hasattr(dt, "tzinfo") and dt.tzinfo:
+                    dt = dt.replace(tzinfo=None)
+                key = (dt.year, dt.month)
+                watched_map[key] += 1
+            except Exception:
+                pass
+
+    monthly_activity = [
+        MonthlyActivity(
+            year=y, month=mo,
+            added=added_map.get((y, mo), 0),
+            watched=watched_map.get((y, mo), 0),
+        )
+        for y, mo in months
+    ]
+
+    # ── Streak (tháng liên tiếp có xem phim) ──
+    # Tính trên toàn bộ lịch sử, không chỉ 12 tháng
+    watched_months: set[tuple] = set()
+    for item in watched_items:
+        if item.watched_at:
+            try:
+                dt = item.watched_at
+                if hasattr(dt, "tzinfo") and dt.tzinfo:
+                    dt = dt.replace(tzinfo=None)
+                watched_months.add((dt.year, dt.month))
+            except Exception:
+                pass
+
+    def prev_month(y: int, m: int) -> tuple[int, int]:
+        return (y, m - 1) if m > 1 else (y - 1, 12)
+
+    # Current streak: đếm ngược từ tháng hiện tại
+    current_streak = 0
+    cy, cm = today.year, today.month
+    while (cy, cm) in watched_months:
+        current_streak += 1
+        cy, cm = prev_month(cy, cm)
+
+    # Best streak: quét toàn bộ
+    best_streak = 0
+    if watched_months:
+        all_sorted = sorted(watched_months)
+        streak = 1
+        for i in range(1, len(all_sorted)):
+            py, pm = all_sorted[i - 1]
+            cy2, cm2 = all_sorted[i]
+            ny, nm = (py, pm + 1) if pm < 12 else (py + 1, 1)
+            if (cy2, cm2) == (ny, nm):
+                streak += 1
+                best_streak = max(best_streak, streak)
+            else:
+                streak = 1
+        best_streak = max(best_streak, streak, current_streak)
+
+    # ── Most active month ─────────────────────
+    most_active_month: Optional[str] = None
+    if watched_map:
+        best_key = max(watched_map, key=lambda k: watched_map[k])
+        most_active_month = f"{best_key[0]}-{best_key[1]:02d}"
+
+    return DetailedStats(
+        total=len(movies),
+        watched=len(watched_items),
+        unwatched=len(movies) - len(watched_items),
+        total_runtime_minutes=total_runtime,
+        watched_runtime_minutes=watched_runtime,
+        top_genres=top_genres,
+        all_genres=all_genres,
+        monthly_activity=monthly_activity,
+        current_streak=current_streak,
+        best_streak=best_streak,
+        avg_runtime_minutes=avg_runtime,
+        most_active_month=most_active_month,
+    )
+
+
+# ════════════════════════════════════════════
+# BACKFILL — cập nhật runtime + genre_ids cho phim thiếu data
+# ════════════════════════════════════════════
+
+def backfill_missing_runtime(db: Session, user_id: int) -> int:
+    """
+    Tìm các phim trong watchlist thiếu runtime (NULL hoặc 0),
+    gọi TMDB detail API để lấy runtime + genre_ids rồi cập nhật DB.
+    Trả về số phim đã cập nhật thành công.
+    """
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+
+    # Lấy tất cả phim thiếu runtime
+    items = db.query(Watchlist).filter(
+        Watchlist.user_id == user_id,
+        (Watchlist.runtime == None) | (Watchlist.runtime == 0),
+    ).all()
+
+    if not items:
+        return 0
+
+    updated = 0
+    for item in items:
+        try:
+            detail = tmdb_service.get_movie_detail(item.movie_id)
+            runtime   = detail.get("runtime")
+            genre_ids = detail.get("genre_ids")  # list of ints from format_movie_detail
+
+            changed = False
+            if runtime and runtime > 0:
+                item.runtime = runtime
+                changed = True
+            if genre_ids:
+                if isinstance(genre_ids, list):
+                    item.genre_ids = ",".join(str(g) for g in genre_ids)
+                elif isinstance(genre_ids, str) and genre_ids:
+                    item.genre_ids = genre_ids
+                changed = True
+
+            if changed:
+                updated += 1
+
+            # Tránh spam TMDB API — 250ms giữa mỗi request
+            time.sleep(0.25)
+
+        except Exception as e:
+            logger.warning(f"[backfill] movie_id={item.movie_id} error: {e}")
+            continue
+
+    db.commit()
+    logger.info(f"[backfill] user_id={user_id} → updated {updated}/{len(items)} items")
+    return updated

@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   getWatchlist,
   deleteMovie,
   toggleWatched,
   updateNote,
   getWatchlistStats,
+  backfillRuntime,
   getCollections,
   createCollection,
   deleteCollection,
@@ -53,6 +54,16 @@ function applyOrder(movies, saved) {
     ...saved.filter((id) => map[id]).map((id) => map[id]),
     ...movies.filter((m) => !saved.includes(m.movie_id)),
   ];
+}
+
+/* ─── useDebounce ────────────────────────────────── */
+function useDebounce(value, delay) {
+  const [dv, setDv] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDv(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return dv;
 }
 
 /* ─── SVG Icons ─────────────────────────────────── */
@@ -156,6 +167,85 @@ const IconDrag = () => (
     <circle cx="16" cy="12" r="1.5" />
     <circle cx="8" cy="18" r="1.5" />
     <circle cx="16" cy="18" r="1.5" />
+  </svg>
+);
+const IconSearch = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+const IconDownload = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+const IconCSV = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="8" y1="13" x2="16" y2="13" />
+    <line x1="8" y1="17" x2="12" y2="17" />
+  </svg>
+);
+const IconPDF = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="9" y1="15" x2="15" y2="15" />
+    <line x1="9" y1="11" x2="15" y2="11" />
+  </svg>
+);
+const IconX = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
 const IconPlus = () => (
@@ -1033,6 +1123,416 @@ function DraggableList({
   );
 }
 
+/* ══════════════════════════════════════════════
+   EXPORT UTILITIES
+══════════════════════════════════════════════ */
+
+const GENRE_MAP = {
+  28: "Hành động",
+  12: "Phiêu lưu",
+  16: "Hoạt hình",
+  35: "Hài",
+  80: "Tội phạm",
+  99: "Tài liệu",
+  18: "Chính kịch",
+  10751: "Gia đình",
+  14: "Kỳ ảo",
+  36: "Lịch sử",
+  27: "Kinh dị",
+  10402: "Âm nhạc",
+  9648: "Bí ẩn",
+  10749: "Lãng mạn",
+  878: "Sci-Fi",
+  53: "Giật gân",
+  10752: "Chiến tranh",
+  37: "Cao bồi",
+};
+
+function fmtRuntime(min) {
+  if (!min || min < 1) return "";
+  const h = Math.floor(min / 60),
+    m = min % 60;
+  return h > 0 ? `${h}g ${m}p` : `${m}p`;
+}
+function fmtDateVN(isoStr) {
+  if (!isoStr) return "";
+  try {
+    return new Date(isoStr).toLocaleDateString("vi-VN");
+  } catch {
+    return "";
+  }
+}
+function mapGenres(genreIdsStr) {
+  if (!genreIdsStr) return "";
+  return genreIdsStr
+    .split(",")
+    .map((id) => GENRE_MAP[parseInt(id.trim())] || id.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+/* ── CSV export ─────────────────────────────── */
+function exportCSV(movies, collections, username) {
+  const colMap = Object.fromEntries(collections.map((c) => [c.id, c.name]));
+  const headers = [
+    "STT",
+    "Tên phim",
+    "Trạng thái",
+    "Bộ sưu tập",
+    "Thể loại",
+    "Thời lượng",
+    "Ghi chú",
+    "Ngày thêm",
+    "Ngày xem",
+    "TMDB ID",
+  ];
+
+  const escape = (v) => {
+    const s = String(v ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const rows = movies.map((m, i) =>
+    [
+      i + 1,
+      m.title,
+      m.is_watched ? "Đã xem" : "Chưa xem",
+      m.collection_id ? (colMap[m.collection_id] ?? "") : "",
+      mapGenres(m.genre_ids),
+      fmtRuntime(m.runtime),
+      m.note ?? "",
+      fmtDateVN(m.added_at),
+      fmtDateVN(m.watched_at),
+      m.movie_id,
+    ]
+      .map(escape)
+      .join(","),
+  );
+
+  const BOM = "\uFEFF"; // UTF-8 BOM cho Excel đọc đúng tiếng Việt
+  const content = BOM + [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `watchlist_${username || "my"}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── PDF export (print) ─────────────────────── */
+function exportPDF(movies, collections, stats, username) {
+  const colMap = Object.fromEntries(collections.map((c) => [c.id, c.name]));
+  const watched = movies.filter((m) => m.is_watched).length;
+  const pct =
+    movies.length > 0 ? Math.round((watched / movies.length) * 100) : 0;
+  const total_runtime = movies.reduce((s, m) => s + (m.runtime || 0), 0);
+
+  const rows = movies
+    .map(
+      (m, i) => `
+    <tr class="${m.is_watched ? "watched" : ""}">
+      <td class="num">${i + 1}</td>
+      <td class="title">${m.title.replace(/</g, "&lt;")}</td>
+      <td class="status">${
+        m.is_watched
+          ? `<span class="badge-watched">✓ Đã xem</span>`
+          : `<span class="badge-unwatched">Chưa xem</span>`
+      }</td>
+      <td>${m.collection_id ? (colMap[m.collection_id] ?? "") : ""}</td>
+      <td>${mapGenres(m.genre_ids)}</td>
+      <td>${fmtRuntime(m.runtime)}</td>
+      <td class="note">${(m.note ?? "").replace(/</g, "&lt;")}</td>
+      <td>${fmtDateVN(m.added_at)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Watchlist – ${username || "My"}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4 landscape; margin: 14mm 12mm; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: #fff; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-end;
+            padding-bottom: 10px; border-bottom: 2px solid #e50914; margin-bottom: 12px; }
+  .header-left h1 { font-size: 20pt; font-weight: 800; letter-spacing: -0.02em; color: #0d0d0d; }
+  .header-left p  { font-size: 8pt; color: #888; margin-top: 3px; }
+  .header-right   { text-align: right; font-size: 8pt; color: #666; }
+
+  .stats { display: flex; gap: 16px; margin-bottom: 14px; }
+  .stat  { background: #f7f7f7; border-radius: 8px; padding: 8px 14px; text-align: center; }
+  .stat-val  { font-size: 15pt; font-weight: 800; color: #0d0d0d; }
+  .stat-lbl  { font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .prog-wrap  { margin-bottom: 14px; }
+  .prog-label { font-size: 8pt; color: #666; margin-bottom: 4px; }
+  .prog-track { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+  .prog-fill  { height: 100%; background: linear-gradient(90deg,#e50914,#ff6b35); border-radius: 3px; width: ${pct}%; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #0d0d0d; color: #fff; }
+  thead th { padding: 7px 8px; text-align: left; font-size: 7.5pt; font-weight: 700;
+             letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #f0f0f0; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  tbody tr.watched { opacity: 0.75; }
+  td { padding: 5px 8px; font-size: 8.5pt; vertical-align: top; }
+  td.num   { color: #aaa; width: 28px; text-align: right; padding-right: 12px; }
+  td.title { font-weight: 600; max-width: 200px; }
+  td.note  { color: #666; font-style: italic; max-width: 130px; font-size: 7.5pt; }
+  td.status { white-space: nowrap; }
+
+  .badge-watched   { background: #dcfce7; color: #166534; padding: 2px 7px; border-radius: 10px; font-size: 7.5pt; font-weight: 700; }
+  .badge-unwatched { background: #fef9c3; color: #854d0e; padding: 2px 7px; border-radius: 10px; font-size: 7.5pt; font-weight: 600; }
+
+  .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;
+            font-size: 7pt; color: #bbb; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>🎬 My Watchlist</h1>
+      <p>${username ? `@${username} · ` : ""}Xuất ngày ${fmtDateVN(new Date().toISOString())}</p>
+    </div>
+    <div class="header-right">
+      Films App<br>films.app
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val">${movies.length}</div><div class="stat-lbl">Tổng phim</div></div>
+    <div class="stat"><div class="stat-val" style="color:#16a34a">${watched}</div><div class="stat-lbl">Đã xem</div></div>
+    <div class="stat"><div class="stat-val" style="color:#b45309">${movies.length - watched}</div><div class="stat-lbl">Chưa xem</div></div>
+    <div class="stat"><div class="stat-val">${pct}%</div><div class="stat-lbl">Hoàn thành</div></div>
+    ${total_runtime > 0 ? `<div class="stat"><div class="stat-val">${fmtRuntime(total_runtime)}</div><div class="stat-lbl">Tổng TG</div></div>` : ""}
+    ${collections.length > 0 ? `<div class="stat"><div class="stat-val">${collections.length}</div><div class="stat-lbl">Bộ sưu tập</div></div>` : ""}
+  </div>
+
+  <div class="prog-wrap">
+    <div class="prog-label">${pct}% đã xem</div>
+    <div class="prog-track"><div class="prog-fill"></div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Tên phim</th><th>Trạng thái</th><th>Bộ sưu tập</th>
+        <th>Thể loại</th><th>Thời lượng</th><th>Ghi chú</th><th>Ngày thêm</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="footer">
+    <span>Films App – Watchlist Export</span>
+    <span>Tổng ${movies.length} phim · ${fmtDateVN(new Date().toISOString())}</span>
+  </div>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=1100,height=750");
+  if (!win) {
+    alert("Vui lòng cho phép popup để xuất PDF.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => {
+    win.focus();
+    win.print();
+  };
+}
+
+/* ── Export Panel ───────────────────────────── */
+function ExportPanel({ movies, collections, stats, username, onClose }) {
+  const [exporting, setExporting] = useState(null); // "csv"|"pdf"|null
+
+  const handleCSV = async () => {
+    setExporting("csv");
+    try {
+      exportCSV(movies, collections, username);
+    } finally {
+      setTimeout(() => setExporting(null), 800);
+    }
+  };
+  const handlePDF = async () => {
+    setExporting("pdf");
+    try {
+      exportPDF(movies, collections, stats, username);
+    } finally {
+      setTimeout(() => setExporting(null), 600);
+    }
+  };
+
+  const watched = movies.filter((m) => m.is_watched).length;
+  const unwatched = movies.length - watched;
+
+  return (
+    <div style={w.exportPanel}>
+      {/* Header */}
+      <div style={w.exportHeader}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 3,
+              height: 16,
+              borderRadius: "var(--radius-full)",
+              background: "var(--red)",
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>
+            Xuất danh sách phim
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: "var(--bg-card2)",
+            border: "1px solid var(--border-mid)",
+            borderRadius: "var(--radius-md)",
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+            fontSize: 13,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Summary row */}
+      <div style={w.exportSummary}>
+        <span style={w.exportSummaryChip}>
+          <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+            {movies.length}
+          </span>{" "}
+          phim
+        </span>
+        <span style={w.exportSummaryChip}>
+          <span style={{ color: "var(--green)", fontWeight: 700 }}>
+            {watched}
+          </span>{" "}
+          đã xem
+        </span>
+        <span style={w.exportSummaryChip}>
+          <span style={{ color: "#eab308", fontWeight: 700 }}>{unwatched}</span>{" "}
+          chưa xem
+        </span>
+        {collections.length > 0 && (
+          <span style={w.exportSummaryChip}>
+            <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+              {collections.length}
+            </span>{" "}
+            bộ sưu tập
+          </span>
+        )}
+      </div>
+
+      {/* Format cards */}
+      <div style={w.exportCards}>
+        {/* CSV */}
+        <div style={w.exportCard}>
+          <div style={w.exportCardIcon}>
+            <IconCSV />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={w.exportCardTitle}>CSV / Excel</p>
+            <p style={w.exportCardDesc}>
+              Mở bằng Excel, Google Sheets. Có đủ tên phim, trạng thái, thể
+              loại, ghi chú, ngày thêm.
+            </p>
+          </div>
+          <button
+            onClick={handleCSV}
+            disabled={!!exporting}
+            style={{
+              ...w.exportBtn,
+              opacity: exporting ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!exporting)
+                e.currentTarget.style.background = "var(--bg-card2)";
+            }}
+            onMouseLeave={(e) => {
+              if (!exporting)
+                e.currentTarget.style.background = "var(--bg-card)";
+            }}
+          >
+            {exporting === "csv" ? (
+              "Đang tạo…"
+            ) : (
+              <>
+                <IconDownload /> CSV
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* PDF */}
+        <div style={w.exportCard}>
+          <div
+            style={{
+              ...w.exportCardIcon,
+              background: "rgba(229,9,20,0.1)",
+              color: "var(--red-text)",
+            }}
+          >
+            <IconPDF />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={w.exportCardTitle}>PDF / In</p>
+            <p style={w.exportCardDesc}>
+              Trang A4 ngang, có stats tổng quan, progress bar và bảng phim đầy
+              đủ.
+            </p>
+          </div>
+          <button
+            onClick={handlePDF}
+            disabled={!!exporting}
+            style={{
+              ...w.exportBtn,
+              opacity: exporting ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!exporting)
+                e.currentTarget.style.background = "var(--bg-card2)";
+            }}
+            onMouseLeave={(e) => {
+              if (!exporting)
+                e.currentTarget.style.background = "var(--bg-card)";
+            }}
+          >
+            {exporting === "pdf" ? (
+              "Đang tạo…"
+            ) : (
+              <>
+                <IconDownload /> PDF
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
+        * PDF mở tab mới → chọn Save as PDF trong hộp thoại in.
+      </p>
+    </div>
+  );
+}
+
 /* ── Share panel ────────────────────────────────── */
 function SharePanel({ shareInfo, onToggle, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -1109,6 +1609,172 @@ function SharePanel({ shareInfo, onToggle, onClose }) {
         style={{ ...w.btnGhost, fontSize: 12, padding: "6px 14px" }}
       >
         {shareInfo.is_active ? "🚫 Tắt chia sẻ" : "✅ Bật chia sẻ"}
+      </button>
+    </div>
+  );
+}
+
+/* ── Search + Filter Bar ────────────────────────── */
+const STATUS_FILTERS = [
+  { value: "all", label: "Tất cả" },
+  { value: "unwatched", label: "Chưa xem" },
+  { value: "watched", label: "Đã xem" },
+];
+
+function SearchFilterBar({
+  query,
+  onQuery,
+  status,
+  onStatus,
+  total,
+  filtered,
+}) {
+  const inputRef = useRef(null);
+  const hasFilter = query.length > 0 || status !== "all";
+
+  return (
+    <div style={w.searchBar}>
+      {/* Search input */}
+      <div style={w.searchInputWrap}>
+        <span style={w.searchIcon}>
+          <IconSearch />
+        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Tìm phim trong watchlist…"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          style={w.searchInput}
+        />
+        {query.length > 0 && (
+          <button
+            style={w.searchClearBtn}
+            onClick={() => {
+              onQuery("");
+              inputRef.current?.focus();
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--text-primary)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-faint)")
+            }
+          >
+            <IconX />
+          </button>
+        )}
+      </div>
+
+      {/* Status filter pills */}
+      <div style={w.filterPills}>
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => onStatus(f.value)}
+            style={{
+              ...w.filterPill,
+              ...(status === f.value ? w.filterPillActive : {}),
+            }}
+            onMouseEnter={(e) => {
+              if (status !== f.value)
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
+            }}
+            onMouseLeave={(e) => {
+              if (status !== f.value)
+                e.currentTarget.style.borderColor = "var(--border-mid)";
+            }}
+          >
+            {f.value === "watched" && <span style={w.filterDotGreen} />}
+            {f.value === "unwatched" && <span style={w.filterDotYellow} />}
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Result count — chỉ show khi đang filter */}
+      {hasFilter && (
+        <div style={w.searchResultInfo}>
+          <span style={{ color: "var(--text-faint)", fontSize: 12 }}>
+            {filtered === 0
+              ? "Không tìm thấy phim nào"
+              : `${filtered} / ${total} phim`}
+          </span>
+          <button
+            style={w.resetFilterBtn}
+            onClick={() => {
+              onQuery("");
+              onStatus("all");
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--red-text)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-faint)")
+            }
+          >
+            Xóa bộ lọc
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Empty state khi search không có kết quả ──── */
+function EmptySearch({ query, status, onReset }) {
+  return (
+    <div style={{ textAlign: "center", padding: "56px 20px" }}>
+      <p style={{ fontSize: 44, marginBottom: 12 }}>🔍</p>
+      <p
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+          marginBottom: 6,
+        }}
+      >
+        Không tìm thấy kết quả
+      </p>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--text-faint)",
+          marginBottom: 20,
+          lineHeight: 1.6,
+        }}
+      >
+        {query && (
+          <span>
+            Không có phim nào khớp với{" "}
+            <strong style={{ color: "var(--text-secondary)" }}>
+              "{query}"
+            </strong>
+          </span>
+        )}
+        {query && status !== "all" && <span> trong mục </span>}
+        {status === "watched" && (
+          <span>
+            <strong style={{ color: "var(--green)" }}>Đã xem</strong>
+          </span>
+        )}
+        {status === "unwatched" && (
+          <span>
+            <strong style={{ color: "#eab308" }}>Chưa xem</strong>
+          </span>
+        )}
+      </p>
+      <button
+        onClick={onReset}
+        style={{ ...w.btnGhost, display: "inline-flex" }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.borderColor = "var(--border-mid)")
+        }
+      >
+        Xóa bộ lọc
       </button>
     </div>
   );
@@ -1361,12 +2027,38 @@ export default function Watchlist() {
   const [listView, setListView] = useState("list"); // "list"|"grid" toggle
   const [shareInfo, setShareInfo] = useState(null);
   const [showShare, setShowShare] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [editNote, setEditNote] = useState({});
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [entered, setEntered] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null); // { movieId, title } | null
+
+  /* ── Search + filter state ── */
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all"); // "all"|"watched"|"unwatched"
+  const debouncedSearch = useDebounce(searchQuery, 200);
+
+  /* ── Reset search khi đổi collection ── */
+  useEffect(() => {
+    setSearchQuery("");
+    setFilterStatus("all");
+  }, [activeCol]);
+
+  /* ── Computed: filtered movies ── */
+  const displayMovies = useMemo(() => {
+    let result = orderedMovies;
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      result = result.filter((m) => m.title?.toLowerCase().includes(q));
+    }
+    if (filterStatus === "watched") result = result.filter((m) => m.is_watched);
+    if (filterStatus === "unwatched")
+      result = result.filter((m) => !m.is_watched);
+    return result;
+  }, [orderedMovies, debouncedSearch, filterStatus]);
 
   const uid = user?.id ?? user?.email ?? "guest";
 
@@ -1492,6 +2184,25 @@ export default function Watchlist() {
       r.data.is_active ? "Đã bật chia sẻ." : "Đã tắt chia sẻ.",
       "success",
     );
+  };
+  const handleBackfill = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    try {
+      const r = await backfillRuntime();
+      const n = r.data?.updated ?? 0;
+      showToast(
+        n > 0
+          ? `Đã cập nhật thời lượng cho ${n} phim!`
+          : "Tất cả phim đã có thời lượng rồi.",
+        "success",
+      );
+      if (n > 0) load();
+    } catch {
+      showToast("Cập nhật thất bại, thử lại sau.", "error");
+    } finally {
+      setBackfilling(false);
+    }
   };
   const handleReorder = (list) => {
     setOrdered(list);
@@ -1642,6 +2353,19 @@ export default function Watchlist() {
                 <button style={w.btnGhost} onClick={handleLoadShare}>
                   <IconShare /> <span>Chia sẻ</span>
                 </button>
+                <button
+                  style={w.btnGhost}
+                  onClick={() => setShowExport((v) => !v)}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.borderColor =
+                      "rgba(255,255,255,0.25)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.borderColor = "var(--border-mid)")
+                  }
+                >
+                  <IconDownload /> <span>Xuất</span>
+                </button>
               </>
             )}
             <Link to="/" style={{ ...w.btnPrimary, textDecoration: "none" }}>
@@ -1656,6 +2380,17 @@ export default function Watchlist() {
             shareInfo={shareInfo}
             onToggle={handleToggleShare}
             onClose={() => setShowShare(false)}
+          />
+        )}
+
+        {/* Export panel */}
+        {showExport && (
+          <ExportPanel
+            movies={orderedMovies}
+            collections={collections}
+            stats={stats}
+            username={user?.username}
+            onClose={() => setShowExport(false)}
           />
         )}
 
@@ -1702,6 +2437,34 @@ export default function Watchlist() {
             <ProgressBar pct={pct} />
           </div>
         )}
+
+        {/* Backfill notice — hiện khi tổng thời gian = 0 nhưng có phim */}
+        {stats &&
+          stats.total > 0 &&
+          stats.total_runtime_minutes === 0 &&
+          (viewMode === "list" || viewMode === "grid") && (
+            <div style={w.backfillNotice}>
+              <span style={{ fontSize: 14 }}>⏱</span>
+              <span
+                style={{ flex: 1, fontSize: 12, color: "var(--text-muted)" }}
+              >
+                Thời lượng phim chưa được cập nhật. Bấm để lấy dữ liệu từ TMDB.
+              </span>
+              <button
+                onClick={handleBackfill}
+                disabled={backfilling}
+                style={{
+                  ...w.btnGhost,
+                  fontSize: 12,
+                  padding: "6px 14px",
+                  opacity: backfilling ? 0.6 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                {backfilling ? "Đang cập nhật…" : "Cập nhật thời lượng"}
+              </button>
+            </div>
+          )}
       </div>
 
       {/* ════════════════════════════════
@@ -1769,51 +2532,87 @@ export default function Watchlist() {
                 <EmptyState />
               ) : (
                 <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 14,
-                    }}
-                  >
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 12,
-                        color: "var(--text-faint)",
+                  {/* Search + filter bar */}
+                  <SearchFilterBar
+                    query={searchQuery}
+                    onQuery={setSearchQuery}
+                    status={filterStatus}
+                    onStatus={setFilterStatus}
+                    total={orderedMovies.length}
+                    filtered={displayMovies.length}
+                  />
+
+                  {displayMovies.length === 0 ? (
+                    <EmptySearch
+                      query={searchQuery}
+                      status={filterStatus}
+                      onReset={() => {
+                        setSearchQuery("");
+                        setFilterStatus("all");
                       }}
-                    >
-                      {orderedMovies.length} phim
-                    </p>
-                    {listView === "list" && (
-                      <p
+                    />
+                  ) : (
+                    <>
+                      <div
                         style={{
-                          margin: 0,
-                          fontSize: 11,
-                          color: "var(--text-dim)",
                           display: "flex",
                           alignItems: "center",
-                          gap: 5,
+                          justifyContent: "space-between",
+                          marginBottom: 14,
                         }}
                       >
-                        <span style={{ opacity: 0.5 }}>⠿</span> Kéo thả để sắp
-                        xếp
-                      </p>
-                    )}
-                  </div>
-                  <DraggableList
-                    movies={orderedMovies}
-                    viewMode={listView}
-                    collections={collections}
-                    editNote={editNote}
-                    setEditNote={setEditNote}
-                    onDelete={handleDelete}
-                    onToggleWatched={handleToggle}
-                    onSaveNote={handleSaveNote}
-                    onMoveCol={handleMoveCol}
-                    onReorder={handleReorder}
-                  />
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 12,
+                            color: "var(--text-faint)",
+                          }}
+                        >
+                          {displayMovies.length}
+                          {displayMovies.length !== orderedMovies.length && (
+                            <span style={{ color: "var(--text-dim)" }}>
+                              {" "}
+                              / {orderedMovies.length}
+                            </span>
+                          )}{" "}
+                          phim
+                        </p>
+                        {listView === "list" &&
+                          !searchQuery &&
+                          filterStatus === "all" && (
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 11,
+                                color: "var(--text-dim)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                              }}
+                            >
+                              <span style={{ opacity: 0.5 }}>⠿</span> Kéo thả để
+                              sắp xếp
+                            </p>
+                          )}
+                      </div>
+                      <DraggableList
+                        movies={displayMovies}
+                        viewMode={listView}
+                        collections={collections}
+                        editNote={editNote}
+                        setEditNote={setEditNote}
+                        onDelete={handleDelete}
+                        onToggleWatched={handleToggle}
+                        onSaveNote={handleSaveNote}
+                        onMoveCol={handleMoveCol}
+                        onReorder={
+                          searchQuery || filterStatus !== "all"
+                            ? null
+                            : handleReorder
+                        }
+                      />
+                    </>
+                  )}
                 </>
               )}
             </main>
@@ -1879,6 +2678,11 @@ export default function Watchlist() {
           from { opacity: 0; transform: scale(0.94) translateY(8px); }
           to   { opacity: 1; transform: scale(1)    translateY(0); }
         }
+        input[type="text"]:focus {
+          border-color: rgba(229,9,20,0.5) !important;
+          box-shadow: 0 0 0 3px rgba(229,9,20,0.08);
+        }
+        input[type="text"]::placeholder { color: var(--text-dim, rgba(255,255,255,0.2)); }
       `}</style>
     </div>
   );
@@ -2059,6 +2863,207 @@ function CollectionDetail({
 
 /* ── Styles ─────────────────────────────────────── */
 const w = {
+  /* ── Export panel ── */
+  exportPanel: {
+    background: "var(--bg-surface, #0e1218)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-xl, 16px)",
+    padding: "18px 20px 16px",
+    marginBottom: 16,
+    animation: "confirmIn 0.2s cubic-bezier(0.34,1.3,0.64,1) both",
+  },
+  exportHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  exportSummary: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  },
+  exportSummaryChip: {
+    fontSize: 12,
+    color: "var(--text-muted)",
+    background: "var(--bg-card2)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-full)",
+    padding: "3px 10px",
+  },
+  exportCards: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginBottom: 10,
+  },
+  exportCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    background: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-lg)",
+    padding: "12px 16px",
+  },
+  exportCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: "var(--radius-md)",
+    background: "rgba(59,130,246,0.1)",
+    color: "#60a5fa",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  exportCardTitle: {
+    margin: "0 0 3px",
+    fontSize: 13,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+  },
+  exportCardDesc: {
+    margin: 0,
+    fontSize: 11,
+    color: "var(--text-faint)",
+    lineHeight: 1.5,
+  },
+  exportBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-mid)",
+    color: "var(--text-secondary)",
+    padding: "7px 14px",
+    borderRadius: "var(--radius-md)",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-body, sans-serif)",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+    transition: "background 0.15s ease",
+  },
+  backfillNotice: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+    padding: "10px 14px",
+    background: "rgba(234,179,8,0.07)",
+    border: "1px solid rgba(234,179,8,0.2)",
+    borderRadius: "var(--radius-md)",
+  },
+  searchBar: {
+    marginBottom: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  searchInputWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 12,
+    color: "var(--text-faint)",
+    display: "flex",
+    alignItems: "center",
+    pointerEvents: "none",
+    zIndex: 1,
+  },
+  searchInput: {
+    width: "100%",
+    height: 40,
+    background: "var(--bg-card2, #1a1f2a)",
+    border: "1px solid var(--border-mid)",
+    borderRadius: "var(--radius-md, 10px)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+    fontFamily: "var(--font-body, sans-serif)",
+    paddingLeft: 36,
+    paddingRight: 36,
+    outline: "none",
+    transition: "border-color 0.15s ease",
+    boxSizing: "border-box",
+  },
+  searchClearBtn: {
+    position: "absolute",
+    right: 10,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--text-faint)",
+    display: "flex",
+    alignItems: "center",
+    padding: 4,
+    borderRadius: 4,
+    transition: "color 0.15s",
+  },
+  filterPills: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  filterPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 13px",
+    borderRadius: "var(--radius-full, 999px)",
+    border: "1px solid var(--border-mid)",
+    background: "transparent",
+    color: "var(--text-muted)",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "var(--font-body, sans-serif)",
+    transition: "all 0.15s ease",
+    whiteSpace: "nowrap",
+  },
+  filterPillActive: {
+    background: "rgba(229,9,20,0.12)",
+    borderColor: "rgba(229,9,20,0.4)",
+    color: "var(--red-text, #ff6b6b)",
+    fontWeight: 700,
+  },
+  filterDotGreen: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "#22c55e",
+    flexShrink: 0,
+    display: "inline-block",
+  },
+  filterDotYellow: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "#eab308",
+    flexShrink: 0,
+    display: "inline-block",
+  },
+  searchResultInfo: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  resetFilterBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--text-faint)",
+    fontSize: 12,
+    fontFamily: "var(--font-body, sans-serif)",
+    padding: "2px 4px",
+    transition: "color 0.15s",
+  },
   /* Dashboard header */
   dashHeader: {
     padding: "clamp(20px,4vh,36px) clamp(20px,5vw,48px) 24px",

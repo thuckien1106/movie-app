@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { addMovie } from "../api/movieApi";
 import { useToast } from "../components/ToastContext";
+import { useWatchlist } from "../context/WatchlistContext";
 
 /* ══════════════════════════════════════════════
    GENRE COLOR MAP  — each genre has its own palette
@@ -137,7 +138,6 @@ function RatingRing({ rating, size = 42 }) {
   const pct = Math.min(num / 10, 1);
   const arc = pct * CIRCUMFERENCE;
   const { stroke, glow } = scoreColor(num);
-  const scale = size / (C * 2);
 
   return (
     <svg
@@ -270,12 +270,15 @@ function IconArrow() {
 ══════════════════════════════════════════════ */
 function MovieCard({ movie, onPlay }) {
   const [hover, setHover] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imgErr, setImgErr] = useState(false);
 
   const showToast = useToast();
   const navigate = useNavigate();
+
+  // ── Trạng thái saved lấy từ context — đồng bộ toàn app ──
+  const { savedIds, addToSaved } = useWatchlist();
+  const saved = savedIds.has(movie.id);
 
   const year = movie.release_date?.slice(0, 4) ?? null;
   const genres = (movie.genre_ids ?? [])
@@ -294,8 +297,17 @@ function MovieCard({ movie, onPlay }) {
           movie_id: movie.id,
           title: movie.title,
           poster: movie.poster,
+          // genre_ids có ở list API — lưu để thống kê thể loại
+          genre_ids:
+            Array.isArray(movie.genre_ids) && movie.genre_ids.length
+              ? movie.genre_ids.map(String).join(",")
+              : typeof movie.genre_ids === "string" && movie.genre_ids
+                ? movie.genre_ids
+                : null,
+          // runtime KHÔNG có ở list API — BE sẽ tự cập nhật khi user
+          // vào trang chi tiết phim và bấm "My List" lần đầu
         });
-        setSaved(true);
+        addToSaved(movie.id); // cập nhật context ngay
         showToast(`"${movie.title}" đã thêm vào Watchlist!`, "success");
       } catch {
         showToast("Thêm thất bại, thử lại nhé.", "error");
@@ -303,7 +315,7 @@ function MovieCard({ movie, onPlay }) {
         setSaving(false);
       }
     },
-    [saving, saved, movie, showToast],
+    [saving, saved, movie, showToast, addToSaved],
   );
 
   const handlePlay = useCallback(

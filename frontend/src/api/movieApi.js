@@ -55,6 +55,8 @@ export const moveToCollection = (movieId, collectionId) =>
 
 // ── Stats ─────────────────────────────────────────────────
 export const getWatchlistStats = () => api.get("/watchlist/stats");
+export const getDetailedStats = () => api.get("/watchlist/stats/detail");
+export const backfillRuntime = () => api.post("/watchlist/backfill-runtime");
 
 // ── Collections ───────────────────────────────────────────
 export const getCollections = () => api.get("/watchlist/collections");

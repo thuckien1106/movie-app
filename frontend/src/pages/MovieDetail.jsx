@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useWatchlist } from "../context/WatchlistContext";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getMovieDetail,
@@ -703,6 +704,7 @@ function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const showToast = useToast();
+  const { savedIds, addToSaved } = useWatchlist();
   const castRef = useRef(null);
   const crewRef = useRef(null);
   const simRef = useRef(null);
@@ -715,11 +717,13 @@ function MovieDetail() {
   const [similar, setSimilar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addingToList, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [isReminded, setIsReminded] = useState(false);
   const [parallaxY, setParallaxY] = useState(0);
   const [entered, setEntered] = useState(false);
+
+  // Lấy trạng thái từ context — đồng bộ với MovieCard
+  const added = movie ? savedIds.has(movie.id) : false;
 
   /* parallax */
   useEffect(() => {
@@ -741,7 +745,6 @@ function MovieDetail() {
     setCast([]);
     setCrew([]);
     setSimilar([]);
-    setAdded(false);
     setEntered(false);
     Promise.all([
       getMovieDetail(id),
@@ -787,8 +790,12 @@ function MovieDetail() {
         movie_id: movie.id,
         title: movie.title,
         poster: movie.poster,
+        runtime: movie.runtime || null,
+        genre_ids: movie.genre_ids?.length
+          ? movie.genre_ids.map(String).join(",")
+          : null,
       });
-      setAdded(true);
+      addToSaved(movie.id); // cập nhật context — đồng bộ với MovieCard
       showToast("Đã thêm vào Watchlist!", "success");
     } catch {
       showToast("Thêm thất bại.", "error");

@@ -199,10 +199,19 @@ def discover_by_genre(genre_id, year_gte=None, year_lte=None, page=1):
 
 def get_movie_detail(movie_id: int):
     url = f"{BASE_URL}/movie/{movie_id}"
+
+    # Ưu tiên vi-VN cho title/overview, nhưng TMDB thường thiếu runtime ở vi-VN
     params = {"api_key": settings.TMDB_API_KEY, "language": "vi-VN"}
     data = safe_request(url, params)
     if "error" in data:
         return data
+
+    # Nếu runtime bị null/0 (thường xảy ra với vi-VN), fallback gọi thêm en-US
+    if not data.get("runtime"):
+        en_data = safe_request(url, {"api_key": settings.TMDB_API_KEY, "language": "en-US"})
+        if "error" not in en_data and en_data.get("runtime"):
+            data["runtime"] = en_data["runtime"]
+
     return format_movie_detail(data)
 
 

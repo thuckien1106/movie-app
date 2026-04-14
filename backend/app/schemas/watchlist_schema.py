@@ -84,7 +84,7 @@ class WatchlistResponse(BaseModel):
 
 class GenreStat(BaseModel):
     genre_id:   str
-    genre_name: str        # Tên thể loại đã được map từ TMDB genre ID
+    genre_name: str
     count:      int
 
 
@@ -95,6 +95,30 @@ class WatchlistStats(BaseModel):
     total_runtime_minutes:   int
     watched_runtime_minutes: int
     top_genres:              List[GenreStat]
+
+
+# ── Statistics dashboard (detailed) ────────────────────────
+
+class MonthlyActivity(BaseModel):
+    year:    int
+    month:   int
+    added:   int
+    watched: int
+
+
+class DetailedStats(BaseModel):
+    total:                   int
+    watched:                 int
+    unwatched:               int
+    total_runtime_minutes:   int
+    watched_runtime_minutes: int
+    top_genres:              List[GenreStat]
+    all_genres:              List[GenreStat]
+    monthly_activity:        List[MonthlyActivity]
+    current_streak:          int
+    best_streak:             int
+    avg_runtime_minutes:     int
+    most_active_month:       Optional[str]
 
 
 # ── Collections ────────────────────────────────────────────
@@ -143,21 +167,23 @@ class ShareResponse(BaseModel):
     is_active:   bool
 
 
+# ── Public watchlist ────────────────────────────────────────
+
 class PublicCollectionGroup(BaseModel):
-    id:          Optional[int]       # None = phim không thuộc collection nào
-    name:        str                 # "Không có bộ sưu tập" nếu id là None
+    id:          Optional[int]
+    name:        str
     description: Optional[str]
     movies:      List[WatchlistResponse]
 
 
 class PublicWatchlistResponse(BaseModel):
-    owner_username:      Optional[str]
-    owner_avatar:        Optional[str]   # emoji avatar
-    owner_avatar_url:    Optional[str]   # URL ảnh Google profile
-    owner_bio:           Optional[str]
-    total:               int
-    watched:             int
+    owner_username:        Optional[str]
+    owner_avatar:          Optional[str]
+    owner_avatar_url:      Optional[str]
+    owner_bio:             Optional[str]
+    total:                 int
+    watched:               int
     total_runtime_minutes: int
-    top_genres:          List[GenreStat]
-    collections:         List[PublicCollectionGroup]
-    movies:              List[WatchlistResponse]  # flat list giữ lại cho compatibility
+    top_genres:            List[GenreStat]
+    collections:           List[PublicCollectionGroup]
+    movies:                List[WatchlistResponse]

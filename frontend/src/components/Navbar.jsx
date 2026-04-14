@@ -66,6 +66,7 @@ function Logo({ size = 32 }) {
 function PageTitle({ path }) {
   const map = {
     "/watchlist": "My Watchlist",
+    "/statistics": "Statistics",
     "/profile": "Hồ sơ",
     "/login": "Đăng nhập",
     "/mood": "Tâm trạng",
@@ -273,6 +274,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     {[
                       { to: "/profile", icon: "◈", label: "Hồ sơ của tôi" },
                       { to: "/watchlist", icon: "▣", label: "My Watchlist" },
+                      { to: "/statistics", icon: "📊", label: "Statistics" },
                       {
                         to: "/recommendations",
                         icon: "✦",

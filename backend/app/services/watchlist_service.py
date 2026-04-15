@@ -1,4 +1,6 @@
 import secrets
+import threading
+import logging
 from collections import Counter
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -15,27 +17,98 @@ from app.schemas.watchlist_schema import (
 # WATCHLIST CRUD
 # ════════════════════════════════════════════
 
+_svc_logger = logging.getLogger(__name__)
+
+
+def _fetch_and_patch_runtime(movie_id: int, watchlist_id: int) -> None:
+    """
+    Chạy trong background thread — gọi TMDB lấy runtime rồi patch vào DB.
+    Dùng SessionLocal riêng để tránh conflict với session của request chính.
+    """
+    from app.database.connection import SessionLocal
+    from app.services import tmdb_service
+
+    db = SessionLocal()
+    try:
+        item = db.query(Watchlist).filter(Watchlist.id == watchlist_id).first()
+        if not item:
+            return
+        # Không làm gì nếu đã có runtime hợp lệ
+        if item.runtime and item.runtime > 0:
+            return
+
+        detail = tmdb_service.get_movie_detail(movie_id)
+        if "error" in detail:
+            _svc_logger.warning(f"[runtime_fetch] TMDB error for movie_id={movie_id}: {detail}")
+            return
+
+        changed = False
+        runtime = detail.get("runtime")
+        if runtime and runtime > 0:
+            item.runtime = runtime
+            changed = True
+
+        genre_ids = detail.get("genre_ids")
+        if genre_ids and not item.genre_ids:
+            if isinstance(genre_ids, list):
+                item.genre_ids = ",".join(str(g) for g in genre_ids)
+            elif isinstance(genre_ids, str):
+                item.genre_ids = genre_ids
+            changed = True
+
+        if changed:
+            db.commit()
+            _svc_logger.info(
+                f"[runtime_fetch] patched movie_id={movie_id} "
+                f"runtime={runtime} genre_ids={item.genre_ids}"
+            )
+    except Exception as e:
+        _svc_logger.error(f"[runtime_fetch] movie_id={movie_id} exception: {e}")
+    finally:
+        db.close()
+
+
+# ════════════════════════════════════════════
+# WATCHLIST CRUD
+# ════════════════════════════════════════════
+
 def add_to_watchlist(db: Session, user_id: int, data: WatchlistCreate):
-    # Tránh trùng lặp — nếu đã có thì cập nhật runtime/genre_ids nếu thiếu
+    """
+    Thêm phim vào watchlist.
+
+    - Nếu phim đã tồn tại: cập nhật runtime/genre_ids nếu lần này có data tốt hơn.
+    - Nếu phim mới + thiếu runtime: tự động fetch TMDB trong background thread
+      (không block response, user không cần làm gì thêm).
+    """
+    # ── Phim đã tồn tại ──────────────────────────────────────────
     existing = db.query(Watchlist).filter(
         Watchlist.user_id == user_id,
-        Watchlist.movie_id == data.movie_id
+        Watchlist.movie_id == data.movie_id,
     ).first()
     if existing:
         changed = False
-        # Cập nhật runtime nếu record cũ thiếu nhưng lần này có
-        if data.runtime and (not existing.runtime or existing.runtime == 0):
+        if data.runtime and data.runtime > 0 and (not existing.runtime or existing.runtime == 0):
             existing.runtime = data.runtime
             changed = True
-        # Cập nhật genre_ids nếu record cũ thiếu
         if data.genre_ids and not existing.genre_ids:
             existing.genre_ids = data.genre_ids
             changed = True
         if changed:
             db.commit()
             db.refresh(existing)
+
+        # Nếu vẫn thiếu runtime (cả 2 lần đều không có) → fetch background
+        if not existing.runtime or existing.runtime == 0:
+            t = threading.Thread(
+                target=_fetch_and_patch_runtime,
+                args=(existing.movie_id, existing.id),
+                daemon=True,
+            )
+            t.start()
+
         return existing
 
+    # ── Phim mới ─────────────────────────────────────────────────
     item = Watchlist(
         user_id=user_id,
         movie_id=data.movie_id,
@@ -49,6 +122,20 @@ def add_to_watchlist(db: Session, user_id: int, data: WatchlistCreate):
     db.add(item)
     db.commit()
     db.refresh(item)
+
+    # Nếu thiếu runtime → fetch TMDB ngay trong background
+    if not item.runtime or item.runtime == 0:
+        t = threading.Thread(
+            target=_fetch_and_patch_runtime,
+            args=(item.movie_id, item.id),
+            daemon=True,
+        )
+        t.start()
+        _svc_logger.info(
+            f"[runtime_fetch] spawned background fetch for "
+            f"movie_id={item.movie_id} watchlist_id={item.id}"
+        )
+
     return item
 
 
@@ -502,10 +589,11 @@ def backfill_missing_runtime(db: Session, user_id: int) -> int:
     import time
     logger = logging.getLogger(__name__)
 
-    # Lấy tất cả phim thiếu runtime
+    # Lấy tất cả phim thiếu runtime — dùng is_(None) thay vì == None
+    from sqlalchemy import or_
     items = db.query(Watchlist).filter(
         Watchlist.user_id == user_id,
-        (Watchlist.runtime == None) | (Watchlist.runtime == 0),
+        or_(Watchlist.runtime.is_(None), Watchlist.runtime == 0),
     ).all()
 
     if not items:

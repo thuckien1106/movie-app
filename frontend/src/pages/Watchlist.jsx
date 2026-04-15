@@ -2438,17 +2438,21 @@ export default function Watchlist() {
           </div>
         )}
 
-        {/* Backfill notice — hiện khi tổng thời gian = 0 nhưng có phim */}
+        {/* Backfill notice — hiện khi có phim thiếu thời lượng */}
         {stats &&
           stats.total > 0 &&
-          stats.total_runtime_minutes === 0 &&
+          orderedMovies.some((m) => !m.runtime || m.runtime === 0) &&
           (viewMode === "list" || viewMode === "grid") && (
             <div style={w.backfillNotice}>
               <span style={{ fontSize: 14 }}>⏱</span>
               <span
                 style={{ flex: 1, fontSize: 12, color: "var(--text-muted)" }}
               >
-                Thời lượng phim chưa được cập nhật. Bấm để lấy dữ liệu từ TMDB.
+                {
+                  orderedMovies.filter((m) => !m.runtime || m.runtime === 0)
+                    .length
+                }{" "}
+                phim chưa có thời lượng. Bấm để cập nhật từ TMDB.
               </span>
               <button
                 onClick={handleBackfill}

@@ -636,23 +636,74 @@ export default function Profile() {
           {TABS.map(({ key, label, icon }) => {
             const active = tab === key;
             return (
-              <button key={key} style={s.tabBtn} onClick={() => setTab(key)}>
-                <span
-                  style={{
-                    ...s.tabBtnInner,
-                    color: active ? "var(--text-primary)" : "var(--text-muted)",
-                  }}
-                >
-                  <span style={{ fontSize: 14 }}>{icon}</span>
+              <button
+                key={key}
+                style={{
+                  ...s.tabBtn,
+                  background: active ? "rgba(229,9,20,0.14)" : "transparent",
+                  color: active
+                    ? "var(--red-text, #ff6b6b)"
+                    : "var(--text-muted)",
+                  border: active
+                    ? "1px solid rgba(229,9,20,0.28)"
+                    : "1px solid transparent",
+                  borderRadius: 10,
+                }}
+                onClick={() => setTab(key)}
+                onMouseEnter={(e) => {
+                  if (!active)
+                    e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span style={{ ...s.tabBtnInner, color: "inherit" }}>
+                  {icon === "◈" ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  ) : icon === "🔒" ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                  )}
                   <span>{label}</span>
                 </span>
-                <span
-                  style={{
-                    ...s.tabUnderline,
-                    transform: active ? "scaleX(1)" : "scaleX(0)",
-                    opacity: active ? 1 : 0,
-                  }}
-                />
               </button>
             );
           })}
@@ -1302,13 +1353,13 @@ const s = {
     display: "flex",
     alignItems: "center",
     borderBottom: "1px solid var(--border)",
-    minHeight: 200,
+    minHeight: 220,
   },
   heroBg: {
     position: "absolute",
     inset: 0,
     background:
-      "linear-gradient(135deg,rgba(229,9,20,0.07) 0%,var(--bg-surface,#0e1218) 50%,rgba(59,130,246,0.04) 100%)",
+      "linear-gradient(135deg,rgba(229,9,20,0.09) 0%,var(--bg-surface,#0e1218) 45%,rgba(59,130,246,0.05) 100%)",
   },
   heroGlow1: {
     position: "absolute",
@@ -1349,18 +1400,18 @@ const s = {
     width: "100%",
   },
   avatarBtn: {
-    width: 90,
-    height: 90,
+    width: 92,
+    height: 92,
     borderRadius: "50%",
     background: "var(--bg-card2)",
-    border: "3px solid var(--border-bright)",
+    border: "3px solid rgba(229,9,20,0.4)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
     padding: 0,
-    boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
-    transition: "border-color 0.2s,transform 0.2s,box-shadow 0.2s",
+    boxShadow: "0 8px 28px rgba(0,0,0,0.5), 0 0 20px rgba(229,9,20,0.15)",
+    transition: "border-color 0.2s, transform 0.2s, box-shadow 0.2s",
     position: "relative",
   },
   avatarEditBadge: {
@@ -1413,13 +1464,14 @@ const s = {
   },
   heroStats: {
     display: "flex",
-    gap: 24,
+    gap: 20,
     marginLeft: "auto",
     background: "rgba(255,255,255,0.04)",
-    border: "1px solid var(--border)",
+    border: "1px solid rgba(255,255,255,0.08)",
     borderRadius: "var(--radius-xl)",
-    padding: "16px 24px",
+    padding: "16px 22px",
     flexWrap: "wrap",
+    backdropFilter: "blur(12px)",
   },
   heroStat: {
     display: "flex",
@@ -1452,17 +1504,22 @@ const s = {
     zIndex: 50,
     backdropFilter: "blur(14px)",
   },
-  tabBarInner: { display: "flex", gap: 0, padding: "0 clamp(24px,6vw,72px)" },
+  tabBarInner: {
+    display: "flex",
+    gap: 6,
+    padding: "10px clamp(24px,6vw,72px)",
+    alignItems: "center",
+  },
   tabBtn: {
     position: "relative",
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
-    padding: "14px 20px 12px",
-    background: "transparent",
-    border: "none",
+    padding: "8px 16px",
     cursor: "pointer",
     minWidth: 0,
+    fontFamily: "var(--font-body, sans-serif)",
+    transition:
+      "background 0.18s ease, color 0.18s ease, border-color 0.18s ease",
   },
   tabBtnInner: {
     display: "flex",
@@ -1470,7 +1527,6 @@ const s = {
     gap: 7,
     fontSize: 13,
     fontWeight: 500,
-    transition: "color 0.18s",
     whiteSpace: "nowrap",
   },
   tabUnderline: {
@@ -1508,10 +1564,12 @@ const s = {
     flexDirection: "column",
     alignItems: "center",
     gap: 8,
-    background: "var(--bg-surface,#0e1218)",
-    border: "1px solid var(--border)",
+    background:
+      "linear-gradient(160deg, var(--bg-surface,#0e1218) 0%, var(--bg-card2) 100%)",
+    border: "1px solid var(--border-mid)",
     borderRadius: "var(--radius-lg)",
-    padding: "16px 12px",
+    padding: "18px 12px",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
   },
   ringLabel: {
     margin: 0,
@@ -1555,13 +1613,14 @@ const s = {
     gap: 16,
     width: "100%",
     padding: "14px 18px",
-    background: "var(--bg-card)",
+    background:
+      "linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card2) 100%)",
     border: "1px solid var(--border-mid)",
     borderRadius: "var(--radius-lg)",
     cursor: "pointer",
     fontFamily: "var(--font-body)",
     textAlign: "left",
-    transition: "border-color 0.18s,background 0.18s",
+    transition: "border-color 0.18s, background 0.18s, box-shadow 0.18s",
   },
   btnPrimary: {
     display: "inline-flex",

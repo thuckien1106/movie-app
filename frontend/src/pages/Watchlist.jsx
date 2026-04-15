@@ -266,16 +266,38 @@ const IconPlus = () => (
 /* ─── Stat card with animated number ────────────── */
 function StatCard({ icon, label, value, sub, accent }) {
   return (
-    <div style={{ ...w.statCard, borderTop: `2px solid ${accent}` }}>
+    <div
+      style={{
+        ...w.statCard,
+        borderTop: `2px solid ${accent}`,
+        background: `linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card2) 100%)`,
+      }}
+    >
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          marginBottom: 8,
+          marginBottom: 10,
         }}
       >
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            flexShrink: 0,
+            background: `${accent}1a`,
+            border: `1px solid ${accent}33`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 16,
+            lineHeight: 1,
+          }}
+        >
+          {icon}
+        </div>
         {sub && (
           <span
             style={{
@@ -284,6 +306,9 @@ function StatCard({ icon, label, value, sub, accent }) {
               fontWeight: 600,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
+              background: "var(--border)",
+              borderRadius: 99,
+              padding: "2px 7px",
             }}
           >
             {sub}
@@ -293,7 +318,7 @@ function StatCard({ icon, label, value, sub, accent }) {
       <p
         style={{
           margin: "0 0 3px",
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: 800,
           color: "var(--text-primary)",
           fontFamily: "var(--font-display)",
@@ -934,10 +959,11 @@ function GridCard({
       style={{
         ...w.gridCard,
         ...(movie.is_watched ? { opacity: 0.7 } : {}),
-        transform: hov ? "translateY(-5px)" : "none",
+        transform: hov ? "translateY(-6px)" : "none",
         boxShadow: hov
-          ? "0 16px 40px rgba(0,0,0,0.8), 0 0 0 1.5px rgba(229,9,20,0.4)"
+          ? "0 20px 48px rgba(0,0,0,0.8), 0 0 0 1.5px rgba(229,9,20,0.45)"
           : "var(--shadow-card)",
+        borderColor: hov ? "rgba(229,9,20,0.35)" : "var(--border)",
       }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -1784,19 +1810,141 @@ function EmptySearch({ query, status, onReset }) {
 function EmptyState() {
   return (
     <div style={{ textAlign: "center", padding: "72px 20px" }}>
-      <p style={{ fontSize: 52, marginBottom: 14 }}>🎬</p>
+      <div style={{ display: "inline-block", marginBottom: 20, opacity: 0.6 }}>
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <rect
+            x="10"
+            y="16"
+            width="38"
+            height="52"
+            rx="4"
+            fill="rgba(229,9,20,0.12)"
+            stroke="rgba(229,9,20,0.3)"
+            strokeWidth="1.5"
+          />
+          <rect
+            x="14"
+            y="22"
+            width="30"
+            height="4"
+            rx="2"
+            fill="rgba(229,9,20,0.25)"
+          />
+          <rect
+            x="14"
+            y="30"
+            width="22"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.1)"
+          />
+          <rect
+            x="14"
+            y="37"
+            width="26"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.08)"
+          />
+          <rect
+            x="14"
+            y="44"
+            width="18"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.06)"
+          />
+          <rect
+            x="28"
+            y="24"
+            width="36"
+            height="48"
+            rx="4"
+            fill="rgba(59,130,246,0.1)"
+            stroke="rgba(59,130,246,0.25)"
+            strokeWidth="1.5"
+          />
+          <rect
+            x="33"
+            y="31"
+            width="26"
+            height="4"
+            rx="2"
+            fill="rgba(59,130,246,0.3)"
+          />
+          <rect
+            x="33"
+            y="39"
+            width="20"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.1)"
+          />
+          <rect
+            x="33"
+            y="46"
+            width="24"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.08)"
+          />
+          <rect
+            x="33"
+            y="53"
+            width="16"
+            height="3"
+            rx="1.5"
+            fill="rgba(255,255,255,0.06)"
+          />
+          <circle
+            cx="60"
+            cy="20"
+            r="8"
+            fill="rgba(229,9,20,0.15)"
+            stroke="rgba(229,9,20,0.4)"
+            strokeWidth="1.5"
+          />
+          <line
+            x1="57"
+            y1="20"
+            x2="63"
+            y2="20"
+            stroke="rgba(229,9,20,0.8)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <line
+            x1="60"
+            y1="17"
+            x2="60"
+            y2="23"
+            stroke="rgba(229,9,20,0.8)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
       <p
         style={{
-          fontSize: 16,
-          fontWeight: 600,
+          fontSize: 17,
+          fontWeight: 700,
           color: "var(--text-secondary)",
           marginBottom: 8,
+          margin: "0 0 8px",
         }}
       >
-        Danh sách trống
+        Watchlist trống
       </p>
-      <p style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 24 }}>
-        Khám phá phim và thêm vào watchlist của bạn
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--text-faint)",
+          marginBottom: 24,
+          margin: "0 0 24px",
+          lineHeight: 1.6,
+        }}
+      >
+        Khám phá phim và thêm vào watchlist của bạn để theo dõi
       </p>
       <Link
         to="/"
@@ -3070,9 +3218,11 @@ const w = {
   },
   /* Dashboard header */
   dashHeader: {
-    padding: "clamp(20px,4vh,36px) clamp(20px,5vw,48px) 24px",
+    padding: "clamp(20px,4vh,36px) clamp(20px,5vw,48px) 28px",
     borderBottom: "1px solid var(--border)",
-    background: "var(--bg-surface, #0e1218)",
+    background:
+      "linear-gradient(160deg, rgba(229,9,20,0.04) 0%, var(--bg-surface,#0e1218) 40%, rgba(59,130,246,0.03) 100%)",
+    position: "relative",
   },
 
   /* Stat cards */
@@ -3107,10 +3257,12 @@ const w = {
   sidebar: {
     position: "sticky",
     top: "calc(60px + 20px)",
-    background: "var(--bg-surface)",
-    border: "1px solid var(--border)",
+    background:
+      "linear-gradient(160deg, var(--bg-surface) 0%, var(--bg-card) 100%)",
+    border: "1px solid var(--border-mid)",
     borderRadius: "var(--radius-xl)",
     padding: "20px 16px",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
   },
   sidebarMobile: { padding: "4px 0 8px" },
   sideStats: {
@@ -3119,9 +3271,9 @@ const w = {
     justifyContent: "space-between",
     marginBottom: 8,
     padding: "12px 10px",
-    background: "var(--bg-card)",
+    background: "rgba(229,9,20,0.05)",
     borderRadius: "var(--radius-md)",
-    border: "1px solid var(--border)",
+    border: "1px solid rgba(229,9,20,0.12)",
   },
   sideStat: {
     display: "flex",
@@ -3157,9 +3309,10 @@ const w = {
     transition: "background 0.15s ease, color 0.15s ease",
   },
   colBtnActive: {
-    background: "var(--red-dim)",
+    background: "rgba(229,9,20,0.14)",
     color: "var(--red-text)",
     fontWeight: 700,
+    boxShadow: "0 0 0 1px rgba(229,9,20,0.25)",
   },
   colCount: {
     fontSize: 10,
@@ -3274,19 +3427,21 @@ const w = {
   /* List card */
   listCard: {
     display: "flex",
-    gap: 14,
+    gap: 16,
     alignItems: "flex-start",
     background: "var(--bg-card)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-lg)",
-    padding: "12px 16px",
-    transition: "border-color 0.18s ease, box-shadow 0.18s ease",
+    padding: "14px 18px",
+    transition:
+      "border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease",
   },
   listCardHov: {
     borderColor: "var(--border-bright)",
-    boxShadow: "var(--shadow-hover)",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(120,145,210,0.15)",
+    transform: "translateY(-1px)",
   },
-  listCardWatched: { opacity: 0.65 },
+  listCardWatched: { opacity: 0.6 },
   dragHandle: {
     display: "flex",
     alignItems: "center",
@@ -3418,8 +3573,8 @@ const w = {
   /* Grid */
   gridLayout: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-    gap: 14,
+    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+    gap: 16,
   },
   gridCard: {
     borderRadius: "var(--radius-lg)",
@@ -3428,7 +3583,7 @@ const w = {
     border: "1px solid var(--border)",
     cursor: "pointer",
     transition:
-      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease",
+      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease, border-color 0.2s ease",
   },
   gridWatchedBadge: {
     position: "absolute",

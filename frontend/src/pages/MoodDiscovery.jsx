@@ -107,13 +107,13 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
         flexDirection: "column",
         alignItems: "center",
         gap: compact ? 6 : 10,
-        padding: compact ? "14px 8px 12px" : "20px 14px 16px",
+        padding: compact ? "16px 8px 14px" : "22px 14px 18px",
         borderRadius: "var(--radius-xl, 20px)",
-        border: `1.5px solid ${isSelected ? mood.color : hov ? mood.color + "55" : "var(--border)"}`,
+        border: `1.5px solid ${isSelected ? mood.color : hov ? mood.color + "55" : "rgba(100,120,180,0.12)"}`,
         background: isSelected
-          ? mood.bg
+          ? `linear-gradient(160deg, ${mood.color}14 0%, ${mood.color}08 100%)`
           : hov
-            ? mood.color + "0d"
+            ? `linear-gradient(160deg, ${mood.color}0d 0%, transparent 100%)`
             : "var(--bg-card)",
         cursor: "pointer",
         overflow: "hidden",
@@ -121,16 +121,16 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
           "transform 0.28s cubic-bezier(0.34,1.3,0.64,1), border-color 0.22s ease, background 0.22s ease, box-shadow 0.28s ease",
         transform: active ? "translateY(-6px) scale(1.03)" : "none",
         boxShadow: isSelected
-          ? `0 12px 36px ${mood.glow}, 0 0 0 1px ${mood.color}44`
+          ? `0 16px 40px ${mood.glow}, 0 0 0 1px ${mood.color}44`
           : hov
-            ? `0 8px 24px rgba(0,0,0,0.45)`
-            : "var(--shadow-card)",
+            ? `0 8px 28px rgba(0,0,0,0.5)`
+            : "0 4px 16px rgba(0,0,0,0.4)",
         fontFamily: "var(--font-body, sans-serif)",
         width: "100%",
         boxSizing: "border-box",
       }}
     >
-      {/* top color bar */}
+      {/* top gradient bar */}
       <div
         style={{
           position: "absolute",
@@ -138,26 +138,26 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
           left: 0,
           right: 0,
           height: 3,
-          background: mood.color,
+          background: `linear-gradient(to right, ${mood.color}aa, ${mood.color})`,
           borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
-          opacity: isSelected ? 1 : hov ? 0.65 : 0.22,
+          opacity: isSelected ? 1 : hov ? 0.7 : 0.2,
           transition: "opacity 0.22s ease",
         }}
       />
-      {/* ambient glow */}
+      {/* ambient glow sphere */}
       <div
         style={{
           position: "absolute",
-          top: -20,
+          top: -30,
           left: "50%",
           transform: "translateX(-50%)",
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           borderRadius: "50%",
           background: mood.color,
-          opacity: active ? 0.1 : 0,
-          filter: "blur(20px)",
-          transition: "opacity 0.3s ease",
+          opacity: active ? 0.08 : 0,
+          filter: "blur(24px)",
+          transition: "opacity 0.35s ease",
           pointerEvents: "none",
         }}
       />
@@ -168,13 +168,14 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
             position: "absolute",
             top: 10,
             right: 10,
-            width: 20,
-            height: 20,
+            width: 22,
+            height: 22,
             borderRadius: "50%",
             background: mood.color,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            boxShadow: `0 2px 8px ${mood.glow}`,
             animation: "checkPop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
           }}
         >
@@ -202,12 +203,12 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
                 ? 28
                 : 26
             : isSelected
-              ? 38
+              ? 40
               : hov
-                ? 34
-                : 30,
+                ? 36
+                : 32,
           lineHeight: 1,
-          filter: active ? `drop-shadow(0 0 10px ${mood.color}88)` : "none",
+          filter: active ? `drop-shadow(0 0 12px ${mood.color}88)` : "none",
           transition: "font-size 0.28s ease, filter 0.25s ease",
           animation: isSelected
             ? "emojiWobble 2s ease-in-out infinite"
@@ -234,11 +235,12 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
           zIndex: 1,
           textAlign: "center",
           lineHeight: 1.2,
+          letterSpacing: "0.01em",
         }}
       >
         {mood.label}
       </span>
-      {/* desc — ẩn trong compact mode */}
+      {/* desc */}
       {!compact && (
         <span
           style={{
@@ -260,7 +262,6 @@ function MoodCard({ mood, isSelected, onClick, compact = false }) {
     </button>
   );
 }
-
 /* ── Particle ──────────────────────────────── */
 function Particle({ char, top, left, size, duration, delay }) {
   return (

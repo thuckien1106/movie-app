@@ -1,5 +1,5 @@
 // src/pages/AuthPage.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { login, register } from "../api/movieApi";
 import { useAuth } from "../context/AuthContext";
@@ -8,91 +8,87 @@ import { useToast } from "../components/ToastContext";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const googleLoginUrl = `${API_BASE}/auth/google/login`;
 
-/* ── POSTER MOSAIC — background decoration ──── */
-const POSTER_SLUGS = [
-  "the-dark-knight",
-  "inception",
-  "interstellar",
-  "parasite",
-  "oppenheimer",
-  "dune",
-  "avatar",
-  "the-godfather",
-  "pulp-fiction",
-  "fight-club",
-  "the-matrix",
-  "goodfellas",
-  "schindler-list",
-  "forrest-gump",
-  "silence-of-the-lambs",
-  "se7en",
-  "the-usual-suspects",
-  "american-history-x",
-  "memento",
-  "city-of-god",
-  "spirited-away",
-  "life-is-beautiful",
-  "requiem-for-a-dream",
-  "a-beautiful-mind",
+/* ── Real TMDB poster images ──────────────────── */
+const TMDB_POSTERS = [
+  "https://image.tmdb.org/t/p/w300/qJ2tW6WMUDux911r6m7haRef0WH.jpg", // The Dark Knight
+  "https://image.tmdb.org/t/p/w300/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg", // Inception
+  "https://image.tmdb.org/t/p/w300/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", // Interstellar
+  "https://image.tmdb.org/t/p/w300/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg", // Parasite
+  "https://image.tmdb.org/t/p/w300/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", // Oppenheimer
+  "https://image.tmdb.org/t/p/w300/d5NXSklpcuveafHejlxZeyRPyRs.jpg", // Dune
+  "https://image.tmdb.org/t/p/w300/jRXYjXNq0Cs2TcJjLkki24MLp7u.jpg", // Avatar
+  "https://image.tmdb.org/t/p/w300/3bhkrj58Vtu7enYsLMId1SZxZnl.jpg", // The Godfather
+  "https://image.tmdb.org/t/p/w300/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg", // Pulp Fiction
+  "https://image.tmdb.org/t/p/w300/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", // Fight Club
+  "https://image.tmdb.org/t/p/w300/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", // The Matrix
+  "https://image.tmdb.org/t/p/w300/aKuFiU82s5ISJpGZp7YkIr3kCUd.jpg", // Goodfellas
+  "https://image.tmdb.org/t/p/w300/sF1U4EUQS8YHUYjNl3pMGNIQyr0.jpg", // Schindler's List
+  "https://image.tmdb.org/t/p/w300/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg", // Forrest Gump
+  "https://image.tmdb.org/t/p/w300/rplLJ2hPcOQmkFhTqUte0MkEaO2.jpg", // Silence of the Lambs
+  "https://image.tmdb.org/t/p/w300/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg", // Se7en
 ];
 
-const POSTER_COLORS = [
-  "#1a0a0a",
-  "#0a0f1a",
-  "#0a1a0f",
-  "#1a1a0a",
-  "#0f0a1a",
-  "#1a0a14",
-  "#0a1a1a",
-  "#14080a",
-  "#0a0a14",
-  "#1a0f0a",
-  "#08100a",
-  "#100808",
-  "#080a10",
-  "#10100a",
-  "#0a0810",
-  "#140a0a",
-  "#0a140a",
-  "#0a0a14",
-  "#140a14",
-  "#0a1410",
-  "#10080a",
-  "#081010",
-  "#100a08",
-  "#080a10",
-];
+/* ── Animated Film Strip background ──────────── */
+function FilmStripBg() {
+  const cols = 5;
+  const postersPerCol = 5;
+  const columns = Array.from({ length: cols }, (_, colIdx) => ({
+    id: colIdx,
+    posters: Array.from({ length: postersPerCol }, (_, rowIdx) => {
+      const idx = (colIdx * postersPerCol + rowIdx) % TMDB_POSTERS.length;
+      return TMDB_POSTERS[idx];
+    }),
+    direction: colIdx % 2 === 0 ? "up" : "down",
+    speed: 28 + colIdx * 5,
+  }));
 
-function PosterMosaic() {
   return (
-    <div style={ms.wrap}>
-      <div style={ms.grid}>
-        {POSTER_COLORS.map((bg, i) => (
-          <div
-            key={i}
-            style={{
-              ...ms.cell,
-              background: bg,
-              animationDelay: `${(i * 0.18) % 3}s`,
-              animationDuration: `${3.5 + (i % 4) * 0.8}s`,
-            }}
-          >
+    <div style={bg.wrap}>
+      <div style={bg.grid}>
+        {columns.map((col) => (
+          <div key={col.id} style={bg.col}>
             <div
-              style={{ ...ms.cellShimmer, opacity: 0.06 + (i % 5) * 0.02 }}
-            />
+              style={{
+                ...bg.colInner,
+                animationName:
+                  col.direction === "up" ? "scrollUp" : "scrollDown",
+                animationDuration: `${col.speed}s`,
+                animationTimingFunction: "linear",
+                animationIterationCount: "infinite",
+              }}
+            >
+              {/* Duplicate for seamless loop */}
+              {[...col.posters, ...col.posters].map((src, i) => (
+                <div key={i} style={bg.card}>
+                  <img
+                    src={src}
+                    alt=""
+                    style={bg.img}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.parentElement.style.background = "#0d1117";
+                    }}
+                  />
+                  <div style={bg.cardOverlay} />
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
-      {/* gradient overlays */}
-      <div style={ms.overlayLeft} />
-      <div style={ms.overlayRight} />
-      <div style={ms.overlayTop} />
-      <div style={ms.overlayBottom} />
+      {/* Directional fades */}
+      <div style={bg.fadeLeft} />
+      <div style={bg.fadeRight} />
+      <div style={bg.fadeTop} />
+      <div style={bg.fadeBottom} />
+      {/* Depth tint */}
+      <div style={bg.tint} />
     </div>
   );
 }
 
-const ms = {
+const bg = {
   wrap: {
     position: "absolute",
     inset: 0,
@@ -100,111 +96,122 @@ const ms = {
     overflow: "hidden",
   },
   grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(6, 1fr)",
-    gridTemplateRows: "repeat(4, 1fr)",
+    display: "flex",
+    height: "100%",
+    gap: 8,
+    padding: "0 4px",
+    alignItems: "stretch",
+  },
+  col: {
+    flex: 1,
+    overflow: "hidden",
+    position: "relative",
+  },
+  colInner: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  card: {
+    width: "100%",
+    aspectRatio: "2/3",
+    borderRadius: 8,
+    overflow: "hidden",
+    background: "#0a0d14",
+    flexShrink: 0,
+    position: "relative",
+  },
+  img: {
     width: "100%",
     height: "100%",
-    gap: 3,
+    objectFit: "cover",
+    display: "block",
+    opacity: 0.7,
   },
-  cell: {
-    borderRadius: 4,
-    position: "relative",
-    overflow: "hidden",
-    animation: "cellPulse var(--dur,4s) ease-in-out infinite alternate",
-  },
-  cellShimmer: {
+  cardOverlay: {
     position: "absolute",
     inset: 0,
     background:
-      "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%)",
+      "linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.3) 100%)",
   },
-  overlayLeft: {
+  fadeLeft: {
     position: "absolute",
     inset: 0,
+    zIndex: 2,
     background:
-      "linear-gradient(to right, rgba(8,11,15,0.98) 0%, rgba(8,11,15,0.82) 45%, rgba(8,11,15,0.35) 75%, transparent 100%)",
+      "linear-gradient(to right, var(--bg-page,#080b0f) 0%, rgba(8,11,15,0.95) 12%, rgba(8,11,15,0.6) 30%, rgba(8,11,15,0.1) 55%, transparent 100%)",
+  },
+  fadeRight: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 2,
+    background:
+      "linear-gradient(to left, var(--bg-page,#080b0f) 0%, rgba(8,11,15,0.9) 10%, rgba(8,11,15,0.3) 28%, transparent 55%)",
+  },
+  fadeTop: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 2,
+    background:
+      "linear-gradient(to bottom, var(--bg-page,#080b0f) 0%, transparent 20%)",
+  },
+  fadeBottom: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 2,
+    background:
+      "linear-gradient(to top, var(--bg-page,#080b0f) 0%, transparent 20%)",
+  },
+  tint: {
+    position: "absolute",
+    inset: 0,
     zIndex: 1,
-  },
-  overlayRight: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(to left, rgba(8,11,15,0.7) 0%, transparent 40%)",
-    zIndex: 1,
-  },
-  overlayTop: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(to bottom, rgba(8,11,15,0.9) 0%, transparent 30%)",
-    zIndex: 1,
-  },
-  overlayBottom: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(to top, rgba(8,11,15,0.9) 0%, transparent 35%)",
-    zIndex: 1,
+    background: "rgba(5,8,12,0.55)",
   },
 };
 
-/* ── SVG Logo ─── */
-function Logo({ size = 30 }) {
+/* ── SVG Logo ─────────────────────────────────── */
+function Logo({ size = 28 }) {
   return (
-    <svg width={size * 2.8} height={size} viewBox="0 0 90 32" fill="none">
+    <svg
+      width={size * 3.2}
+      height={size}
+      viewBox="0 0 100 32"
+      fill="none"
+      style={{ display: "block" }}
+    >
+      {/* Film strip icon */}
       <rect
         x="1"
-        y="4"
-        width="3"
-        height="24"
-        rx="1.5"
+        y="3"
+        width="4"
+        height="26"
+        rx="2"
         fill="#e50914"
-        opacity="0.9"
+        opacity="0.95"
       />
-      <rect
-        x="1"
-        y="6"
-        width="3"
-        height="4"
-        rx="1"
-        fill="var(--bg-page, #080b0f)"
-      />
-      <rect
-        x="1"
-        y="13"
-        width="3"
-        height="4"
-        rx="1"
-        fill="var(--bg-page, #080b0f)"
-      />
-      <rect
-        x="1"
-        y="20"
-        width="3"
-        height="4"
-        rx="1"
-        fill="var(--bg-page, #080b0f)"
-      />
+      <rect x="1.5" y="6" width="3" height="3.5" rx="0.8" fill="#080b0f" />
+      <rect x="1.5" y="12.5" width="3" height="3.5" rx="0.8" fill="#080b0f" />
+      <rect x="1.5" y="19" width="3" height="3.5" rx="0.8" fill="#080b0f" />
       <text
-        x="9"
+        x="10"
         y="23"
         fontFamily="'Bebas Neue','Arial Narrow',sans-serif"
         fontSize="22"
-        letterSpacing="2"
-        fill="var(--text-primary, #f0f4ff)"
+        letterSpacing="2.5"
+        fill="var(--text-primary,#f0f4ff)"
       >
         FILMVERSE
       </text>
-      <circle cx="86" cy="22" r="2.5" fill="#e50914" />
+      <circle cx="97" cy="23" r="2.8" fill="#e50914" />
     </svg>
   );
 }
 
-/* ── Google icon ── */
-function GoogleIcon() {
+/* ── Google Icon ──────────────────────────────── */
+function GoogleIcon({ size = 18 }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48">
+    <svg width={size} height={size} viewBox="0 0 48 48">
       <path
         fill="#FFC107"
         d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
@@ -225,12 +232,12 @@ function GoogleIcon() {
   );
 }
 
-/* ── Eye icon ── */
+/* ── Eye toggle icon ──────────────────────────── */
 function EyeIcon({ open }) {
   return open ? (
     <svg
-      width="16"
-      height="16"
+      width="15"
+      height="15"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -243,8 +250,8 @@ function EyeIcon({ open }) {
     </svg>
   ) : (
     <svg
-      width="16"
-      height="16"
+      width="15"
+      height="15"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -259,7 +266,7 @@ function EyeIcon({ open }) {
   );
 }
 
-/* ── Password strength ── */
+/* ── Password strength ────────────────────────── */
 function passwordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "transparent" };
   let score = 0;
@@ -270,14 +277,14 @@ function passwordStrength(pw) {
   const map = [
     { label: "", color: "transparent" },
     { label: "Yếu", color: "#ef4444" },
-    { label: "Trung bình", color: "#eab308" },
-    { label: "Tốt", color: "#22c55e" },
-    { label: "Mạnh", color: "#16a34a" },
+    { label: "Trung bình", color: "#f97316" },
+    { label: "Tốt", color: "#eab308" },
+    { label: "Mạnh", color: "#22c55e" },
   ];
   return { score, ...map[score] };
 }
 
-/* ── Input Field component ── */
+/* ── Floating label Input ─────────────────────── */
 function InputField({
   label,
   name,
@@ -299,29 +306,28 @@ function InputField({
     <div
       style={{
         position: "relative",
-        marginBottom: isPassword && value ? 32 : 16,
+        marginBottom: isPassword && value ? 30 : 14,
       }}
     >
-      {/* Floating label */}
       <label
         style={{
           position: "absolute",
-          left: 14,
+          left: 15,
           pointerEvents: "none",
           zIndex: 1,
-          top: lifted ? 7 : "50%",
+          top: lifted ? 8 : "50%",
           fontSize: lifted ? 10 : 14,
-          fontWeight: lifted ? 600 : 400,
+          fontWeight: lifted ? 700 : 400,
           color: focused
-            ? "var(--red-text, #ff6b6b)"
+            ? "rgba(229,9,20,0.85)"
             : lifted
-              ? "var(--text-muted)"
-              : "var(--text-faint)",
+              ? "rgba(160,175,210,0.6)"
+              : "rgba(130,145,185,0.45)",
           transform: lifted ? "none" : "translateY(-50%)",
-          letterSpacing: lifted ? "0.07em" : "0.01em",
+          letterSpacing: lifted ? "0.08em" : "0.01em",
           textTransform: lifted ? "uppercase" : "none",
-          transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)",
-          fontFamily: "var(--font-body, sans-serif)",
+          transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)",
+          fontFamily: "var(--font-body,sans-serif)",
         }}
       >
         {label}
@@ -339,21 +345,25 @@ function InputField({
         style={{
           width: "100%",
           boxSizing: "border-box",
-          padding: "22px 16px 8px",
-          paddingRight: isPassword ? 44 : 16,
+          padding: "23px 15px 9px",
+          paddingRight: isPassword ? 44 : 15,
           background: focused
-            ? "rgba(255,255,255,0.055)"
-            : "rgba(255,255,255,0.03)",
-          border: `1px solid ${focused ? "rgba(229,9,20,0.55)" : filled ? "rgba(120,145,210,0.22)" : "rgba(100,120,180,0.14)"}`,
+            ? "rgba(255,255,255,0.05)"
+            : "rgba(255,255,255,0.025)",
+          border: `1.5px solid ${
+            focused
+              ? "rgba(229,9,20,0.5)"
+              : filled
+                ? "rgba(130,150,210,0.2)"
+                : "rgba(100,120,175,0.12)"
+          }`,
           borderRadius: 12,
-          color: "var(--text-primary)",
+          color: "var(--text-primary,#f0f4ff)",
           fontSize: 14,
-          fontFamily: "var(--font-body, sans-serif)",
+          fontFamily: "var(--font-body,sans-serif)",
           outline: "none",
-          boxShadow: focused
-            ? "0 0 0 3px rgba(229,9,20,0.12), inset 0 1px 0 rgba(255,255,255,0.04)"
-            : "none",
-          transition: "all 0.2s ease",
+          boxShadow: focused ? "0 0 0 3.5px rgba(229,9,20,0.1)" : "none",
+          transition: "all 0.22s ease",
           WebkitAppearance: "none",
         }}
       />
@@ -370,8 +380,8 @@ function InputField({
             transform: "translateY(-50%)",
             background: "none",
             border: "none",
-            padding: 4,
-            color: focused ? "var(--text-muted)" : "var(--text-faint)",
+            padding: 5,
+            color: focused ? "rgba(160,175,210,0.7)" : "rgba(120,135,175,0.4)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -388,7 +398,7 @@ function InputField({
         <div
           style={{
             position: "absolute",
-            bottom: -24,
+            bottom: -22,
             left: 0,
             right: 0,
             display: "flex",
@@ -402,12 +412,12 @@ function InputField({
                 key={i}
                 style={{
                   flex: 1,
-                  height: 3,
+                  height: 2.5,
                   borderRadius: 99,
                   background:
                     i <= strength.score
                       ? strength.color
-                      : "rgba(100,120,180,0.15)",
+                      : "rgba(100,120,180,0.12)",
                   transition: "background 0.3s ease",
                 }}
               />
@@ -415,12 +425,13 @@ function InputField({
           </div>
           <span
             style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
+              fontSize: 9,
+              fontWeight: 800,
+              letterSpacing: "0.07em",
               color: strength.color,
-              minWidth: 52,
+              minWidth: 48,
               textAlign: "right",
+              textTransform: "uppercase",
             }}
           >
             {strength.label}
@@ -431,62 +442,82 @@ function InputField({
   );
 }
 
-/* ── Brand features strip ── */
-function FeatureStrip() {
-  const items = [
-    { icon: "🎬", text: "5M+ phim & series" },
-    { icon: "⭐", text: "Đánh giá thực từ cộng đồng" },
-    { icon: "📋", text: "Watchlist cá nhân" },
-    { icon: "🎭", text: "Gợi ý theo tâm trạng" },
-  ];
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        marginTop: 32,
-      }}
-    >
-      {items.map(({ icon, text }) => (
-        <div
-          key={text}
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              flexShrink: 0,
-              background: "rgba(229,9,20,0.12)",
-              border: "1px solid rgba(229,9,20,0.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-            }}
-          >
-            {icon}
-          </div>
-          <span
-            style={{
-              fontSize: 13,
-              color: "rgba(200,210,240,0.7)",
-              fontWeight: 400,
-            }}
-          >
-            {text}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
+/* ── Feature list for left panel ─────────────── */
+const FEATURES = [
+  {
+    icon: (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polygon points="23 7 16 12 23 17 23 7" />
+        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+      </svg>
+    ),
+    label: "Hàng triệu phim & series",
+  },
+  {
+    icon: (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+      </svg>
+    ),
+    label: "Gợi ý theo tâm trạng",
+  },
+  {
+    icon: (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      </svg>
+    ),
+    label: "Watchlist & nhắc lịch chiếu",
+  },
+  {
+    icon: (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    ),
+    label: "Thống kê thói quen xem phim",
+  },
+];
 
-/* ════════════════════════════════════════════
+/* ════════════════════════════════════════════════
    MAIN AUTH PAGE
-════════════════════════════════════════════ */
+════════════════════════════════════════════════ */
 export default function AuthPage() {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", username: "" });
@@ -500,7 +531,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const t = setTimeout(() => setEntered(true), 60);
+    const t = setTimeout(() => setEntered(true), 80);
     return () => clearTimeout(t);
   }, []);
 
@@ -518,6 +549,7 @@ export default function AuthPage() {
 
   const handleChange = (e) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
   const switchMode = (m) => {
     setMode(m);
     setForm({ email: form.email, password: "", username: "" });
@@ -564,17 +596,31 @@ export default function AuthPage() {
 
   return (
     <div style={s.page}>
-      {/* Background mosaic */}
-      <PosterMosaic />
+      {/* Scrolling poster background */}
+      <FilmStripBg />
 
-      {/* Red ambient glow */}
-      <div style={s.ambientGlow} />
+      {/* Red ambient orb */}
+      <div style={s.ambientOrb} />
+      <div style={s.ambientOrb2} />
 
-      {/* Back button */}
-      <Link to="/" style={s.backBtn}>
+      {/* Back to home */}
+      <Link
+        to="/"
+        style={s.backBtn}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(20,26,38,0.95)";
+          e.currentTarget.style.borderColor = "rgba(160,175,210,0.25)";
+          e.currentTarget.style.color = "var(--text-primary,#f0f4ff)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(12,16,24,0.8)";
+          e.currentTarget.style.borderColor = "rgba(100,120,180,0.16)";
+          e.currentTarget.style.color = "var(--text-muted)";
+        }}
+      >
         <svg
-          width="14"
-          height="14"
+          width="13"
+          height="13"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -592,78 +638,124 @@ export default function AuthPage() {
         style={{
           ...s.splitWrap,
           opacity: entered ? 1 : 0,
-          transform: entered ? "translateY(0)" : "translateY(20px)",
+          transform: entered
+            ? "translateY(0) scale(1)"
+            : "translateY(28px) scale(0.98)",
         }}
       >
-        {/* LEFT PANEL — branding */}
-        <div style={s.leftPanel}>
-          <Logo size={34} />
-          <div style={s.tagline}>
-            <p style={s.taglineMain}>Khám phá điện ảnh.</p>
-            <p style={s.taglineSub}>Theo cách của bạn.</p>
+        {/* ── LEFT PANEL — cinematic branding ── */}
+        <div style={s.leftPanel} className="auth-left">
+          {/* Subtle red sheen on left edge */}
+          <div style={s.leftRedEdge} />
+
+          <Logo size={28} />
+
+          <div style={s.taglineBlock}>
+            <p style={s.tagline1}>Khám phá</p>
+            <p style={s.tagline2}>điện ảnh.</p>
+            <p style={s.tagline3}>Theo cách của bạn.</p>
           </div>
-          <div style={s.redDivider} />
+
+          <div style={s.divLine} />
+
           <p style={s.leftDesc}>
-            Hàng triệu bộ phim, series và câu chuyện đang chờ bạn khám phá. Tạo
-            danh sách, theo dõi tâm trạng và nhận gợi ý cá nhân hóa.
+            Hàng triệu bộ phim và series đang chờ. Tạo danh sách xem, nhận gợi ý
+            theo tâm trạng và theo dõi hành trình điện ảnh của bạn.
           </p>
-          <FeatureStrip />
+
+          {/* Feature list */}
+          <div style={s.featureList}>
+            {FEATURES.map(({ icon, label }) => (
+              <div key={label} style={s.featureItem}>
+                <div style={s.featureIcon}>{icon}</div>
+                <span style={s.featureLabel}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom film strip decoration */}
+          <div style={s.filmStripDeco}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} style={s.filmHole} />
+            ))}
+          </div>
         </div>
 
-        {/* RIGHT PANEL — form */}
+        {/* ── RIGHT PANEL — form ── */}
         <div style={s.formPanel}>
-          {/* Gloss border */}
-          <div style={s.formGlossBorder} />
+          {/* Top gloss line */}
+          <div style={s.topGloss} />
 
           {/* Header */}
           <div style={s.formHeader}>
             <h1 style={s.formTitle}>
-              {mode === "login" ? "Chào mừng trở lại" : "Tạo tài khoản"}
+              {mode === "login" ? "Chào mừng trở lại" : "Tạo tài khoản mới"}
             </h1>
             <p style={s.formSubtitle}>
               {mode === "login"
-                ? "Đăng nhập để tiếp tục hành trình điện ảnh của bạn"
+                ? "Đăng nhập để tiếp tục hành trình điện ảnh"
                 : "Bắt đầu miễn phí, không cần thẻ tín dụng"}
             </p>
           </div>
 
-          {/* Google button */}
+          {/* ── Google OAuth button ── */}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={googleLoading}
             style={{ ...s.googleBtn, opacity: googleLoading ? 0.75 : 1 }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.09)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
+              if (!googleLoading) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.borderColor = "rgba(200,215,255,0.3)";
+                e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.4)";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-              e.currentTarget.style.borderColor = "rgba(100,120,180,0.2)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.055)";
+              e.currentTarget.style.borderColor = "rgba(150,170,220,0.18)";
+              e.currentTarget.style.boxShadow = "none";
+              e.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            {googleLoading ? <span style={s.miniSpinner} /> : <GoogleIcon />}
-            <span
-              style={{
-                flex: 1,
-                textAlign: "center",
-                fontSize: 14,
-                fontWeight: 600,
-              }}
-            >
+            <span style={s.googleIconWrap}>
+              {googleLoading ? (
+                <span style={s.miniSpinner} />
+              ) : (
+                <GoogleIcon size={18} />
+              )}
+            </span>
+            <span style={s.googleBtnText}>
               {googleLoading ? "Đang chuyển hướng…" : "Tiếp tục với Google"}
             </span>
+            {!googleLoading && (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(160,175,210,0.4)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ marginLeft: "auto" }}
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            )}
           </button>
 
           {/* Divider */}
-          <div style={s.divider}>
-            <div style={s.dividerLine} />
-            <span style={s.dividerText}>hoặc bằng email</span>
-            <div style={s.dividerLine} />
+          <div style={s.orDivider}>
+            <div style={s.orLine} />
+            <span style={s.orText}>hoặc tiếp tục với email</span>
+            <div style={s.orLine} />
           </div>
 
-          {/* Mode toggle pills */}
-          <div style={s.modeToggle}>
+          {/* Mode tabs */}
+          <div style={s.tabs}>
             {[
               { key: "login", label: "Đăng nhập" },
               { key: "register", label: "Đăng ký" },
@@ -672,16 +764,25 @@ export default function AuthPage() {
                 key={key}
                 onClick={() => switchMode(key)}
                 style={{
-                  ...s.modeBtn,
-                  ...(mode === key ? s.modeBtnActive : {}),
+                  ...s.tab,
+                  ...(mode === key ? s.tabActive : {}),
+                }}
+                onMouseEnter={(e) => {
+                  if (mode !== key)
+                    e.currentTarget.style.color = "rgba(200,215,255,0.7)";
+                }}
+                onMouseLeave={(e) => {
+                  if (mode !== key)
+                    e.currentTarget.style.color = "rgba(130,145,185,0.4)";
                 }}
               >
                 {label}
+                {mode === key && <div style={s.tabUnderline} />}
               </button>
             ))}
           </div>
 
-          {/* Form */}
+          {/* Form fields */}
           <form
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column" }}
@@ -719,16 +820,16 @@ export default function AuthPage() {
 
             {mode === "login" && (
               <div
-                style={{ textAlign: "right", marginTop: -6, marginBottom: 20 }}
+                style={{ textAlign: "right", marginTop: -4, marginBottom: 20 }}
               >
                 <Link
                   to="/forgot-password"
                   style={s.forgotLink}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "#ff6b6b")
+                    (e.currentTarget.style.color = "rgba(255,120,120,0.9)")
                   }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "var(--text-faint)")
+                    (e.currentTarget.style.color = "rgba(130,145,185,0.4)")
                   }
                 >
                   Quên mật khẩu?
@@ -736,21 +837,21 @@ export default function AuthPage() {
               </div>
             )}
 
+            {/* Submit button */}
             <button
               type="submit"
               disabled={loading}
-              style={{ ...s.submitBtn, opacity: loading ? 0.78 : 1 }}
+              style={{ ...s.submitBtn, opacity: loading ? 0.8 : 1 }}
               onMouseEnter={(e) => {
                 if (!loading) {
-                  e.currentTarget.style.background =
-                    "var(--red-hover, #ff1a1a)";
+                  e.currentTarget.style.background = "var(--red-hover,#c9070f)";
                   e.currentTarget.style.boxShadow =
-                    "0 8px 32px rgba(229,9,20,0.55)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
+                    "0 8px 32px rgba(229,9,20,0.55), 0 2px 8px rgba(0,0,0,0.5)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--red, #e50914)";
+                e.currentTarget.style.background = "var(--red,#e50914)";
                 e.currentTarget.style.boxShadow =
                   "0 4px 20px rgba(229,9,20,0.35)";
                 e.currentTarget.style.transform = "translateY(0)";
@@ -781,8 +882,8 @@ export default function AuthPage() {
                     {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
                   </span>
                   <svg
-                    width="16"
-                    height="16"
+                    width="15"
+                    height="15"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -798,9 +899,9 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {/* Switch */}
+          {/* Switch mode */}
           <p style={s.switchText}>
-            {mode === "login" ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
+            {mode === "login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
             <button
               type="button"
               style={s.switchLink}
@@ -825,18 +926,34 @@ export default function AuthPage() {
   );
 }
 
+/* ── Keyframes & media queries ────────────────── */
 const authCSS = `
-  @keyframes cellPulse { from { opacity: 0.6; } to { opacity: 1; } }
-  @keyframes authSpinner { to { transform: rotate(360deg); } }
-  @keyframes authFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes scrollUp {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+  }
+  @keyframes scrollDown {
+    0%   { transform: translateY(-50%); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes authSpinner {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes authReveal {
+    from { opacity: 0; transform: translateY(28px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
 
-  @media (max-width: 768px) {
+  @media (max-width: 820px) {
     .auth-left { display: none !important; }
-    .auth-split { max-width: 440px !important; }
-    .auth-form-panel { border-radius: 20px !important; }
+  }
+  @media (max-width: 520px) {
+    .auth-split-wrap { border-radius: 20px !important; max-width: 100% !important; }
+    .auth-form-panel { padding: 28px 22px 24px !important; }
   }
 `;
 
+/* ── Styles ───────────────────────────────────── */
 const s = {
   page: {
     position: "relative",
@@ -844,235 +961,355 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "24px 20px",
+    padding: "28px 20px",
     overflow: "hidden",
-    background: "var(--bg-page, #080b0f)",
-    fontFamily: "var(--font-body, 'DM Sans', sans-serif)",
+    background: "var(--bg-page,#080b0f)",
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
   },
-  ambientGlow: {
+
+  /* Ambient glows */
+  ambientOrb: {
     position: "absolute",
     zIndex: 1,
-    width: 800,
-    height: 800,
-    top: "50%",
-    left: "30%",
-    transform: "translate(-50%, -50%)",
+    width: 700,
+    height: 700,
+    top: "40%",
+    left: "38%",
+    transform: "translate(-50%,-50%)",
     borderRadius: "50%",
     background:
-      "radial-gradient(circle, rgba(229,9,20,0.07) 0%, transparent 65%)",
+      "radial-gradient(circle, rgba(229,9,20,0.065) 0%, transparent 65%)",
     pointerEvents: "none",
   },
+  ambientOrb2: {
+    position: "absolute",
+    zIndex: 1,
+    width: 400,
+    height: 400,
+    bottom: "10%",
+    right: "15%",
+    borderRadius: "50%",
+    background:
+      "radial-gradient(circle, rgba(100,120,255,0.04) 0%, transparent 65%)",
+    pointerEvents: "none",
+  },
+
+  /* Back button */
   backBtn: {
     position: "absolute",
     top: 20,
-    left: 28,
+    left: 24,
     zIndex: 20,
     display: "flex",
     alignItems: "center",
     gap: 6,
     color: "var(--text-muted)",
     textDecoration: "none",
-    fontSize: 13,
-    fontWeight: 500,
-    padding: "6px 12px 6px 8px",
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "6px 12px 6px 9px",
     borderRadius: 999,
     border: "1px solid rgba(100,120,180,0.16)",
-    background: "rgba(14,18,24,0.7)",
-    backdropFilter: "blur(12px)",
-    transition: "all 0.15s ease",
+    background: "rgba(12,16,24,0.8)",
+    backdropFilter: "blur(16px)",
+    letterSpacing: "0.02em",
+    transition: "all 0.18s ease",
   },
+
+  /* Main split container */
   splitWrap: {
     position: "relative",
     zIndex: 10,
     display: "flex",
     gap: 0,
     width: "100%",
-    maxWidth: 900,
-    borderRadius: 24,
+    maxWidth: 880,
+    borderRadius: 22,
     overflow: "hidden",
-    boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
+    boxShadow:
+      "0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.07), 0 0 80px rgba(229,9,20,0.04)",
     transition:
-      "opacity 0.5s ease, transform 0.5s cubic-bezier(0.34,1.2,0.64,1)",
+      "opacity 0.55s ease, transform 0.55s cubic-bezier(0.34,1.15,0.64,1)",
   },
 
-  /* LEFT PANEL */
+  /* ── LEFT PANEL ── */
   leftPanel: {
-    flex: "0 0 320px",
-    padding: "44px 36px",
+    flex: "0 0 300px",
+    padding: "44px 34px 36px",
     background:
-      "linear-gradient(160deg, rgba(18,8,8,0.98) 0%, rgba(10,14,20,0.96) 100%)",
-    borderRight: "1px solid rgba(229,9,20,0.12)",
+      "linear-gradient(155deg, rgba(14,8,8,0.99) 0%, rgba(8,12,20,0.98) 60%, rgba(6,10,18,0.99) 100%)",
+    borderRight: "1px solid rgba(229,9,20,0.1)",
     display: "flex",
     flexDirection: "column",
+    position: "relative",
+    overflow: "hidden",
   },
-  tagline: { marginTop: 28 },
-  taglineMain: {
+  leftRedEdge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 2,
+    bottom: 0,
+    background:
+      "linear-gradient(to bottom, transparent 0%, rgba(229,9,20,0.6) 30%, rgba(229,9,20,0.6) 70%, transparent 100%)",
+  },
+  taglineBlock: {
+    marginTop: 30,
+    marginBottom: 2,
+  },
+  tagline1: {
     margin: 0,
-    fontSize: 32,
-    fontWeight: 800,
-    lineHeight: 1.15,
-    color: "var(--text-primary, #f0f4ff)",
-    fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
-    letterSpacing: "0.04em",
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: 38,
+    fontWeight: 400,
+    letterSpacing: "0.05em",
+    lineHeight: 1.0,
+    color: "rgba(240,244,255,0.9)",
   },
-  taglineSub: {
-    margin: "2px 0 0",
-    fontSize: 32,
-    fontWeight: 800,
-    lineHeight: 1.15,
-    color: "var(--red, #e50914)",
-    fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)",
-    letterSpacing: "0.04em",
+  tagline2: {
+    margin: 0,
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: 38,
+    fontWeight: 400,
+    letterSpacing: "0.05em",
+    lineHeight: 1.0,
+    color: "var(--red,#e50914)",
   },
-  redDivider: {
-    width: 40,
-    height: 3,
+  tagline3: {
+    margin: "4px 0 0",
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    fontSize: 21,
+    fontWeight: 400,
+    letterSpacing: "0.06em",
+    lineHeight: 1.2,
+    color: "rgba(180,195,230,0.45)",
+  },
+  divLine: {
+    width: 36,
+    height: 2.5,
     borderRadius: 99,
-    background: "var(--red, #e50914)",
-    margin: "20px 0",
-    opacity: 0.8,
+    background:
+      "linear-gradient(to right, var(--red,#e50914), rgba(229,9,20,0.3))",
+    margin: "22px 0",
   },
   leftDesc: {
-    fontSize: 13,
-    lineHeight: 1.7,
-    color: "rgba(160,175,210,0.65)",
+    fontSize: 12.5,
+    lineHeight: 1.75,
+    color: "rgba(150,165,200,0.58)",
     margin: 0,
   },
+  featureList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    marginTop: 26,
+  },
+  featureItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 11,
+  },
+  featureIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    flexShrink: 0,
+    background: "rgba(229,9,20,0.1)",
+    border: "1px solid rgba(229,9,20,0.18)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "rgba(255,110,110,0.75)",
+  },
+  featureLabel: {
+    fontSize: 12,
+    color: "rgba(185,200,235,0.6)",
+    fontWeight: 400,
+    lineHeight: 1.4,
+  },
+  filmStripDeco: {
+    display: "flex",
+    gap: 10,
+    marginTop: "auto",
+    paddingTop: 28,
+    alignItems: "center",
+  },
+  filmHole: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    border: "1.5px solid rgba(229,9,20,0.18)",
+    background: "rgba(229,9,20,0.04)",
+    flexShrink: 0,
+  },
 
-  /* FORM PANEL */
+  /* ── RIGHT FORM PANEL ── */
   formPanel: {
     flex: 1,
     minWidth: 0,
-    padding: "40px 36px 32px",
-    background: "rgba(11,15,22,0.97)",
+    padding: "38px 36px 30px",
+    background: "rgba(9,13,21,0.98)",
     position: "relative",
+    backdropFilter: "blur(0px)",
   },
-  formGlossBorder: {
+  topGloss: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 1,
     background:
-      "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)",
+      "linear-gradient(to right, transparent 5%, rgba(255,255,255,0.07) 40%, rgba(255,255,255,0.07) 60%, transparent 95%)",
     pointerEvents: "none",
   },
-  formHeader: { marginBottom: 24 },
+
+  formHeader: { marginBottom: 22 },
   formTitle: {
     margin: 0,
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: 700,
-    color: "var(--text-primary, #f0f4ff)",
-    letterSpacing: "-0.01em",
+    color: "var(--text-primary,#f0f4ff)",
+    letterSpacing: "-0.02em",
+    lineHeight: 1.2,
   },
   formSubtitle: {
     margin: "6px 0 0",
-    fontSize: 13,
-    color: "var(--text-muted, rgba(160,175,210,0.52))",
-    lineHeight: 1.5,
+    fontSize: 12.5,
+    color: "rgba(140,155,195,0.5)",
+    lineHeight: 1.55,
   },
 
-  /* Google button */
+  /* Google button — premium */
   googleBtn: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
     gap: 10,
     width: "100%",
-    padding: "12px 16px",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(100,120,180,0.2)",
+    padding: "13px 16px",
+    background: "rgba(255,255,255,0.055)",
+    border: "1.5px solid rgba(150,170,220,0.18)",
     borderRadius: 12,
     cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
-    color: "var(--text-primary)",
-    transition: "all 0.18s ease",
-    marginBottom: 16,
+    fontFamily: "var(--font-body,sans-serif)",
+    color: "var(--text-primary,#f0f4ff)",
+    transition: "all 0.2s ease",
+    marginBottom: 18,
+    position: "relative",
+  },
+  googleIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(200,215,255,0.1)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  googleBtnText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13.5,
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    marginLeft: -8,
   },
   miniSpinner: {
     display: "inline-block",
-    width: 18,
-    height: 18,
-    flexShrink: 0,
+    width: 16,
+    height: 16,
     border: "2px solid rgba(255,255,255,0.15)",
     borderTopColor: "#4285f4",
     borderRadius: "50%",
     animation: "authSpinner 0.7s linear infinite",
   },
 
-  divider: {
+  orDivider: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     margin: "0 0 18px",
   },
-  dividerLine: { flex: 1, height: 1, background: "rgba(100,120,180,0.1)" },
-  dividerText: {
-    fontSize: 11,
-    color: "rgba(140,155,195,0.4)",
+  orLine: {
+    flex: 1,
+    height: 1,
+    background: "rgba(100,120,175,0.1)",
+  },
+  orText: {
+    fontSize: 10.5,
+    color: "rgba(130,145,185,0.38)",
     fontWeight: 500,
     whiteSpace: "nowrap",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.06em",
   },
 
-  /* Mode toggle */
-  modeToggle: {
+  /* Tabs */
+  tabs: {
     display: "flex",
-    gap: 4,
-    background: "rgba(255,255,255,0.03)",
-    borderRadius: 10,
-    padding: 3,
+    gap: 0,
+    borderBottom: "1px solid rgba(100,120,175,0.1)",
     marginBottom: 20,
-    border: "1px solid rgba(100,120,180,0.1)",
   },
-  modeBtn: {
+  tab: {
     flex: 1,
-    padding: "9px 0",
+    padding: "9px 0 11px",
     border: "none",
-    borderRadius: 8,
+    borderRadius: 0,
     background: "transparent",
-    color: "rgba(160,175,210,0.45)",
+    color: "rgba(130,145,185,0.4)",
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 500,
-    fontFamily: "var(--font-body, sans-serif)",
-    transition: "all 0.2s ease",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "color 0.18s ease",
     letterSpacing: "0.02em",
+    position: "relative",
   },
-  modeBtnActive: {
-    background: "rgba(229,9,20,0.18)",
-    color: "#ff6b6b",
+  tabActive: {
+    color: "var(--text-primary,#f0f4ff)",
     fontWeight: 700,
-    boxShadow: "0 0 0 1px rgba(229,9,20,0.25)",
+  },
+  tabUnderline: {
+    position: "absolute",
+    bottom: -1,
+    left: "15%",
+    right: "15%",
+    height: 2,
+    borderRadius: "2px 2px 0 0",
+    background: "var(--red,#e50914)",
   },
 
   forgotLink: {
-    fontSize: 12,
-    color: "var(--text-faint)",
+    fontSize: 11.5,
+    color: "rgba(130,145,185,0.4)",
     textDecoration: "none",
+    letterSpacing: "0.01em",
     transition: "color 0.15s",
+    cursor: "pointer",
   },
 
+  /* Submit button */
   submitBtn: {
     width: "100%",
     padding: "14px",
-    background: "var(--red, #e50914)",
+    background: "var(--red,#e50914)",
     border: "none",
     borderRadius: 12,
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: 700,
-    letterSpacing: "0.04em",
+    letterSpacing: "0.05em",
     cursor: "pointer",
-    fontFamily: "var(--font-body, sans-serif)",
+    fontFamily: "var(--font-body,sans-serif)",
     boxShadow: "0 4px 20px rgba(229,9,20,0.35)",
-    transition: "all 0.18s ease",
+    transition: "all 0.2s cubic-bezier(0.34,1.2,0.64,1)",
     marginTop: 4,
   },
   spinner: {
     display: "inline-block",
-    width: 16,
-    height: 16,
+    width: 15,
+    height: 15,
     border: "2px solid rgba(255,255,255,0.3)",
     borderTopColor: "#fff",
     borderRadius: "50%",
@@ -1081,29 +1318,30 @@ const s = {
 
   switchText: {
     textAlign: "center",
-    fontSize: 13,
-    color: "var(--text-faint)",
+    fontSize: 12.5,
+    color: "rgba(130,145,185,0.45)",
     margin: "16px 0 10px",
   },
   switchLink: {
     background: "none",
     border: "none",
-    color: "var(--red-text, #ff6b6b)",
+    color: "rgba(255,100,100,0.85)",
     cursor: "pointer",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 700,
     fontFamily: "inherit",
     padding: 0,
+    transition: "color 0.15s",
   },
   terms: {
     textAlign: "center",
-    fontSize: 11,
-    color: "rgba(120,135,175,0.3)",
+    fontSize: 10.5,
+    color: "rgba(110,125,165,0.28)",
     lineHeight: 1.6,
     margin: 0,
   },
   termsLink: {
-    color: "rgba(120,135,175,0.5)",
+    color: "rgba(130,145,185,0.45)",
     cursor: "pointer",
     textDecoration: "underline",
     textUnderlineOffset: 2,

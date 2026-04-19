@@ -63,6 +63,10 @@ class WatchlistMoveCollection(BaseModel):
     collection_id: Optional[int] = Field(None, gt=0)
 
 
+class WatchlistRatingUpdate(BaseModel):
+    rating: Optional[int] = Field(None, ge=1, le=10)
+
+
 class WatchlistResponse(BaseModel):
     id:            int
     movie_id:      int
@@ -71,6 +75,7 @@ class WatchlistResponse(BaseModel):
     is_watched:    bool
     watched_at:    Optional[datetime]
     note:          Optional[str]
+    rating:        Optional[int]
     runtime:       Optional[int]
     genre_ids:     Optional[str]
     collection_id: Optional[int]

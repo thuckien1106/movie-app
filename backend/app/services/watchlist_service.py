@@ -194,6 +194,23 @@ def update_note(db: Session, user_id: int, movie_id: int, note: str):
     return item
 
 
+def update_rating(db: Session, user_id: int, movie_id: int, rating: int | None):
+    """
+    Cập nhật đánh giá cá nhân (1-10) cho phim trong watchlist.
+    Truyền rating=None để xoá đánh giá.
+    """
+    item = db.query(Watchlist).filter(
+        Watchlist.user_id == user_id,
+        Watchlist.movie_id == movie_id
+    ).first()
+    if not item:
+        return None
+    item.rating = rating
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def move_to_collection(db: Session, user_id: int, movie_id: int, collection_id: int | None):
     item = db.query(Watchlist).filter(
         Watchlist.user_id == user_id,

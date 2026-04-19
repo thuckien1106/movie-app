@@ -28,6 +28,7 @@ class Watchlist(Base):
     runtime = Column(Integer, nullable=True)                # Thời lượng phim (phút) — cho stats
     genre_ids = Column(String(200), nullable=True)          # "28,12,35" — cho stats thể loại
     collection_id = Column(Integer, ForeignKey("collections.id"), nullable=True)
+    rating = Column(Integer, nullable=True)                 # 1-10 — đánh giá cá nhân
     added_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

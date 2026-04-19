@@ -18,19 +18,20 @@ VALID_SORT_BY = {
     "original_title.asc", "original_title.desc",
 }
 
-_SAFE_QUERY_RE = re.compile(
-    r'^[\w\s\-\.\'\,\!\?\(\)àáảãạăắặằẳẵâấầẩẫậèéẻẽẹêếềệểễìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẶẰẲẴÂẤẦẨẪẬÈÉẺẼẸÊẾỀỆỂỄÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]+$',
-    re.UNICODE
-)
+# Blacklist: chặn các ký tự nguy hiểm (injection, script) và ký tự điều khiển.
+# Cho phép mọi thứ khác — kể cả số, Unicode, ký tự đặc biệt phổ biến trong tên phim
+# như: : & + / # @ " ' - . , ! ? ( ) [ ] v.v.
+# Chặn: < > { } \ ` ^ ~ | ; = * % và ký tự điều khiển (ASCII < 32).
+_DANGEROUS_CHARS_RE = re.compile(r'[<>{}\\\`\^~|;=*%\x00-\x1f]')
 
 
 def validate_search_query(q: str) -> str:
     q = q.strip()
-    if len(q) > 200:
-        raise HTTPException(status_code=422, detail="Query tìm kiếm quá dài (tối đa 200 ký tự).")
     if not q:
         raise HTTPException(status_code=422, detail="Query không được để trống.")
-    if not _SAFE_QUERY_RE.match(q):
+    if len(q) > 200:
+        raise HTTPException(status_code=422, detail="Query tìm kiếm quá dài (tối đa 200 ký tự).")
+    if _DANGEROUS_CHARS_RE.search(q):
         raise HTTPException(status_code=422, detail="Query chứa ký tự không hợp lệ.")
     return q
 

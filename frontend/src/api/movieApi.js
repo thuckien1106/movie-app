@@ -48,6 +48,9 @@ export const toggleWatched = (movieId) =>
 export const updateNote = (movieId, note) =>
   api.patch(`/watchlist/${movieId}/note`, { note });
 
+export const updateRating = (movieId, rating) =>
+  api.patch(`/watchlist/${movieId}/rating`, { rating });
+
 export const moveToCollection = (movieId, collectionId) =>
   api.patch(`/watchlist/${movieId}/collection`, {
     collection_id: collectionId,

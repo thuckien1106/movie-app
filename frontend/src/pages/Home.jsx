@@ -259,38 +259,21 @@ export default function Home() {
 
       {/* ══ SEARCH + FILTER BAR ══ */}
       <div style={s.searchRow}>
-        <div style={s.searchBox}>
-          <span style={s.searchIcon}>🔍</span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm phim..."
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            onKeyDown={(e) =>
-              e.key === "Enter" && query.trim() && setMode("search")
-            }
-            style={s.searchInput}
-          />
-          {query && (
-            <button onClick={() => handleSearch("")} style={s.clearBtn}>
-              ✕
-            </button>
-          )}
-        </div>
+        {/* Search input */}
+        <SearchBar query={query} onSearch={handleSearch} />
 
+        {/* Filter toggle button */}
         {canFilter && (
           <div style={{ position: "relative" }} ref={filterPanelRef}>
             <button
-              onClick={() => {
-                setPendingFilters(filters);
-                setShowFilter((p) => !p);
-              }}
+              onClick={() => { setPendingFilters(filters); setShowFilter((p) => !p); }}
               style={{
                 ...s.filterBtn,
-                ...(showFilter || filterCount > 0 ? s.filterBtnActive : {}),
+                ...(showFilter ? s.filterBtnOpen : {}),
+                ...(filterCount > 0 && !showFilter ? s.filterBtnActive : {}),
               }}
             >
-              <span style={{ fontSize: 15 }}>⚙</span>
+              <FilterSVG size={13} />
               <span>Lọc</span>
               {filterCount > 0 && (
                 <span style={s.filterCountBadge}>{filterCount}</span>
@@ -298,100 +281,13 @@ export default function Home() {
             </button>
 
             {showFilter && (
-              <div style={s.filterPanel}>
-                <div style={s.filterPanelHeader}>
-                  <span style={s.filterPanelTitle}>Bộ lọc nâng cao</span>
-                  <button
-                    onClick={() => setShowFilter(false)}
-                    style={s.filterCloseBtn}
-                  >
-                    ✕
-                  </button>
-                </div>
-                <FilterSection label="Sắp xếp theo">
-                  <div style={s.pillGroup}>
-                    {SORT_OPTIONS.map((o) => (
-                      <button
-                        key={o.value}
-                        onClick={() =>
-                          setPendingFilters((f) => ({ ...f, sort_by: o.value }))
-                        }
-                        style={{
-                          ...s.pill,
-                          ...(pendingFilters.sort_by === o.value
-                            ? s.pillActive
-                            : {}),
-                        }}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </FilterSection>
-                <FilterSection label="Điểm tối thiểu">
-                  <div style={s.pillGroup}>
-                    {RATING_OPTIONS.map((o) => (
-                      <button
-                        key={o.value}
-                        onClick={() =>
-                          setPendingFilters((f) => ({
-                            ...f,
-                            min_rating: o.value,
-                          }))
-                        }
-                        style={{
-                          ...s.pill,
-                          ...(pendingFilters.min_rating === o.value
-                            ? s.pillActive
-                            : {}),
-                        }}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </FilterSection>
-                <FilterSection label="Năm phát hành">
-                  <div
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
-                  >
-                    <select
-                      value={pendingFilters.year}
-                      onChange={(e) =>
-                        setPendingFilters((f) => ({
-                          ...f,
-                          year: e.target.value,
-                        }))
-                      }
-                      style={s.select}
-                    >
-                      {YEAR_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    {pendingFilters.year && (
-                      <button
-                        onClick={() =>
-                          setPendingFilters((f) => ({ ...f, year: "" }))
-                        }
-                        style={s.clearSmall}
-                      >
-                        Xoá
-                      </button>
-                    )}
-                  </div>
-                </FilterSection>
-                <div style={s.filterActions}>
-                  <button onClick={resetFilters} style={s.btnReset}>
-                    Đặt lại
-                  </button>
-                  <button onClick={applyFilters} style={s.btnApply}>
-                    Áp dụng
-                  </button>
-                </div>
-              </div>
+              <FilterPanel
+                pendingFilters={pendingFilters}
+                setPendingFilters={setPendingFilters}
+                onApply={applyFilters}
+                onReset={resetFilters}
+                onClose={() => setShowFilter(false)}
+              />
             )}
           </div>
         )}
@@ -400,27 +296,34 @@ export default function Home() {
       {/* ══ ACTIVE FILTER CHIPS ══ */}
       {canFilter && filterCount > 0 && (
         <div style={s.activeSummary}>
+          <span style={s.activeFiltersLabel}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(229,9,20,0.7)" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Đang lọc:
+          </span>
           {filters.sort_by !== "popularity.desc" && (
             <FilterChip
-              label={`Sắp xếp: ${SORT_OPTIONS.find((o) => o.value === filters.sort_by)?.label}`}
-              onRemove={() =>
-                setFilters((f) => ({ ...f, sort_by: "popularity.desc" }))
-              }
+              label={`↑ ${SORT_OPTIONS.find((o) => o.value === filters.sort_by)?.label}`}
+              onRemove={() => setFilters((f) => ({ ...f, sort_by: "popularity.desc" }))}
             />
           )}
           {filters.min_rating && (
             <FilterChip
-              label={`Rating: ${filters.min_rating}+`}
+              label={`★ ${filters.min_rating}+`}
               onRemove={() => setFilters((f) => ({ ...f, min_rating: "" }))}
             />
           )}
           {filters.year && (
             <FilterChip
-              label={`Năm: ${filters.year}`}
+              label={`📅 ${filters.year}`}
               onRemove={() => setFilters((f) => ({ ...f, year: "" }))}
             />
           )}
-          <button onClick={resetFilters} style={s.clearAllBtn}>
+          <button
+            onClick={resetFilters}
+            style={s.clearAllBtn}
+            onMouseEnter={e => e.currentTarget.style.color = "rgba(255,110,110,0.8)"}
+            onMouseLeave={e => e.currentTarget.style.color = "rgba(140,155,195,0.4)"}
+          >
             Xoá tất cả
           </button>
         </div>
@@ -428,19 +331,31 @@ export default function Home() {
 
       {/* ══ GENRE PILLS ══ */}
       {showGenres && genres.length > 0 && (
-        <div style={s.genreBar}>
-          {genres.map((g) => {
-            const active = activeGenre?.id === g.id;
-            return (
-              <button
-                key={g.id}
-                onClick={() => handleGenreClick(g)}
-                style={{ ...s.genrePill, ...(active ? s.genrePillActive : {}) }}
-              >
-                {g.name}
-              </button>
-            );
-          })}
+        <div style={s.genreBarWrap}>
+          <div style={s.genreBar}>
+            <button
+              onClick={() => handleGenreClick({ id: null })}
+              style={{ ...s.genrePill, ...(activeGenre === null ? s.genrePillAll : {}) }}
+            >
+              Tất cả
+            </button>
+            {genres.map((g) => {
+              const active = activeGenre?.id === g.id;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => handleGenreClick(g)}
+                  style={{ ...s.genrePill, ...(active ? s.genrePillActive : {}) }}
+                >
+                  {active && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red,#e50914)", flexShrink: 0, display: "inline-block" }} />}
+                  {g.name}
+                </button>
+              );
+            })}
+          </div>
+          {/* Fade edges */}
+          <div style={s.genreFadeLeft} />
+          <div style={s.genreFadeRight} />
         </div>
       )}
 
@@ -448,23 +363,32 @@ export default function Home() {
       {(activeGenre || isSearching) && (
         <div style={s.contextLabel}>
           {activeGenre ? (
-            <>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={s.contextDot} />
               Thể loại:{" "}
-              <span style={{ color: "var(--red)", fontWeight: 600 }}>
+              <strong style={{ color: "var(--red,#e50914)", fontWeight: 700 }}>
                 {activeGenre.name}
-              </span>
-              <span onClick={() => setActiveGenre(null)} style={s.clearFilter}>
-                {" "}
-                · Xoá lọc
-              </span>
-            </>
+              </strong>
+              <button
+                onClick={() => setActiveGenre(null)}
+                style={s.clearContextBtn}
+              >
+                <CloseSVG size={10} /> Xoá lọc
+              </button>
+            </span>
           ) : (
-            <>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={s.contextDot} />
               Kết quả cho:{" "}
-              <span style={{ color: "var(--red)", fontWeight: 600 }}>
+              <strong style={{ color: "var(--red,#e50914)", fontWeight: 700 }}>
                 "{debouncedQuery}"
-              </span>
-            </>
+              </strong>
+              {movies.length > 0 && (
+                <span style={{ color: "rgba(140,155,195,0.45)", fontSize: 11 }}>
+                  — {movies.length} phim
+                </span>
+              )}
+            </span>
           )}
         </div>
       )}
@@ -541,50 +465,52 @@ export default function Home() {
 /* ── Sub-components ──────────────────────── */
 function FilterSection({ label, children }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <p
-        style={{
-          margin: "0 0 8px",
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "var(--text-faint)",
-        }}
-      >
+    <div style={{ marginBottom: 20 }}>
+      <p style={{
+        margin: "0 0 10px",
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: "uppercase",
+        letterSpacing: "0.12em",
+        color: "rgba(140,155,195,0.5)",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        <span style={{ width: 16, height: 1.5, background: "rgba(229,9,20,0.5)", display: "inline-block", borderRadius: 99 }} />
         {label}
       </p>
       {children}
     </div>
   );
 }
+
 function FilterChip({ label, onRemove }) {
+  const [hov, setHov] = useState(false);
   return (
     <span
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        background: "var(--red-dim)",
-        border: "1px solid rgba(229,9,20,0.3)",
-        color: "var(--red-text)",
-        borderRadius: 20,
-        padding: "4px 10px 4px 12px",
-        fontSize: 12,
-        fontWeight: 500,
+        display: "inline-flex", alignItems: "center", gap: 5,
+        background: hov ? "rgba(229,9,20,0.18)" : "rgba(229,9,20,0.1)",
+        border: "1px solid rgba(229,9,20,0.32)",
+        color: "rgba(255,110,110,0.9)",
+        borderRadius: 999, padding: "4px 8px 4px 12px",
+        fontSize: 11.5, fontWeight: 700,
+        transition: "background 0.15s",
       }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
     >
       {label}
       <button
         onClick={onRemove}
         style={{
-          background: "none",
-          border: "none",
-          color: "var(--red-text)",
-          cursor: "pointer",
-          fontSize: 13,
-          padding: 0,
-          lineHeight: 1,
+          background: "rgba(229,9,20,0.2)", border: "none",
+          color: "rgba(255,110,110,0.8)", cursor: "pointer",
+          width: 16, height: 16, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 9, fontWeight: 800, padding: 0, lineHeight: 1,
+          transition: "background 0.15s",
         }}
       >
         ✕
@@ -593,22 +519,477 @@ function FilterChip({ label, onRemove }) {
   );
 }
 
+/* ── SearchIcon SVG ── */
+function SearchSVG({ size = 15, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  );
+}
+/* ── Filter SVG ── */
+function FilterSVG({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  );
+}
+/* ── Close SVG ── */
+function CloseSVG({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+}
+
+/* ── SearchBar component ─────────────────── */
+function SearchBar({ query, onSearch }) {
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
+
+  return (
+    <div
+      style={{
+        flex: 1, maxWidth: 560,
+        display: "flex", alignItems: "center",
+        background: focused ? "rgba(255,255,255,0.048)" : "rgba(255,255,255,0.03)",
+        borderRadius: 14,
+        border: `1.5px solid ${focused ? "rgba(229,9,20,0.45)" : "rgba(100,120,175,0.14)"}`,
+        boxShadow: focused ? "0 0 0 3.5px rgba(229,9,20,0.09), 0 4px 24px rgba(0,0,0,0.3)" : "0 2px 12px rgba(0,0,0,0.2)",
+        transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)",
+        overflow: "hidden",
+        cursor: "text",
+      }}
+      onClick={() => inputRef.current?.focus()}
+    >
+      <span style={{
+        padding: "0 14px 0 16px", display: "flex", alignItems: "center",
+        color: focused ? "rgba(255,110,110,0.7)" : "rgba(140,155,195,0.4)",
+        flexShrink: 0, transition: "color 0.22s ease",
+      }}>
+        <SearchSVG size={15} color="currentColor" />
+      </span>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Tìm kiếm phim, diễn viên..."
+        value={query}
+        onChange={(e) => onSearch(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          flex: 1, padding: "12px 0",
+          border: "none", outline: "none",
+          background: "transparent",
+          color: "var(--text-primary,#f0f4ff)",
+          fontSize: 14, fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+        }}
+      />
+      {query && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSearch(""); inputRef.current?.focus(); }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 22, height: 22, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)", border: "none",
+            color: "rgba(160,175,210,0.6)", cursor: "pointer",
+            marginRight: 12, flexShrink: 0,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.14)"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+        >
+          <CloseSVG size={9} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── FilterPanel component ───────────────── */
+function FilterPanel({ pendingFilters, setPendingFilters, onApply, onReset, onClose }) {
+  return (
+    <div style={{
+      position: "absolute", right: 0, top: "calc(100% + 10px)",
+      width: 340,
+      background: "rgba(10,14,22,0.98)",
+      border: "1px solid rgba(100,120,175,0.18)",
+      borderRadius: 18,
+      padding: "20px 20px 16px",
+      zIndex: 200,
+      boxShadow: "0 24px 60px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(229,9,20,0.1)",
+      backdropFilter: "blur(20px)",
+      animation: "filterPanelIn 0.22s cubic-bezier(0.34,1.2,0.64,1) both",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 3, height: 16, borderRadius: 99, background: "var(--red,#e50914)", flexShrink: 0 }} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary,#f0f4ff)", letterSpacing: "-0.01em" }}>
+            Bộ lọc nâng cao
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            width: 28, height: 28, borderRadius: 7,
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(100,120,175,0.14)",
+            color: "rgba(160,175,210,0.55)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <CloseSVG size={11} />
+        </button>
+      </div>
+
+      {/* Sort by */}
+      <FilterSection label="Sắp xếp theo">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {SORT_OPTIONS.map((o) => {
+            const active = pendingFilters.sort_by === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => setPendingFilters((f) => ({ ...f, sort_by: o.value }))}
+                style={{
+                  padding: "5px 13px", borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500,
+                  cursor: "pointer", fontFamily: "var(--font-body,sans-serif)",
+                  transition: "all 0.16s ease",
+                  background: active ? "rgba(229,9,20,0.15)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${active ? "rgba(229,9,20,0.4)" : "rgba(100,120,175,0.13)"}`,
+                  color: active ? "rgba(255,110,110,0.95)" : "rgba(160,175,210,0.65)",
+                  boxShadow: active ? "0 0 10px rgba(229,9,20,0.12)" : "none",
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      {/* Rating */}
+      <FilterSection label="Điểm tối thiểu">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {RATING_OPTIONS.map((o) => {
+            const active = pendingFilters.min_rating === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => setPendingFilters((f) => ({ ...f, min_rating: o.value }))}
+                style={{
+                  padding: "5px 13px", borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500,
+                  cursor: "pointer", fontFamily: "var(--font-body,sans-serif)",
+                  transition: "all 0.16s ease",
+                  background: active ? "rgba(245,197,24,0.14)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${active ? "rgba(245,197,24,0.4)" : "rgba(100,120,175,0.13)"}`,
+                  color: active ? "#fde047" : "rgba(160,175,210,0.65)",
+                  boxShadow: active ? "0 0 10px rgba(245,197,24,0.1)" : "none",
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      {/* Year */}
+      <FilterSection label="Năm phát hành">
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <select
+              value={pendingFilters.year}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, year: e.target.value }))}
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(100,120,175,0.14)",
+                borderRadius: 10, color: pendingFilters.year ? "var(--text-primary,#f0f4ff)" : "rgba(140,155,195,0.5)",
+                padding: "9px 14px", fontSize: 13, cursor: "pointer",
+                outline: "none", fontFamily: "var(--font-body,sans-serif)",
+                appearance: "none", WebkitAppearance: "none",
+              }}
+            >
+              {YEAR_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "rgba(140,155,195,0.45)" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+          {pendingFilters.year && (
+            <button
+              onClick={() => setPendingFilters((f) => ({ ...f, year: "" }))}
+              style={{
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(100,120,175,0.13)",
+                color: "rgba(160,175,210,0.6)", borderRadius: 8, padding: "9px 12px",
+                fontSize: 12, cursor: "pointer", fontFamily: "var(--font-body,sans-serif)",
+                whiteSpace: "nowrap", flexShrink: 0,
+              }}
+            >
+              Xoá
+            </button>
+          )}
+        </div>
+      </FilterSection>
+
+      {/* Actions */}
+      <div style={{
+        display: "flex", gap: 8, marginTop: 4, paddingTop: 16,
+        borderTop: "1px solid rgba(100,120,175,0.1)",
+      }}>
+        <button
+          onClick={onReset}
+          style={{
+            flex: 1, background: "transparent",
+            border: "1px solid rgba(100,120,175,0.16)",
+            color: "rgba(160,175,210,0.6)", borderRadius: 10,
+            padding: "10px 0", fontSize: 12.5, fontWeight: 600,
+            cursor: "pointer", fontFamily: "var(--font-body,sans-serif)",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor = "rgba(160,175,210,0.28)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(100,120,175,0.16)"; }}
+        >
+          Đặt lại
+        </button>
+        <button
+          onClick={onApply}
+          style={{
+            flex: 2, background: "var(--red,#e50914)", border: "none",
+            color: "#fff", borderRadius: 10, padding: "10px 0",
+            fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+            fontFamily: "var(--font-body,sans-serif)",
+            boxShadow: "0 4px 16px rgba(229,9,20,0.35)",
+            transition: "all 0.18s cubic-bezier(0.34,1.2,0.64,1)",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--red-hover,#c9070f)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(229,9,20,0.5)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "var(--red,#e50914)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(229,9,20,0.35)"; e.currentTarget.style.transform = "none"; }}
+        >
+          Áp dụng bộ lọc
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Styles ─────────────────────────────── */
 const s = {
   navbar: {
-    position: "sticky",
-    top: 0,
-    zIndex: 1000,
-    backdropFilter: "blur(12px)",
-    background: "var(--navbar-bg)",
-    padding: "10px 20px",
-    borderBottom: "1px solid var(--border)",
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
-    gap: 12,
+    position: "sticky", top: 0, zIndex: 1000,
+    backdropFilter: "blur(12px)", background: "var(--navbar-bg)",
+    padding: "10px 20px", borderBottom: "1px solid var(--border)",
+    display: "grid", gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center", gap: 12,
   },
-  /* when floating over hero: fully transparent, no border */
+  navbarOverHero: {
+    position: "absolute", background: "transparent",
+    borderBottom: "none", backdropFilter: "none", width: "100%",
+  },
+  navLeft: { display: "flex", alignItems: "center" },
+  logo: { color: "var(--red)", fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: 1 },
+  tabBar: { display: "flex", gap: 2, alignItems: "center" },
+  tab: {
+    display: "flex", alignItems: "center", gap: 5,
+    background: "transparent", border: "none", color: "var(--text-muted)",
+    padding: "7px 13px", borderRadius: 8, cursor: "pointer",
+    fontSize: 13, fontWeight: 500, transition: "all 0.15s",
+    whiteSpace: "nowrap", position: "relative",
+  },
+  tabActive: { background: "var(--red-dim)", color: "var(--red-text)", fontWeight: 600 },
+  tabIcon: { fontSize: 14 },
+  newBadge: {
+    fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+    background: "#e50914", color: "var(--text-primary)",
+    padding: "1px 5px", borderRadius: 4, marginLeft: 2, lineHeight: 1.6,
+  },
+  navRight: {
+    display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12,
+  },
+  loginBtn: {
+    background: "#e50914", color: "var(--text-primary)",
+    padding: "7px 16px", borderRadius: 8, textDecoration: "none",
+    fontSize: 14, fontWeight: 600,
+  },
+  avatarBtn: {
+    display: "flex", alignItems: "center", gap: 8,
+    background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+    borderRadius: 8, padding: "6px 12px", color: "var(--text-primary)",
+    cursor: "pointer", fontSize: 14,
+  },
+  avatar: {
+    width: 26, height: 26, borderRadius: "50%", background: "#e50914",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 13, fontWeight: 700, flexShrink: 0,
+  },
+  userMenu: {
+    position: "absolute", right: 0, top: "calc(100% + 8px)",
+    background: "var(--bg-overlay)", border: "1px solid var(--border-mid)",
+    borderRadius: 10, minWidth: 180, overflow: "hidden", zIndex: 100,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+  },
+  menuItem: {
+    display: "block", padding: "12px 16px", color: "rgba(255,255,255,0.75)",
+    textDecoration: "none", fontSize: 14, background: "transparent",
+    transition: "background 0.15s",
+  },
+
+  /* section divider */
+  sectionLabel: {
+    display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 6px",
+  },
+  sectionLine: { flex: 1, height: 1, background: "rgba(255,255,255,0.07)" },
+  sectionText: {
+    fontSize: 13, fontWeight: 600, color: "var(--text-faint)",
+    whiteSpace: "nowrap", letterSpacing: "0.05em",
+  },
+
+  /* ── search row ── */
+  searchRow: {
+    padding: "14px clamp(16px,3vw,32px) 10px",
+    display: "flex", alignItems: "center",
+    justifyContent: "center", gap: 10,
+  },
+
+  /* filter button */
+  filterBtn: {
+    display: "flex", alignItems: "center", gap: 7,
+    background: "rgba(255,255,255,0.04)",
+    border: "1.5px solid rgba(100,120,175,0.14)",
+    color: "rgba(160,175,210,0.65)",
+    borderRadius: 14, padding: "10px 16px",
+    cursor: "pointer", fontSize: 13, fontWeight: 600,
+    transition: "all 0.18s ease", whiteSpace: "nowrap",
+    position: "relative", flexShrink: 0,
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+  },
+  filterBtnActive: {
+    background: "rgba(229,9,20,0.1)",
+    borderColor: "rgba(229,9,20,0.35)",
+    color: "rgba(255,110,110,0.85)",
+  },
+  filterBtnOpen: {
+    background: "rgba(229,9,20,0.12)",
+    borderColor: "rgba(229,9,20,0.4)",
+    color: "rgba(255,110,110,0.9)",
+    boxShadow: "0 0 14px rgba(229,9,20,0.12)",
+  },
+  filterCountBadge: {
+    background: "var(--red,#e50914)", color: "#fff",
+    borderRadius: "50%", width: 17, height: 17,
+    fontSize: 9.5, fontWeight: 800,
+    display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+  },
+
+  /* active filter chips */
+  activeSummary: {
+    display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center",
+    padding: "0 clamp(16px,3vw,32px) 10px",
+  },
+  activeFiltersLabel: {
+    display: "flex", alignItems: "center", gap: 5,
+    fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em",
+    textTransform: "uppercase", color: "rgba(140,155,195,0.45)",
+  },
+  clearAllBtn: {
+    background: "none", border: "none",
+    color: "rgba(140,155,195,0.4)",
+    fontSize: 11.5, cursor: "pointer",
+    padding: "2px 4px", fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+    transition: "color 0.15s", fontWeight: 600,
+  },
+
+  /* ── genre bar ── */
+  genreBarWrap: {
+    position: "relative",
+    padding: "0 0 8px",
+  },
+  genreBar: {
+    display: "flex", gap: 7, overflowX: "auto",
+    padding: "6px clamp(16px,3vw,32px)",
+    scrollbarWidth: "none",
+    WebkitOverflowScrolling: "touch",
+    alignItems: "center",
+  },
+  genreFadeLeft: {
+    position: "absolute", top: 0, left: 0, bottom: 8, width: 32,
+    background: "linear-gradient(to right, var(--bg-page,#080b0f), transparent)",
+    pointerEvents: "none", zIndex: 1,
+  },
+  genreFadeRight: {
+    position: "absolute", top: 0, right: 0, bottom: 8, width: 32,
+    background: "linear-gradient(to left, var(--bg-page,#080b0f), transparent)",
+    pointerEvents: "none", zIndex: 1,
+  },
+  genrePill: {
+    flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
+    background: "rgba(255,255,255,0.035)",
+    color: "rgba(160,175,210,0.65)",
+    border: "1px solid rgba(100,120,175,0.12)",
+    borderRadius: 999, padding: "6px 14px",
+    fontSize: 12.5, fontWeight: 500, cursor: "pointer",
+    transition: "all 0.18s ease", whiteSpace: "nowrap",
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+  },
+  genrePillAll: {
+    background: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(100,120,175,0.22)",
+    color: "rgba(200,215,255,0.8)",
+    fontWeight: 700,
+  },
+  genrePillActive: {
+    background: "rgba(229,9,20,0.13)",
+    borderColor: "rgba(229,9,20,0.38)",
+    color: "rgba(255,110,110,0.95)",
+    fontWeight: 700,
+    boxShadow: "0 0 12px rgba(229,9,20,0.12)",
+  },
+
+  /* context label */
+  contextLabel: {
+    padding: "4px clamp(16px,3vw,32px) 10px",
+    fontSize: 12.5, color: "rgba(140,155,195,0.55)",
+    display: "flex", alignItems: "center",
+  },
+  contextDot: {
+    width: 6, height: 6, borderRadius: "50%",
+    background: "var(--red,#e50914)",
+    display: "inline-block", flexShrink: 0,
+  },
+  clearContextBtn: {
+    display: "inline-flex", alignItems: "center", gap: 4,
+    background: "none", border: "none",
+    color: "rgba(140,155,195,0.45)", cursor: "pointer",
+    fontSize: 11, fontWeight: 600, padding: "2px 6px",
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+    borderRadius: 6, transition: "color 0.15s",
+  },
+  clearFilter: {
+    cursor: "pointer", marginLeft: 8,
+    color: "var(--text-faint)", textDecoration: "underline",
+  },
+
+  /* grid */
+  grid: {
+    padding: "4px clamp(16px,3vw,32px) 40px",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: 18,
+  },
+  emptyState: { textAlign: "center", padding: "60px 20px" },
+  fetchMore: {
+    textAlign: "center", padding: 20,
+    color: "var(--text-faint)", fontSize: 13,
+  },
+  endLabel: {
+    textAlign: "center", padding: "10px 20px 40px",
+    fontSize: 12, color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em",
+  },
+  remindOverlay: { position: "absolute", top: 8, right: 8, zIndex: 5, pointerEvents: "auto" },
   navbarOverHero: {
     position: "absolute",
     background: "transparent",
@@ -991,9 +1372,15 @@ const s = {
 
 const globalCSS = `
   ::-webkit-scrollbar { display: none; }
-  select option { background: #1a1a1a; }
+  select option { background: #111620; color: #f0f4ff; }
+  [data-theme="light"] select option { background: #fff; color: #0a0c14; }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: 0.5; transform: scale(0.85); }
   }
+  @keyframes filterPanelIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .genre-bar::-webkit-scrollbar { display: none; }
 `;

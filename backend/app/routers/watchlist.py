@@ -5,7 +5,7 @@ import re
 
 from app.schemas.watchlist_schema import (
     WatchlistCreate, WatchlistResponse, WatchlistNoteUpdate,
-    WatchlistMoveCollection, WatchlistStats,
+    WatchlistMoveCollection, WatchlistRatingUpdate, WatchlistStats,
     CollectionCreate, CollectionResponse, ShareResponse, PublicWatchlistResponse,
 )
 from app.services import watchlist_service
@@ -95,6 +95,23 @@ def update_note(
     limiter.check(request, "watchlist_write", **Limits.WATCHLIST_WRITE)
     _validate_movie_id(movie_id)
     item = watchlist_service.update_note(db, current_user.id, movie_id, body.note)
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phim trong watchlist.")
+    return item
+
+
+@router.patch("/{movie_id}/rating", response_model=WatchlistResponse)
+def update_rating(
+    request:      Request,
+    movie_id:     int,
+    body:         WatchlistRatingUpdate,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """Đặt hoặc xoá đánh giá cá nhân (1-10) cho phim trong watchlist."""
+    limiter.check(request, "watchlist_write", **Limits.WATCHLIST_WRITE)
+    _validate_movie_id(movie_id)
+    item = watchlist_service.update_rating(db, current_user.id, movie_id, body.rating)
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy phim trong watchlist.")
     return item

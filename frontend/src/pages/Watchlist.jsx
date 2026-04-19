@@ -4,6 +4,7 @@ import {
   deleteMovie,
   toggleWatched,
   updateNote,
+  updateRating,
   getWatchlistStats,
   backfillRuntime,
   getCollections,
@@ -754,6 +755,145 @@ function Sidebar({
 }
 
 /* ══════════════════════════════════════════════
+   STAR RATING — dùng lại ở cả List và Grid
+══════════════════════════════════════════════ */
+function StarRating({ movieId, current, onRate }) {
+  const [hovered, setHovered] = useState(null); // 1-10 khi hover
+  const stars = [1, 2, 3, 4, 5]; // 5 sao, mỗi sao = 2 điểm
+
+  // Mỗi sao có nửa trái (lẻ) và nửa phải (chẵn)
+  const filledStars = hovered !== null ? hovered / 2 : (current || 0) / 2;
+
+  const handleClick = (val) => {
+    // Click lại rating hiện tại → xoá rating
+    onRate(movieId, current === val ? null : val);
+  };
+
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 3 }}
+      onMouseLeave={() => setHovered(null)}
+    >
+      {stars.map((star) => {
+        const full = filledStars >= star;
+        const half = !full && filledStars >= star - 0.5;
+        const color =
+          (hovered !== null ? hovered / 2 : (current || 0) / 2) >= star - 0.5
+            ? "#f5c518"
+            : "var(--border-bright)";
+        return (
+          <span
+            key={star}
+            style={{
+              position: "relative",
+              display: "inline-block",
+              width: 16,
+              height: 16,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            {/* Nền xám */}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              style={{ position: "absolute", top: 0, left: 0 }}
+            >
+              <path
+                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="var(--border)"
+                stroke="none"
+              />
+            </svg>
+            {/* Phần fill — full hoặc half */}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              style={{ position: "absolute", top: 0, left: 0 }}
+            >
+              <defs>
+                <clipPath id={`half-${star}-${movieId}`}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={half ? "12" : full ? "24" : "0"}
+                    height="24"
+                  />
+                </clipPath>
+              </defs>
+              <path
+                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="#f5c518"
+                stroke="none"
+                clipPath={`url(#half-${star}-${movieId})`}
+              />
+            </svg>
+            {/* Hit areas: nửa trái = val lẻ, nửa phải = val chẵn */}
+            <span
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "50%",
+                height: "100%",
+              }}
+              onMouseEnter={() => setHovered(star * 2 - 1)}
+              onClick={() => handleClick(star * 2 - 1)}
+            />
+            <span
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                width: "50%",
+                height: "100%",
+              }}
+              onMouseEnter={() => setHovered(star * 2)}
+              onClick={() => handleClick(star * 2)}
+            />
+          </span>
+        );
+      })}
+      {(hovered !== null || current) && (
+        <span
+          style={{
+            fontSize: 11,
+            color: "#f5c518",
+            fontWeight: 600,
+            marginLeft: 2,
+            minWidth: 20,
+          }}
+        >
+          {hovered !== null ? hovered : current}
+          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+            /10
+          </span>
+        </span>
+      )}
+      {current && hovered === null && (
+        <button
+          onClick={() => onRate(movieId, null)}
+          title="Xoá đánh giá"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+            fontSize: 11,
+            padding: "0 2px",
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
    MOVIE ITEM — List view
 ══════════════════════════════════════════════ */
 function MovieItem({
@@ -765,6 +905,7 @@ function MovieItem({
   onToggleWatched,
   onSaveNote,
   onMoveCol,
+  onRate,
   canDrag,
 }) {
   const [showNote, setShowNote] = useState(false);
@@ -846,6 +987,15 @@ function MovieItem({
         {movie.note && !showNote && (
           <p style={w.notePreview}>💬 {movie.note}</p>
         )}
+
+        {/* Star rating */}
+        <div style={{ marginTop: 6 }}>
+          <StarRating
+            movieId={movie.movie_id}
+            current={movie.rating}
+            onRate={onRate}
+          />
+        </div>
 
         {showNote && (
           <div style={{ marginTop: 8 }}>
@@ -952,6 +1102,7 @@ function GridCard({
   onDelete,
   onToggleWatched,
   onMoveCol,
+  onRate,
 }) {
   const [hov, setHov] = useState(false);
   return (
@@ -1014,6 +1165,14 @@ function GridCard({
         >
           <p style={w.gridTitle}>{movie.title}</p>
         </Link>
+        {/* Star rating */}
+        <div style={{ marginTop: 6, marginBottom: 2 }}>
+          <StarRating
+            movieId={movie.movie_id}
+            current={movie.rating}
+            onRate={onRate}
+          />
+        </div>
         <div style={{ display: "flex", gap: 5, marginTop: 8 }}>
           <button
             onClick={() => onToggleWatched(movie.movie_id)}
@@ -1065,6 +1224,7 @@ function DraggableList({
   onToggleWatched,
   onSaveNote,
   onMoveCol,
+  onRate,
   onReorder,
 }) {
   const [items, setItems] = useState(movies);
@@ -1112,6 +1272,7 @@ function DraggableList({
             onDelete={onDelete}
             onToggleWatched={onToggleWatched}
             onMoveCol={onMoveCol}
+            onRate={onRate}
           />
         ))}
       </div>
@@ -1204,6 +1365,7 @@ function exportCSV(movies, collections, username) {
     "STT",
     "Tên phim",
     "Trạng thái",
+    "Đánh giá",
     "Bộ sưu tập",
     "Thể loại",
     "Thời lượng",
@@ -1225,6 +1387,7 @@ function exportCSV(movies, collections, username) {
       i + 1,
       m.title,
       m.is_watched ? "Đã xem" : "Chưa xem",
+      m.rating ? `${m.rating}/10` : "",
       m.collection_id ? (colMap[m.collection_id] ?? "") : "",
       mapGenres(m.genre_ids),
       fmtRuntime(m.runtime),
@@ -2284,6 +2447,16 @@ export default function Watchlist() {
     });
     load();
   };
+  const handleRate = async (movieId, rating) => {
+    try {
+      await updateRating(movieId, rating);
+      setMovies((prev) =>
+        prev.map((m) => (m.movie_id === movieId ? { ...m, rating } : m)),
+      );
+    } catch {
+      showToast("Đánh giá thất bại, thử lại nhé.", "error");
+    }
+  };
   const MAX_COLLECTIONS = 20;
 
   const handleCreateCol = async () => {
@@ -2757,6 +2930,7 @@ export default function Watchlist() {
                         onToggleWatched={handleToggle}
                         onSaveNote={handleSaveNote}
                         onMoveCol={handleMoveCol}
+                        onRate={handleRate}
                         onReorder={
                           searchQuery || filterStatus !== "all"
                             ? null
@@ -2784,6 +2958,7 @@ export default function Watchlist() {
             onToggleWatched={handleToggle}
             onSaveNote={handleSaveNote}
             onMoveCol={handleMoveCol}
+            onRate={handleRate}
             onReorder={handleReorder}
             onDeleteCol={() => handleDeleteCol(activeCol)}
           />
@@ -2854,6 +3029,7 @@ function CollectionDetail({
   onToggleWatched,
   onSaveNote,
   onMoveCol,
+  onRate,
   onReorder,
   onDeleteCol,
 }) {
@@ -3006,6 +3182,7 @@ function CollectionDetail({
           onToggleWatched={onToggleWatched}
           onSaveNote={onSaveNote}
           onMoveCol={onMoveCol}
+          onRate={onRate}
           onReorder={filter === "all" ? onReorder : null}
         />
       )}

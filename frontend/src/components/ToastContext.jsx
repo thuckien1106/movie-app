@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import toastBridge from "../utils/toastBridge";
 
 const ToastCtx = createContext(null);
 export function useToast() {
@@ -257,6 +258,11 @@ export function ToastProvider({ children }) {
     const id = Date.now() + Math.random();
     setToasts((p) => [...p.slice(-4), { id, message, type }]); // max 5
   }, []);
+
+  // Inject vào bridge để axios interceptor có thể gọi được
+  useEffect(() => {
+    toastBridge.init(showToast);
+  }, [showToast]);
 
   const removeToast = useCallback((id) => {
     setToasts((p) => p.filter((t) => t.id !== id));

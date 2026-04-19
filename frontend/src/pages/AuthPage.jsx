@@ -577,7 +577,9 @@ export default function AuthPage() {
           : "Tạo tài khoản thành công!",
         "success",
       );
-      navigate("/");
+      // Redirect về trang trước nếu có ?from= (từ ProtectedRoute)
+      const from = searchParams.get("from");
+      navigate(from && from.startsWith("/") ? from : "/", { replace: true });
     } catch (err) {
       showToast(
         err.response?.data?.detail || "Đã có lỗi xảy ra, thử lại nhé.",

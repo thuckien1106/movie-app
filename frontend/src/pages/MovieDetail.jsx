@@ -12,6 +12,7 @@ import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
 import RemindButton from "../components/RemindButton";
 import { checkReminder } from "../api/reminderApi";
+import ReviewSection from "../components/ReviewSection";
 
 /* ── helpers ──────────────────────────────────── */
 function isUpcoming(d) {
@@ -1063,6 +1064,11 @@ function MovieDetail() {
             </div>
           </div>
         )}
+
+        {/* Reviews */}
+        <div style={{ ...s.section, paddingBottom: 16 }}>
+          <ReviewSection movieId={id} />
+        </div>
 
         {/* Similar */}
         {similar.length > 0 && (

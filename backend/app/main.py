@@ -13,12 +13,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.database.connection import engine
 from app.database.base import Base
 from app.models import user, watchlist
+from app.models import review as review_models
 from app.models import reminder as reminder_models
 from app.models import password_reset as password_reset_models
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
 from app.routers import reminder as reminder_router
 from app.routers import recommendations as recommendations_router  # ← THÊM MỚI
+from app.routers import reviews as reviews_router
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 
@@ -174,6 +176,7 @@ app.include_router(watchlist_router.router)
 app.include_router(mood_router.router)
 app.include_router(reminder_router.router)
 app.include_router(recommendations_router.router)   # ← THÊM MỚI
+app.include_router(reviews_router.router)
 
 
 @app.get("/")

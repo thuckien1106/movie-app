@@ -1,3 +1,4 @@
+# app/main.py
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -16,20 +17,21 @@ from app.models import user, watchlist
 from app.models import review as review_models
 from app.models import reminder as reminder_models
 from app.models import password_reset as password_reset_models
+from app.models import token as token_models          # ← THÊM MỚI
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
 from app.routers import reminder as reminder_router
-from app.routers import recommendations as recommendations_router  # ← THÊM MỚI
+from app.routers import recommendations as recommendations_router
 from app.routers import reviews as reviews_router
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
-
+from app.routers import admin as admin_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
 
 
 # ════════════════════════════════════════════
-# SCHEDULER JOB
+# SCHEDULER JOBS
 # ════════════════════════════════════════════
 
 def _run_check_and_fire():
@@ -41,6 +43,20 @@ def _run_check_and_fire():
         logger.info(f"[scheduler] reminder check_and_fire → {fired} fired")
     except Exception as e:
         logger.error(f"[scheduler] reminder error: {e}")
+    finally:
+        db.close()
+
+
+def _run_token_cleanup():
+    """Dọn dẹp token hết hạn trong DB — chạy 1 lần / ngày."""
+    from app.database.connection import SessionLocal
+    from app.services.token_service import cleanup_expired_tokens
+    db = SessionLocal()
+    try:
+        result = cleanup_expired_tokens(db)
+        logger.info(f"[scheduler] token cleanup → {result}")
+    except Exception as e:
+        logger.error(f"[scheduler] token cleanup error: {e}")
     finally:
         db.close()
 
@@ -74,31 +90,39 @@ class RequestSizeMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    logger.info("🎬 Films API v2.3 starting up...")
+    logger.info("🎬 Films API v2.4 starting up...")
 
     scheduler = BackgroundScheduler(
         timezone="Asia/Ho_Chi_Minh",
         executors={"default": ThreadPoolExecutor(max_workers=1)},
         job_defaults={
-            # Nếu server restart và bỏ lỡ lần chạy, cho phép chạy bù trong 10 phút
             "misfire_grace_time": 600,
-            # Không chạy chồng nhau nếu job trước chưa xong
             "coalesce": True,
             "max_instances": 1,
         },
     )
+
+    # Job 1: Kiểm tra và gửi reminder mỗi 10 phút
     scheduler.add_job(
         _run_check_and_fire,
         trigger="interval",
         minutes=10,
         id="reminder_check",
-        # Chạy ngay lần đầu khi startup thay vì đợi 10 phút
         next_run_time=datetime.now(tz=scheduler.timezone),
+    )
+
+    # Job 2: Dọn token hết hạn mỗi ngày lúc 3:00 sáng
+    scheduler.add_job(
+        _run_token_cleanup,
+        trigger="cron",
+        hour=3,
+        minute=0,
+        id="token_cleanup",
     )
 
     if not scheduler.running:
         scheduler.start()
-        logger.info("🔔 Reminder scheduler started (interval: 10 min).")
+        logger.info("🔔 Scheduler started (reminder: 10min, token cleanup: daily 3AM).")
 
     yield
 
@@ -113,7 +137,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Films API",
     description="Movie Discovery & Watchlist API",
-    version="2.3.0",
+    version="2.4.0",
     lifespan=lifespan,
 )
 
@@ -175,13 +199,13 @@ app.include_router(movies.router)
 app.include_router(watchlist_router.router)
 app.include_router(mood_router.router)
 app.include_router(reminder_router.router)
-app.include_router(recommendations_router.router)   # ← THÊM MỚI
+app.include_router(recommendations_router.router)
 app.include_router(reviews_router.router)
-
+app.include_router(admin_router.router)
 
 @app.get("/")
 def root():
-    return {"message": "Films API v2.3 running", "docs": "/docs"}
+    return {"message": "Films API v2.4 running", "docs": "/docs"}
 
 
 @app.get("/health")

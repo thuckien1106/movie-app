@@ -529,6 +529,16 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                         icon: menuIcons.profile,
                         label: "Hồ sơ của tôi",
                       },
+                      ...(user?.role === "admin" || user?.role === "moderator"
+                        ? [
+                            {
+                              to: "/admin",
+                              icon: menuIcons.stats,
+                              label: "Quản trị",
+                            },
+                          ]
+                        : []),
+
                       {
                         to: "/watchlist",
                         icon: menuIcons.watchlist,
@@ -782,6 +792,9 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           },
           { to: "/reminders", icon: menuIcons.reminder, label: "Nhắc nhở" },
           { to: "/profile", icon: menuIcons.profile, label: "Hồ sơ" },
+          ...(user?.role === "admin" || user?.role === "moderator"
+            ? [{ to: "/admin", icon: menuIcons.stats, label: "⚙ Quản trị" }]
+            : []),
         ].map(({ to, icon, label }) => (
           <Link
             key={to}

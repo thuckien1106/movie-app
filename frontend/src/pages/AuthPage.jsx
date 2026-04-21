@@ -570,7 +570,7 @@ export default function AuthPage() {
             };
       const res =
         mode === "login" ? await login(payload) : await register(payload);
-      saveSession(res.data.access_token, res.data.user);
+      saveSession(res.data.access_token, res.data.refresh_token, res.data.user);
       showToast(
         mode === "login"
           ? "Đăng nhập thành công!"

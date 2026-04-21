@@ -20,7 +20,7 @@ import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import Statistics from "./pages/Statistics";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+import AdminPage from "./pages/AdminPage";
 // ─── RouteErrorBoundary ───────────────────────────────────────────────────────
 // Tách riêng để dùng được useLocation() (hook chỉ chạy trong BrowserRouter).
 // resetKey = pathname: mỗi khi user navigate sang trang khác, ErrorBoundary
@@ -149,6 +149,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <RouteErrorBoundary>
               <Statistics />
+            </RouteErrorBoundary>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <RouteErrorBoundary>
+              <AdminPage />
             </RouteErrorBoundary>
           </ProtectedRoute>
         }

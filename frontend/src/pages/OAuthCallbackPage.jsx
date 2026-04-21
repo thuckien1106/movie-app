@@ -1,10 +1,10 @@
 // src/pages/OAuthCallbackPage.jsx
 /**
  * Trang trung gian sau khi Google redirect về FE.
- * URL: /oauth/callback?token=...&user_email=...&user_name=...
+ * URL: /oauth/callback?token=...&refresh_token=...&user_email=...&user_name=...
  *
  * Trang này:
- *  1. Đọc query params
+ *  1. Đọc query params (token + refresh_token)
  *  2. Lưu token + user vào localStorage qua saveSession
  *  3. Redirect về trang chủ (hoặc trang trước đó)
  *  4. Nếu có lỗi → hiện thông báo + redirect về /login
@@ -29,6 +29,7 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     const token = params.get("token");
+    const refreshToken = params.get("refresh_token"); // ← THÊM MỚI
     const oauthError = params.get("oauth_error");
 
     // ── Có lỗi từ BE ──
@@ -41,7 +42,7 @@ export default function OAuthCallbackPage() {
     }
 
     // ── Thiếu token ──
-    if (!token) {
+    if (!token || !refreshToken) {
       showToast("Không nhận được thông tin xác thực.", "error");
       setStatus("error");
       setTimeout(() => navigate("/login", { replace: true }), 1800);
@@ -59,8 +60,8 @@ export default function OAuthCallbackPage() {
       is_google: true,
     };
 
-    // ── Lưu session ──
-    saveSession(token, userData);
+    // ── Lưu session (access token + refresh token + user) ──
+    saveSession(token, refreshToken, userData); // ← THÊM refresh_token
     showToast(
       `Chào mừng, ${userData.username || userData.email.split("@")[0]}! 🎬`,
       "success",
@@ -138,11 +139,7 @@ const s = {
     fontWeight: 600,
     color: "var(--text-primary,#f0f4ff)",
   },
-  sub: {
-    margin: 0,
-    fontSize: 13,
-    color: "var(--text-faint,#6b7280)",
-  },
+  sub: { margin: 0, fontSize: 13, color: "var(--text-faint,#6b7280)" },
 };
 
 const css = `

@@ -4,6 +4,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
 } from "react";
 import axios from "axios";
@@ -18,42 +19,19 @@ function isPublicRoute(pathname) {
   return PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: trích xuất message lỗi từ response BE
-//
-// BE có thể trả về các format:
-//   { error: "...", message: "..." }   ← RequestSizeMiddleware, 413
-//   { error: "...", details: [...] }   ← ValidationError 422
-//   { error: "..." }                   ← HTTPException chung
-//   string (detail field)              ← HTTPException đơn giản
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Trích xuất message lỗi từ response BE ────────────────────────────────
 function extractErrorMessage(err) {
   const data = err?.response?.data;
   if (!data) return null;
-
-  // { error: "...", message: "..." }
   if (data.message) return data.message;
-
-  // { error: "...", details: [{ field, message }] }
-  if (data.details?.length) {
+  if (data.details?.length)
     return data.details.map((d) => d.message).join(" · ");
-  }
-
-  // { error: "..." }
   if (typeof data.error === "string") return data.error;
-
-  // detail là string thuần (FastAPI default)
   if (typeof data.detail === "string") return data.detail;
-
-  // detail là object { error: "..." }
   if (typeof data.detail?.error === "string") return data.detail.error;
-
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DEFAULT MESSAGES theo status code
-// ─────────────────────────────────────────────────────────────────────────────
 const STATUS_MESSAGES = {
   400: "Yêu cầu không hợp lệ.",
   403: "Bạn không có quyền thực hiện thao tác này.",
@@ -67,32 +45,25 @@ const STATUS_MESSAGES = {
   503: "Dịch vụ tạm thời không khả dụng.",
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CÁC URL PATTERN không hiện toast lỗi tự động
-// (background fetch, silent check, polling...)
-// ─────────────────────────────────────────────────────────────────────────────
 const SILENT_URL_PATTERNS = [
-  /\/auth\/me$/, // token check lúc startup
-  /\/movies\/genres$/, // genre list — luôn silent
-  /\/reminders\/check\//, // reminder check — background
-  /\/reviews\/movies\/\d+\/summary$/, // summary fetch — silent
+  /\/auth\/me$/,
+  /\/auth\/refresh$/,
+  /\/movies\/genres$/,
+  /\/reminders\/check\//,
+  /\/reviews\/movies\/\d+\/summary$/,
 ];
 
 function isSilentUrl(url = "") {
   return SILENT_URL_PATTERNS.some((p) => p.test(url));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DEDUP TOAST: tránh hiện cùng 1 message nhiều lần liên tiếp
-// (vd: nhiều request cùng fail 401 cùng lúc)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Dedup toast ───────────────────────────────────────────────────────────
 let _lastToastKey = "";
 let _lastToastTime = 0;
 
 function showDedupToast(message, type = "error") {
   const key = `${type}:${message}`;
   const now = Date.now();
-  // Cùng message trong vòng 2 giây → bỏ qua
   if (key === _lastToastKey && now - _lastToastTime < 2000) return;
   _lastToastKey = key;
   _lastToastTime = now;
@@ -104,26 +75,53 @@ function showDedupToast(message, type = "error") {
 // ─────────────────────────────────────────────────────────────────────────────
 export const api = axios.create({ baseURL: API });
 
-// ── Request interceptor: đính JWT ────────────────────────────────────────────
+// ── Request interceptor: đính access token ───────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// ── Response interceptor: xử lý lỗi tập trung ───────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// RESPONSE INTERCEPTOR — xử lý 401 + tự động refresh
+//
+// Cơ chế:
+//  1. Nhận 401 → kiểm tra có refresh token không
+//  2. Có → gọi /auth/refresh để lấy access token mới
+//  3. Thành công → retry request gốc với token mới
+//  4. Thất bại  → logout + redirect /login
+//
+// isRefreshing + failedQueue: tránh race condition khi nhiều request
+// cùng nhận 401 đồng thời — chỉ gọi /refresh 1 lần, các request khác
+// chờ trong queue rồi retry sau khi refresh xong.
+// ─────────────────────────────────────────────────────────────────────────────
+let isRefreshing = false;
+let failedQueue = [];
+
+function processQueue(error, token = null) {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+}
+
+// Hàm này được set từ AuthProvider để interceptor có thể gọi logout
+let _logoutHandler = null;
+export function setLogoutHandler(fn) {
+  _logoutHandler = fn;
+}
+
 api.interceptors.response.use(
-  // ── Success: pass through ──────────────────────────────────────────────────
   (res) => res,
 
-  // ── Error handler ─────────────────────────────────────────────────────────
-  (err) => {
+  async (err) => {
     const status = err.response?.status;
     const config = err.config || {};
     const url = config.url || "";
     const isSilent = config._silent || isSilentUrl(url);
 
-    // ── Network error (không có response) ─────────────────────────────────
+    // ── Network error ──────────────────────────────────────────────────────
     if (!err.response) {
       if (!isSilent) {
         showDedupToast(
@@ -134,19 +132,88 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    // ── 401 Unauthorized ──────────────────────────────────────────────────
+    // ── 401 — thử refresh trước khi logout ───────────────────────────────
     if (status === 401) {
+      // Không retry cho chính /auth/refresh và /auth/logout để tránh loop
+      const isAuthEndpoint = /\/auth\/(refresh|logout)$/.test(url);
+
+      const refreshToken = localStorage.getItem("refresh_token");
+
+      if (!isAuthEndpoint && refreshToken && !config._retry) {
+        // Đánh dấu request này đã được retry → tránh loop vô tận
+        config._retry = true;
+
+        if (isRefreshing) {
+          // Đang refresh → đẩy vào queue, chờ token mới
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then((newToken) => {
+            config.headers.Authorization = `Bearer ${newToken}`;
+            return api(config);
+          });
+        }
+
+        isRefreshing = true;
+
+        try {
+          const { data } = await api.post(
+            "/auth/refresh",
+            { refresh_token: refreshToken },
+            { _silent: true }, // không toast lỗi refresh
+          );
+
+          const newAccessToken = data.access_token;
+          const newRefreshToken = data.refresh_token;
+
+          // Lưu token mới
+          localStorage.setItem("token", newAccessToken);
+          localStorage.setItem("refresh_token", newRefreshToken);
+
+          // Cập nhật header cho instance
+          api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+
+          processQueue(null, newAccessToken);
+
+          // Retry request gốc
+          config.headers.Authorization = `Bearer ${newAccessToken}`;
+          return api(config);
+        } catch (refreshErr) {
+          processQueue(refreshErr, null);
+
+          // Refresh thất bại → logout
+          localStorage.removeItem("token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
+          if (_logoutHandler) _logoutHandler();
+
+          const currentPath = window.location.pathname;
+          if (!isPublicRoute(currentPath)) {
+            showDedupToast(
+              "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.",
+              "warning",
+            );
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 800);
+          }
+          return Promise.reject(refreshErr);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+
+      // Không có refresh token hoặc đã retry → logout trực tiếp
       localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
+      if (_logoutHandler) _logoutHandler();
 
       const currentPath = window.location.pathname;
       if (!isPublicRoute(currentPath)) {
-        // Hiện toast trước khi redirect để user biết lý do
         showDedupToast(
           "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.",
           "warning",
         );
-        // Delay nhỏ để toast kịp render trước khi navigate
         setTimeout(() => {
           window.location.href = "/login";
         }, 800);
@@ -154,10 +221,10 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    // ── Silent request → không toast, chỉ reject ──────────────────────────
+    // ── Silent request ─────────────────────────────────────────────────────
     if (isSilent) return Promise.reject(err);
 
-    // ── 429 Too Many Requests ─────────────────────────────────────────────
+    // ── 429 ───────────────────────────────────────────────────────────────
     if (status === 429) {
       const retryAfter = err.response.data?.retry_after;
       const msg = retryAfter
@@ -167,14 +234,14 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    // ── 422 Validation — thường FE đã handle cụ thể, toast generic ────────
+    // ── 422 ───────────────────────────────────────────────────────────────
     if (status === 422) {
       const msg = extractErrorMessage(err) || STATUS_MESSAGES[422];
       showDedupToast(msg, "error");
       return Promise.reject(err);
     }
 
-    // ── 5xx Server errors ─────────────────────────────────────────────────
+    // ── 5xx ───────────────────────────────────────────────────────────────
     if (status >= 500) {
       const msg =
         extractErrorMessage(err) ||
@@ -184,12 +251,10 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    // ── 4xx còn lại (400, 403, 404, 409, 413...) ──────────────────────────
-    // Nếu BE có message cụ thể → dùng, không thì fallback
+    // ── 4xx còn lại ───────────────────────────────────────────────────────
     const msg =
       extractErrorMessage(err) || STATUS_MESSAGES[status] || `Lỗi ${status}.`;
     showDedupToast(msg, "error");
-
     return Promise.reject(err);
   },
 );
@@ -208,27 +273,56 @@ export function AuthProvider({ children }) {
     }
   });
 
-  const saveSession = useCallback((token, userData) => {
-    localStorage.setItem("token", token);
+  // Lưu cả access token + refresh token + user data
+  const saveSession = useCallback((accessToken, refreshToken, userData) => {
+    localStorage.setItem("token", accessToken);
+    localStorage.setItem("refresh_token", refreshToken);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Gọi BE để blacklist token server-side
+    const accessToken = localStorage.getItem("token");
+    const refreshToken = localStorage.getItem("refresh_token");
+
+    if (accessToken && refreshToken) {
+      try {
+        await api.post(
+          "/auth/logout",
+          { refresh_token: refreshToken },
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            _silent: true, // không toast lỗi nếu token đã hết hạn
+            _retry: true, // không trigger refresh khi gọi logout
+          },
+        );
+      } catch {
+        // Bỏ qua lỗi — client vẫn xoá local state
+      }
+    }
+
     localStorage.removeItem("token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
     setUser(null);
   }, []);
 
-  // Silent token check lúc startup — dùng config._silent để interceptor bỏ qua toast
+  // Đăng ký logout handler để interceptor gọi được
+  useEffect(() => {
+    setLogoutHandler(() => setUser(null));
+  }, []);
+
+  // Silent token check lúc startup
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
     api.get("/auth/me", { _silent: true }).catch(() => {
-      logout();
+      // Nếu /me fail, interceptor sẽ tự thử refresh
+      // Nếu refresh cũng fail, logout sẽ được gọi tự động
     });
-  }, [logout]);
+  }, []);
 
   return (
     <AuthContext.Provider

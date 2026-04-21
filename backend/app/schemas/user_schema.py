@@ -1,8 +1,17 @@
 # app/schemas/user_schema.py
+# ── Chỉ liệt kê các thay đổi / bổ sung so với file gốc ──
+# Copy toàn bộ file gốc, sau đó:
+#   1. Thêm import UserRole
+#   2. Cập nhật UserResponse (thêm role, is_banned)
+#   3. Thêm các schema admin ở cuối file
+
 import re
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
+
+# ← THÊM import này
+from app.models.user import UserRole
 
 
 _USERNAME_RE   = re.compile(
@@ -71,17 +80,31 @@ class UserResponse(BaseModel):
     username:   Optional[str]
     avatar:     Optional[str]
     bio:        Optional[str]
-    avatar_url: Optional[str]   = None   # ← THÊM: URL ảnh Google
-    is_google:  bool            = False  # ← THÊM: đánh dấu tài khoản Google
+    avatar_url: Optional[str] = None
+    is_google:  bool          = False
+    # ← THÊM 2 field mới
+    role:       UserRole      = UserRole.user
+    is_banned:  bool          = False
 
     class Config:
         from_attributes = True
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    token_type:   str = "bearer"
-    user:         UserResponse
+    access_token:  str
+    refresh_token: str
+    token_type:    str = "bearer"
+    user:          UserResponse
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=10)
+
+
+class RefreshResponse(BaseModel):
+    access_token:  str
+    refresh_token: str
+    token_type:    str = "bearer"
 
 
 # ── Profile update ─────────────────────────────────────────
@@ -94,12 +117,9 @@ class ProfileUpdate(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def trim_fields(cls, values: dict) -> dict:
-        """Trim whitespace trước khi các field validator chạy.
-        Tránh 422 khi FE gửi string chỉ có spaces hoặc chưa trim."""
         for field in ("username", "bio", "avatar"):
             if isinstance(values.get(field), str):
                 stripped = values[field].strip()
-                # Chuỗi rỗng sau trim → coi như None (không cập nhật field)
                 values[field] = stripped if stripped else None
         return values
 
@@ -207,3 +227,77 @@ class ResetPasswordRequest(BaseModel):
         if v.isdigit():
             raise ValueError("Mật khẩu không được chỉ chứa số.")
         return v
+
+
+# ════════════════════════════════════════════
+# ADMIN SCHEMAS  ← THÊM MỚI
+# ════════════════════════════════════════════
+
+class AdminUserListItem(BaseModel):
+    """Dùng trong danh sách user ở trang admin."""
+    id:           int
+    email:        str
+    username:     Optional[str]
+    avatar:       Optional[str]
+    avatar_url:   Optional[str]
+    role:         UserRole
+    is_banned:    bool
+    ban_reason:   Optional[str]
+    is_google:    bool
+    review_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserListResponse(BaseModel):
+    users:      List[AdminUserListItem]
+    total:      int
+    page:       int
+    page_size:  int
+    total_pages: int
+
+
+class SetRoleRequest(BaseModel):
+    role: UserRole
+
+
+class BanRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=500)
+
+
+class AdminReviewListItem(BaseModel):
+    """Dùng trong danh sách review ở trang admin."""
+    id:          int
+    movie_id:    int
+    movie_title: Optional[str]   # lấy từ TMDB nếu có cache
+    rating:      int
+    content:     Optional[str]
+    is_spoiler:  bool
+    is_flagged:  bool
+    flag_reason: Optional[str]
+    is_hidden:   bool
+    likes:       int
+    created_at:  datetime
+    author: dict   # { id, username, avatar, avatar_url }
+
+    class Config:
+        from_attributes = True
+
+
+class AdminReviewListResponse(BaseModel):
+    reviews:     List[AdminReviewListItem]
+    total:       int
+    page:        int
+    page_size:   int
+    total_pages: int
+
+
+class AdminStatsResponse(BaseModel):
+    total_users:     int
+    banned_users:    int
+    total_reviews:   int
+    flagged_reviews: int
+    hidden_reviews:  int
+    moderators:      int
+    admins:          int

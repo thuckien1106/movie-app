@@ -79,3 +79,39 @@ export const updateProfile = (data) => api.patch("/auth/profile", data);
 export const changePassword = (data) => api.post("/auth/change-password", data);
 export const getActivity = (limit = 30) =>
   api.get("/auth/activity", { params: { limit } });
+
+// ── Now Playing ───────────────────────────────────────────
+export const getNowPlayingMovies = (page = 1) =>
+  api.get("/movies/now-playing", { params: { page } });
+
+// ── Search History (localStorage helpers) ────────────────
+const HISTORY_KEY = "filmverse_search_history";
+const MAX_HISTORY = 8;
+
+export function getSearchHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+export function addSearchHistory(query) {
+  if (!query?.trim()) return;
+  const q = query.trim();
+  const history = getSearchHistory().filter((h) => h !== q);
+  history.unshift(q);
+  localStorage.setItem(
+    HISTORY_KEY,
+    JSON.stringify(history.slice(0, MAX_HISTORY)),
+  );
+}
+
+export function removeSearchHistory(query) {
+  const history = getSearchHistory().filter((h) => h !== query);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+export function clearSearchHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+}

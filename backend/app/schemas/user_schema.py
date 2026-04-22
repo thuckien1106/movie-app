@@ -10,7 +10,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 from typing import Optional, List
 from datetime import datetime
 
-# ← THÊM import này
 from app.models.user import UserRole
 
 
@@ -82,10 +81,9 @@ class UserResponse(BaseModel):
     bio:        Optional[str]
     avatar_url: Optional[str] = None
     is_google:  bool          = False
-    # ← THÊM 2 field mới
     role:       UserRole      = UserRole.user
     is_banned:  bool          = False
-
+    is_verified: bool         = False
     class Config:
         from_attributes = True
 
@@ -227,7 +225,9 @@ class ResetPasswordRequest(BaseModel):
         if v.isdigit():
             raise ValueError("Mật khẩu không được chỉ chứa số.")
         return v
-
+class DeleteAccountRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=128)   # None nếu Google user
+    confirm:  bool          = False                          # phải là True
 
 # ════════════════════════════════════════════
 # ADMIN SCHEMAS  ← THÊM MỚI
@@ -301,3 +301,9 @@ class AdminStatsResponse(BaseModel):
     hidden_reviews:  int
     moderators:      int
     admins:          int
+from pydantic import BaseModel, Field
+ 
+class VerifyEmailRequest(BaseModel):
+    """Body gửi lên POST /auth/verify-email"""
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+ 

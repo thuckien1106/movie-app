@@ -1,3 +1,4 @@
+# app/services/auth_service.py
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.watchlist import Watchlist, Collection
@@ -12,8 +13,27 @@ def create_user(db: Session, email: str, password: str, username: Optional[str] 
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
     if username and db.query(User).filter(User.username == username).first():
         raise HTTPException(status_code=400, detail="Username đã được sử dụng")
-    user = User(email=email, password=hash_password(password), username=username)
-    db.add(user); db.commit(); db.refresh(user)
+
+    user = User(
+        email       = email,
+        password    = hash_password(password),
+        username    = username,
+        is_verified = False,   # ← mặc định chưa xác thực
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Gửi email xác thực — import ở đây để tránh circular import
+    try:
+        from app.services.email_verify_service import send_verification
+        send_verification(db, user)
+    except Exception as e:
+        import logging
+        logging.getLogger("films").warning(f"Could not send verification email: {e}")
+        # Không fail đăng ký nếu email lỗi — user vẫn tạo được,
+        # có thể dùng /auth/resend-verify để gửi lại
+
     return user
 
 
@@ -36,7 +56,8 @@ def update_profile(db: Session, user: User, data: ProfileUpdate):
         user.avatar = data.avatar
     if data.bio is not None:
         user.bio = data.bio
-    db.commit(); db.refresh(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 
@@ -49,10 +70,8 @@ def change_password(db: Session, user: User, data: ChangePassword):
 
 
 def get_activity(db: Session, user_id: int, limit: int = 30) -> ActivityResponse:
-    """Merge watchlist additions + watched events + collection creations into a timeline."""
     items = []
 
-    # Fetch đủ records để sau khi merge + sort vẫn còn đủ `limit` items
     added = db.query(Watchlist).filter(
         Watchlist.user_id == user_id
     ).order_by(Watchlist.added_at.desc()).limit(limit * 2).all()
@@ -63,14 +82,12 @@ def get_activity(db: Session, user_id: int, limit: int = 30) -> ActivityResponse
                 type="added", title=m.title, poster=m.poster,
                 movie_id=m.movie_id, col_name=None, at=m.added_at,
             ))
-        # Dùng watched_at thay vì added_at — đây là thời điểm thực sự đánh dấu
         if m.is_watched and m.watched_at:
             items.append(ActivityItem(
                 type="watched", title=m.title, poster=m.poster,
                 movie_id=m.movie_id, col_name=None, at=m.watched_at,
             ))
 
-    # Collections created
     cols = db.query(Collection).filter(
         Collection.user_id == user_id
     ).order_by(Collection.created_at.desc()).all()
@@ -82,6 +99,5 @@ def get_activity(db: Session, user_id: int, limit: int = 30) -> ActivityResponse
                 poster=None, movie_id=None, col_name=c.name, at=c.created_at,
             ))
 
-    # Sort all by time desc, cap at limit
     items.sort(key=lambda x: x.at, reverse=True)
     return ActivityResponse(items=items[:limit])

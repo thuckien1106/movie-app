@@ -67,6 +67,10 @@ def upcoming(request: Request, page: int = Query(1, ge=1, le=500)):
     limiter.check(request, "movies_read", **Limits.READ_GENERAL)
     return tmdb_service.get_upcoming_movies(page)
 
+@router.get("/now-playing")
+def now_playing(request: Request, page: int = Query(1, ge=1, le=500)):
+    limiter.check(request, "movies_read", **Limits.READ_GENERAL)
+    return tmdb_service.get_now_playing_movies(page)
 
 @router.get("/all")
 def get_all_movies(

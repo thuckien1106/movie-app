@@ -305,6 +305,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
+    toastBridge.show("Đã đăng xuất.", "success");
     setUser(null);
   }, []);
 

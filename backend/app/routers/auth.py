@@ -13,6 +13,8 @@ from app.schemas.user_schema import (
     ProfileUpdate, ChangePassword, ActivityResponse,
     ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest,
     RefreshRequest, RefreshResponse,
+    VerifyEmailRequest,
+    DeleteAccountRequest, 
 )
 from app.services.auth_service import (
     create_user, authenticate_user,
@@ -111,8 +113,99 @@ def activity(
 ):
     limiter.check(request, "activity", **Limits.READ_GENERAL)
     return get_activity(db, current_user.id, limit)
+# ════════════════════════════════════════════
+# EMAIL VERIFICATION  ← THÊM MỚI
+# ════════════════════════════════════════════
+
+@router.post("/verify-email")
+def verify_email(
+    request: Request,
+    body:    VerifyEmailRequest,
+    db:      Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Xác thực email bằng OTP 6 chữ số.
+    User phải đã đăng nhập (có access token) để gọi endpoint này.
+    Sau khi verify thành công, is_verified = True.
+    """
+    limiter.check(request, "verify_email", max_calls=10, window_sec=60)
+
+    from app.services.email_verify_service import verify_email as _verify
+    _verify(db, current_user, body.otp)
+    return {"message": "Xác thực email thành công!"}
 
 
+@router.post("/resend-verify")
+def resend_verify(
+    request: Request,
+    db:      Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Gửi lại OTP xác thực email.
+    Có rate limit — tối đa 3 lần / 5 phút.
+    """
+    limiter.check(request, "resend_verify", max_calls=3, window_sec=300)
+
+    if current_user.is_verified:
+        return {"message": "Email của bạn đã được xác thực."}
+
+    from app.services.email_verify_service import send_verification
+    send_verification(db, current_user)
+    return {"message": "Đã gửi lại mã xác thực. Vui lòng kiểm tra email."}
+
+# ════════════════════════════════════════════
+# XOÁ TÀI KHOẢN
+# ════════════════════════════════════════════
+
+@router.delete("/account")
+def delete_account(
+    request: Request,
+    body: DeleteAccountRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Xoá tài khoản vĩnh viễn.
+
+    - User thường: phải nhập mật khẩu để xác nhận.
+    - Google user: không cần mật khẩu, chỉ cần confirm=True.
+    - Sau khi xoá: blacklist access token + revoke refresh token.
+
+    Body: { "password": "...", "confirm": true }
+    """
+    limiter.check(request, "delete_account", max_calls=3, window_sec=300)
+
+    from app.services.auth_service import authenticate_user
+    from app.services import token_service as _ts
+
+    # Bắt buộc xác nhận
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Vui lòng xác nhận xoá tài khoản.")
+
+    # User thường phải nhập đúng mật khẩu
+    if not current_user.is_google:
+        if not body.password:
+            raise HTTPException(status_code=400, detail="Vui lòng nhập mật khẩu để xác nhận.")
+
+        verified = authenticate_user(db, current_user.email, body.password)
+        if not verified:
+            raise HTTPException(status_code=400, detail="Mật khẩu không đúng.")
+
+    # Blacklist access token
+    if credentials:
+        _ts.blacklist_access_token(db, credentials.credentials)
+
+    # Revoke toàn bộ refresh tokens
+    _ts.revoke_all_refresh_tokens(db, current_user.id)
+
+    # Xoá user (cascade)
+    db.delete(current_user)
+    db.commit()
+
+    return {"message": "Tài khoản đã được xoá vĩnh viễn."}
 # ════════════════════════════════════════════
 # REFRESH TOKEN
 # ════════════════════════════════════════════

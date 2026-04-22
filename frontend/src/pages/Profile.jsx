@@ -9,7 +9,7 @@ import {
   getWatchlistStats,
 } from "../api/movieApi";
 import Navbar from "../components/Navbar";
-
+import DeleteAccountSection from "../components/DeleteAccountSection";
 /* ── helpers ─────────────────────────────────── */
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
@@ -884,6 +884,7 @@ export default function Profile() {
     { key: "profile", label: "Hồ sơ", icon: Icon.user },
     { key: "password", label: "Mật khẩu", icon: Icon.lock },
     { key: "activity", label: "Lịch sử", icon: Icon.clock },
+    { key: "account", label: "Tài khoản", icon: Icon.lock },
   ];
 
   return (
@@ -1735,6 +1736,14 @@ export default function Profile() {
                 })}
               </div>
             )}
+          </div>
+        )}
+        {tab === "account" && (
+          <div style={{ maxWidth: 480 }}>
+            <div style={s.formCard}>
+              <SectionHead icon={Icon.lock}>Quản lý tài khoản</SectionHead>
+              <DeleteAccountSection />
+            </div>
           </div>
         )}
       </div>

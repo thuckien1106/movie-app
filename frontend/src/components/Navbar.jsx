@@ -311,7 +311,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const userMenuRef = useRef(null);
-
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isHome = location.pathname === "/";
   const isMood = location.pathname === "/mood";
   const isRec = location.pathname === "/recommendations";
@@ -581,7 +581,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     <div style={s.menuDivider} />
                     <button
                       onClick={() => {
-                        logout();
+                        setShowLogoutConfirm(true);
                         setShowUserMenu(false);
                       }}
                       style={{
@@ -624,6 +624,115 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         </nav>
 
         {solid && !heroRef && <div style={{ height: 60 }} />}
+        {showLogoutConfirm && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0,0,0,0.65)",
+              backdropFilter: "blur(6px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <div
+              style={{
+                background: "var(--bg-overlay, #0f1420)",
+                border: "1px solid var(--border-mid, rgba(255,255,255,0.1))",
+                borderRadius: 16,
+                padding: "28px 28px 24px",
+                maxWidth: 340,
+                width: "90%",
+                boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Icon */}
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  margin: "0 auto 16px",
+                  background: "rgba(229,9,20,0.1)",
+                  border: "1.5px solid rgba(229,9,20,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {menuIcons.logout}
+              </div>
+
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  textAlign: "center",
+                  color: "var(--text-primary, #f0f4ff)",
+                }}
+              >
+                Đăng xuất?
+              </h3>
+              <p
+                style={{
+                  margin: "0 0 22px",
+                  fontSize: 13,
+                  textAlign: "center",
+                  color: "var(--text-secondary, #94a3b8)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Bạn có chắc muốn đăng xuất khỏi tài khoản không?
+              </p>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: 9,
+                    border:
+                      "1px solid var(--border-mid, rgba(255,255,255,0.1))",
+                    background: "transparent",
+                    color: "var(--text-secondary, #94a3b8)",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Huỷ
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    logout();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: 9,
+                    border: "none",
+                    background: "var(--red, #e50914)",
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <style>{navCSS}</style>
       </>
     );
@@ -812,7 +921,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             <div style={{ ...s.menuDivider, margin: "12px 0" }} />
             <button
               onClick={() => {
-                logout();
+                setShowLogoutConfirm(true);
                 setShowDrawer(false);
               }}
               style={{

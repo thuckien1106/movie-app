@@ -17,7 +17,8 @@ from app.models import user, watchlist
 from app.models import review as review_models
 from app.models import reminder as reminder_models
 from app.models import password_reset as password_reset_models
-from app.models import token as token_models          # ← THÊM MỚI
+from app.models import token as token_models 
+from app.services import email_verify_service         
 from app.routers import auth, movies, watchlist as watchlist_router
 from app.routers import mood as mood_router
 from app.routers import reminder as reminder_router
@@ -26,6 +27,7 @@ from app.routers import reviews as reviews_router
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from app.routers import admin as admin_router
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
 

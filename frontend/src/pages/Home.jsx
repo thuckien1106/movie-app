@@ -8,6 +8,11 @@ import {
   getGenres,
   getTrendingMovies,
   addMovie,
+  getNowPlayingMovies,
+  getSearchHistory,
+  addSearchHistory,
+  removeSearchHistory,
+  clearSearchHistory,
 } from "../api/movieApi";
 import MovieCard from "../components/MovieCard";
 import TrailerModal from "../components/TrailerModal";
@@ -34,9 +39,16 @@ const TABS = [
   { key: "all", label: "Tất cả", icon: "🎬", supportsFilter: true },
   { key: "popular", label: "Phổ biến", icon: "🔥", supportsFilter: false },
   { key: "top-rated", label: "Top Rated", icon: "⭐", supportsFilter: false },
+  {
+    key: "now-playing",
+    label: "Đang chiếu",
+    icon: "🎦",
+    supportsFilter: false,
+  },
   { key: "upcoming", label: "Sắp chiếu", icon: "🗓", supportsFilter: false },
   { key: "trending", label: "Trending", icon: "📈", supportsFilter: false },
 ];
+
 const SORT_OPTIONS = [
   { value: "popularity.desc", label: "Phổ biến nhất" },
   { value: "vote_average.desc", label: "Điểm cao nhất" },
@@ -133,6 +145,8 @@ export default function Home() {
         res = await searchMovies(debouncedQuery, currPage);
       else if (mode === "popular") res = await getPopularMovies(currPage);
       else if (mode === "top-rated") res = await getTopRatedMovies(currPage);
+      else if (mode === "now-playing")
+        res = await getNowPlayingMovies(currPage);
       else if (mode === "upcoming") res = await getUpcomingMovies(currPage);
       else {
         const apiF = {};
@@ -248,11 +262,13 @@ export default function Home() {
                 ? "🔥 Đang thịnh hành"
                 : mode === "top-rated"
                   ? "⭐ Được yêu thích"
-                  : mode === "upcoming"
-                    ? "🗓 Sắp ra mắt"
-                    : mode === "trending"
-                      ? "📈 Đang hot"
-                      : "Phim"}
+                  : mode === "now-playing"
+                    ? "🎦 Đang chiếu rạp"
+                    : mode === "upcoming"
+                      ? "🗓 Sắp ra mắt"
+                      : mode === "trending"
+                        ? "📈 Đang hot"
+                        : "Phim"}
           </span>
           <span style={s.sectionLine} />
         </div>
@@ -662,7 +678,7 @@ function CloseSVG({ size = 12 }) {
   );
 }
 
-/* ── SearchBar component (có autocomplete) ── */
+/* ── SearchBar — có autocomplete + lịch sử tìm kiếm ── */
 function useDebounceLocal(value, delay) {
   const [dv, setDv] = useState(value);
   useEffect(() => {
@@ -675,6 +691,7 @@ function useDebounceLocal(value, delay) {
 function SearchBar({ query, onSearch, onSelectSuggestion }) {
   const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [open, setOpen] = useState(false);
@@ -684,15 +701,20 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
 
   const debouncedQ = useDebounceLocal(query, 220);
 
-  /* Fetch suggestions khi query thay đổi */
+  // Load lịch sử khi focus và chưa có query
+  const loadHistory = () => {
+    const h = getSearchHistory();
+    setHistory(h);
+  };
+
+  // Fetch suggestions khi query thay đổi
   useEffect(() => {
     const q = debouncedQ.trim();
     if (!q || q.length < 2) {
       setSuggestions([]);
-      setOpen(false);
+      if (focused) setOpen(true); // mở để hiện history
       return;
     }
-    // Huỷ request cũ nếu đang chờ
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -705,8 +727,8 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
         const results = Array.isArray(res.data)
           ? res.data
           : res.data?.results || [];
-        setSuggestions(results.slice(0, 5));
-        setOpen(results.length > 0);
+        setSuggestions(results.slice(0, 6));
+        setOpen(true);
         setActiveIdx(-1);
       })
       .catch(() => {})
@@ -717,7 +739,7 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
     return () => ctrl.abort();
   }, [debouncedQ]);
 
-  /* Click ngoài → đóng dropdown */
+  // Click ngoài → đóng
   useEffect(() => {
     const handler = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
@@ -730,30 +752,59 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
   }, []);
 
   const handleSelect = (movie) => {
+    addSearchHistory(movie.title || movie.name || "");
     setOpen(false);
     setSuggestions([]);
     setActiveIdx(-1);
     onSelectSuggestion?.(movie);
   };
 
+  const handleHistoryClick = (term) => {
+    onSearch(term);
+    setOpen(false);
+  };
+
+  const handleDeleteHistory = (e, term) => {
+    e.stopPropagation();
+    removeSearchHistory(term);
+    setHistory(getSearchHistory());
+  };
+
+  const handleClearAll = (e) => {
+    e.stopPropagation();
+    clearSearchHistory();
+    setHistory([]);
+    setOpen(false);
+  };
+
   const handleKeyDown = (e) => {
-    if (!open || suggestions.length === 0) return;
+    const items = query.trim().length >= 2 ? suggestions : history;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1));
+      setActiveIdx((i) => Math.min(i + 1, items.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIdx((i) => Math.max(i - 1, -1));
-    } else if (e.key === "Enter" && activeIdx >= 0) {
-      e.preventDefault();
-      handleSelect(suggestions[activeIdx]);
+    } else if (e.key === "Enter") {
+      if (activeIdx >= 0 && suggestions.length > 0) {
+        e.preventDefault();
+        handleSelect(suggestions[activeIdx]);
+      } else if (query.trim()) {
+        // Lưu khi nhấn Enter tìm kiếm
+        addSearchHistory(query.trim());
+        setOpen(false);
+      }
     } else if (e.key === "Escape") {
       setOpen(false);
       setActiveIdx(-1);
     }
   };
 
-  const showDropdown = open && focused && suggestions.length > 0;
+  // Hiện dropdown: có suggestions HOẶC có history khi chưa gõ
+  const showSuggestions =
+    open && focused && query.trim().length >= 2 && suggestions.length > 0;
+  const showHistory = open && focused && !query.trim() && history.length > 0;
+  const showDropdown = showSuggestions || showHistory;
 
   return (
     <div ref={wrapRef} style={{ flex: 1, maxWidth: 560, position: "relative" }}>
@@ -799,17 +850,17 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
             <SearchSVG size={15} color="currentColor" />
           )}
         </span>
+
         <input
           ref={inputRef}
           type="text"
           placeholder="Tìm kiếm phim, diễn viên..."
           value={query}
-          onChange={(e) => {
-            onSearch(e.target.value);
-          }}
+          onChange={(e) => onSearch(e.target.value)}
           onFocus={() => {
             setFocused(true);
-            if (suggestions.length > 0) setOpen(true);
+            loadHistory();
+            setOpen(true);
           }}
           onBlur={() => setFocused(false)}
           onKeyDown={handleKeyDown}
@@ -825,6 +876,7 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
             fontFamily: "var(--font-body,'DM Sans',sans-serif)",
           }}
         />
+
         {query && (
           <button
             onMouseDown={(e) => {
@@ -880,161 +932,253 @@ function SearchBar({ query, onSearch, onSelectSuggestion }) {
             animation: "acDropIn 0.16s cubic-bezier(0.34,1.2,0.64,1) both",
           }}
         >
-          {suggestions.map((movie, idx) => {
-            const isActive = idx === activeIdx;
-            const year = movie.release_date
-              ? movie.release_date.slice(0, 4)
-              : null;
-            const rating = movie.rating ?? movie.vote_average;
-            return (
+          {/* ── Lịch sử tìm kiếm ── */}
+          {showHistory && (
+            <>
               <div
-                key={movie.id}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(movie);
-                }}
-                onMouseEnter={() => setActiveIdx(idx)}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
-                  padding: "9px 14px",
-                  background: isActive ? "rgba(229,9,20,0.1)" : "transparent",
-                  cursor: "pointer",
-                  borderBottom:
-                    idx < suggestions.length - 1
-                      ? "1px solid rgba(255,255,255,0.04)"
-                      : "none",
-                  transition: "background 0.1s",
+                  justifyContent: "space-between",
+                  padding: "8px 14px 4px",
                 }}
               >
-                {/* Poster thumbnail */}
-                <div
+                <span
                   style={{
-                    width: 32,
-                    height: 46,
-                    borderRadius: 6,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    background: "rgba(255,255,255,0.06)",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    color: "rgba(140,155,195,0.45)",
+                    textTransform: "uppercase",
                   }}
                 >
-                  {movie.poster ? (
-                    <img
-                      src={movie.poster}
-                      alt=""
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 16,
-                      }}
-                    >
-                      🎬
-                    </div>
-                  )}
-                </div>
+                  Tìm kiếm gần đây
+                </span>
+                <button
+                  onMouseDown={handleClearAll}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    color: "rgba(229,9,20,0.6)",
+                    fontFamily: "inherit",
+                    padding: "2px 4px",
+                  }}
+                >
+                  Xoá tất cả
+                </button>
+              </div>
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
+              {history.map((term, idx) => (
+                <div
+                  key={term}
+                  onMouseDown={() => handleHistoryClick(term)}
+                  onMouseEnter={() => setActiveIdx(idx)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "9px 14px",
+                    background:
+                      activeIdx === idx ? "rgba(229,9,20,0.08)" : "transparent",
+                    cursor: "pointer",
+                    borderBottom:
+                      idx < history.length - 1
+                        ? "1px solid rgba(255,255,255,0.04)"
+                        : "none",
+                    transition: "background 0.1s",
+                  }}
+                >
+                  {/* Clock icon */}
+                  <span
                     style={{
+                      color: "rgba(140,155,195,0.35)",
+                      flexShrink: 0,
+                      display: "flex",
+                    }}
+                  >
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
                       fontSize: 13.5,
-                      fontWeight: 600,
-                      color: isActive
-                        ? "var(--text-primary,#f0f4ff)"
-                        : "rgba(220,230,255,0.85)",
+                      color: "rgba(200,215,255,0.75)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {movie.title}
-                  </div>
+                    {term}
+                  </span>
+                  {/* Xoá item */}
+                  <button
+                    onMouseDown={(e) => handleDeleteHistory(e, term)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "rgba(140,155,195,0.3)",
+                      padding: "2px",
+                      display: "flex",
+                      flexShrink: 0,
+                      borderRadius: 4,
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "rgba(229,9,20,0.7)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = "rgba(140,155,195,0.3)")
+                    }
+                  >
+                    <CloseSVG size={9} />
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── Autocomplete suggestions ── */}
+          {showSuggestions &&
+            suggestions.map((movie, idx) => {
+              const isActive = idx === activeIdx;
+              const year = movie.release_date
+                ? movie.release_date.slice(0, 4)
+                : null;
+              const rating = movie.rating ?? movie.vote_average;
+              return (
+                <div
+                  key={movie.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(movie);
+                  }}
+                  onMouseEnter={() => setActiveIdx(idx)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "9px 14px",
+                    background: isActive ? "rgba(229,9,20,0.1)" : "transparent",
+                    cursor: "pointer",
+                    borderBottom:
+                      idx < suggestions.length - 1
+                        ? "1px solid rgba(255,255,255,0.04)"
+                        : "none",
+                    transition: "background 0.1s",
+                  }}
+                >
+                  {/* Poster */}
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 2,
+                      width: 32,
+                      height: 46,
+                      borderRadius: 6,
+                      overflow: "hidden",
+                      flexShrink: 0,
+                      background: "rgba(255,255,255,0.06)",
                     }}
                   >
-                    {year && (
-                      <span
-                        style={{ fontSize: 11, color: "rgba(140,155,195,0.5)" }}
-                      >
-                        {year}
-                      </span>
-                    )}
-                    {rating > 0 && (
-                      <span
+                    {movie.poster ? (
+                      <img
+                        src={movie.poster}
+                        alt=""
                         style={{
-                          fontSize: 11,
-                          color: "#f5c518",
-                          fontWeight: 600,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 16,
                         }}
                       >
-                        ★ {Number(rating).toFixed(1)}
-                      </span>
+                        🎬
+                      </div>
                     )}
                   </div>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 13.5,
+                        fontWeight: 600,
+                        color: isActive ? "#fff" : "rgba(220,230,255,0.9)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {movie.title}
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        marginTop: 3,
+                        alignItems: "center",
+                      }}
+                    >
+                      {year && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(130,145,185,0.5)",
+                          }}
+                        >
+                          {year}
+                        </span>
+                      )}
+                      {rating > 0 && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(245,197,24,0.7)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
+                        >
+                          ★ {Number(rating).toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Arrow */}
+                  <span
+                    style={{
+                      color: "rgba(140,155,195,0.25)",
+                      fontSize: 12,
+                      flexShrink: 0,
+                    }}
+                  >
+                    →
+                  </span>
                 </div>
-
-                {/* Arrow hint */}
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={
-                    isActive
-                      ? "rgba(255,110,110,0.7)"
-                      : "rgba(100,120,175,0.25)"
-                  }
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ flexShrink: 0, transition: "stroke 0.1s" }}
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </div>
-            );
-          })}
-
-          {/* Footer hint */}
-          <div
-            style={{
-              padding: "7px 14px",
-              borderTop: "1px solid rgba(255,255,255,0.04)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 10.5,
-                color: "rgba(100,120,175,0.45)",
-                letterSpacing: "0.04em",
-              }}
-            >
-              ↑↓ điều hướng · Enter chọn · Esc đóng
-            </span>
-            <span style={{ fontSize: 10.5, color: "rgba(100,120,175,0.35)" }}>
-              Nhấn Enter để xem tất cả kết quả
-            </span>
-          </div>
+              );
+            })}
         </div>
       )}
     </div>

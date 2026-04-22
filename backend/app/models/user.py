@@ -5,12 +5,6 @@ import enum
 
 
 class UserRole(str, enum.Enum):
-    """
-    Phân quyền người dùng:
-      user      — người dùng thường (mặc định)
-      moderator — quản lý nội dung: xoá review, ban/unban user
-      admin     — toàn quyền: đổi role, mọi thao tác của moderator
-    """
     user      = "user"
     moderator = "moderator"
     admin     = "admin"
@@ -22,12 +16,16 @@ class User(Base):
     id         = Column(Integer, primary_key=True, index=True)
     email      = Column(String(255), unique=True, index=True, nullable=False)
     username   = Column(String(50),  unique=True, index=True, nullable=True)
-    password   = Column(String(255), nullable=True)   # nullable — Google user không có password
-    avatar     = Column(String(10),  nullable=True)   # emoji avatar
+    password   = Column(String(255), nullable=True)
+    avatar     = Column(String(10),  nullable=True)
     bio        = Column(Text,        nullable=True)
 
+    # ── Email verification ────────────────────────────────
+    # Google user tự động verified vì Google đã xác thực email rồi
+    is_verified = Column(Boolean, default=False, nullable=False)
+
     # ── Role-based access control ─────────────────────────
-    role       = Column(
+    role        = Column(
         SAEnum(UserRole, name="userrole"),
         default=UserRole.user,
         nullable=False,
@@ -35,10 +33,10 @@ class User(Base):
     )
 
     # ── Khoá tài khoản ────────────────────────────────────
-    is_banned  = Column(Boolean, default=False, nullable=False)
-    ban_reason = Column(String(500), nullable=True)
+    is_banned   = Column(Boolean, default=False, nullable=False)
+    ban_reason  = Column(String(500), nullable=True)
 
     # ── Google OAuth ──────────────────────────────────────
-    google_id  = Column(String(128), unique=True, index=True, nullable=True)
-    avatar_url = Column(String(500), nullable=True)
-    is_google  = Column(Boolean,     default=False, nullable=False)
+    google_id   = Column(String(128), unique=True, index=True, nullable=True)
+    avatar_url  = Column(String(500), nullable=True)
+    is_google   = Column(Boolean,     default=False, nullable=False)

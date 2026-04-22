@@ -21,6 +21,8 @@ import Statistics from "./pages/Statistics";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import VerifyBanner from "./components/VerifyBanner";
 // ─── RouteErrorBoundary ───────────────────────────────────────────────────────
 // Tách riêng để dùng được useLocation() (hook chỉ chạy trong BrowserRouter).
 // resetKey = pathname: mỗi khi user navigate sang trang khác, ErrorBoundary
@@ -33,140 +35,151 @@ function RouteErrorBoundary({ children }) {
 // ─── Routes ──────────────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route
-        path="/"
-        element={
-          <RouteErrorBoundary>
-            <Home />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <RouteErrorBoundary>
-            <AuthPage />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/movie/:id"
-        element={
-          <RouteErrorBoundary>
-            <MovieDetail />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/w/:token"
-        element={
-          <RouteErrorBoundary>
-            <PublicWatchlist />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/person/:id"
-        element={
-          <RouteErrorBoundary>
-            <PersonPage />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/forgot-password"
-        element={
-          <RouteErrorBoundary>
-            <ForgotPasswordPage />
-          </RouteErrorBoundary>
-        }
-      />
-      <Route
-        path="/oauth/callback"
-        element={
-          <RouteErrorBoundary>
-            <OAuthCallbackPage />
-          </RouteErrorBoundary>
-        }
-      />
+    <>
+      <VerifyBanner />
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/"
+          element={
+            <RouteErrorBoundary>
+              <Home />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <RouteErrorBoundary>
+              <AuthPage />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/movie/:id"
+          element={
+            <RouteErrorBoundary>
+              <MovieDetail />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/w/:token"
+          element={
+            <RouteErrorBoundary>
+              <PublicWatchlist />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/person/:id"
+          element={
+            <RouteErrorBoundary>
+              <PersonPage />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <RouteErrorBoundary>
+              <ForgotPasswordPage />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/oauth/callback"
+          element={
+            <RouteErrorBoundary>
+              <OAuthCallbackPage />
+            </RouteErrorBoundary>
+          }
+        />
 
-      {/* Protected routes */}
-      <Route
-        path="/watchlist"
-        element={
-          <ProtectedRoute>
+        {/* Protected routes */}
+        <Route
+          path="/watchlist"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <Watchlist />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <Profile />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mood"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <MoodDiscovery />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reminders"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <RemindersPage />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recommendations"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <RecommendationsPage />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/statistics"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <Statistics />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <RouteErrorBoundary>
+                <AdminPage />
+              </RouteErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={
             <RouteErrorBoundary>
-              <Watchlist />
+              <VerifyEmailPage />
             </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <Profile />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/mood"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <MoodDiscovery />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reminders"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <RemindersPage />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/recommendations"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <RecommendationsPage />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/statistics"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <Statistics />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <RouteErrorBoundary>
-              <AdminPage />
-            </RouteErrorBoundary>
-          </ProtectedRoute>
-        }
-      />
+          }
+        />
 
-      {/* 404 */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

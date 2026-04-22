@@ -151,6 +151,17 @@ def get_upcoming_movies(page: int = 1):
         "page": data.get("page", 1),
     }
 
+def get_now_playing_movies(page: int = 1):
+    url = f"{BASE_URL}/movie/now_playing"
+    params = {"api_key": settings.TMDB_API_KEY, "page": page, "language": "vi-VN"}
+    data = safe_request(url, params)
+    if "error" in data:
+        return {"results": [], "total_pages": 1, "page": page}
+    return {
+        "results": format_movie_list(data.get("results", [])),
+        "total_pages": data.get("total_pages", 1),
+        "page": data.get("page", 1),
+    }
 
 def get_genres():
     url = f"{BASE_URL}/genre/movie/list"

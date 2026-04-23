@@ -80,7 +80,88 @@ def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+# ════════════════════════════════════════════
+# PUBLIC PROFILE  ← THÊM MỚI
+# ════════════════════════════════════════════
+ 
+@router.get("/users/{username}")
+def get_public_profile(
+    request:  Request,
+    username: str,
+    db:       Session = Depends(get_db),
+):
 
+    limiter.check(request, "public_profile", max_calls=60, window_sec=60)
+ 
+    from app.models.watchlist import Watchlist
+    from sqlalchemy import func
+ 
+    user = db.query(User).filter(
+        User.username == username,
+        User.is_banned == False,
+    ).first()
+ 
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+ 
+    # Thống kê watchlist
+    total   = db.query(func.count(Watchlist.id)).filter(Watchlist.user_id == user.id).scalar()
+    watched = db.query(func.count(Watchlist.id)).filter(
+        Watchlist.user_id  == user.id,
+        Watchlist.is_watched == True,
+    ).scalar()
+ 
+    # Top genres từ genre_ids
+    from collections import Counter
+    genre_rows = db.query(Watchlist.genre_ids).filter(
+        Watchlist.user_id  == user.id,
+        Watchlist.genre_ids != None,
+    ).all()
+ 
+    genre_counter = Counter()
+    for (g_str,) in genre_rows:
+        if g_str:
+            for gid in g_str.split(","):
+                try:
+                    genre_counter[int(gid.strip())] += 1
+                except ValueError:
+                    pass
+ 
+    GENRE_NAMES = {
+        28:"Hành động",12:"Phiêu lưu",16:"Hoạt hình",35:"Hài",80:"Tội phạm",
+        99:"Tài liệu",18:"Chính kịch",10751:"Gia đình",14:"Kỳ ảo",36:"Lịch sử",
+        27:"Kinh dị",10402:"Âm nhạc",9648:"Bí ẩn",10749:"Lãng mạn",
+        878:"Sci-Fi",53:"Giật gân",10752:"Chiến tranh",37:"Cao bồi",
+    }
+    top_genres = [
+        {"genre_id": gid, "genre_name": GENRE_NAMES.get(gid, str(gid)), "count": cnt}
+        for gid, cnt in genre_counter.most_common(5)
+    ]
+ 
+    # Watchlist gần nhất (public — chỉ lấy title + poster)
+    recent = db.query(Watchlist).filter(
+        Watchlist.user_id == user.id,
+    ).order_by(Watchlist.added_at.desc()).limit(6).all()
+ 
+    recent_movies = [
+        {"movie_id": m.movie_id, "title": m.title, "poster": m.poster, "is_watched": m.is_watched}
+        for m in recent
+    ]
+ 
+    return {
+        "id":           user.id,
+        "username":     user.username,
+        "avatar":       user.avatar,
+        "avatar_url":   user.avatar_url,
+        "bio":          user.bio,
+        "is_google":    user.is_google,
+        "stats": {
+            "total":      total,
+            "watched":    watched,
+            "top_genres": top_genres,
+        },
+        "recent_movies": recent_movies,
+    }
 
 @router.patch("/profile", response_model=UserResponse)
 def update_profile_endpoint(

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "./ToastContext";
+import { Link } from "react-router-dom";
 import {
   getReviewSummary,
   getReviews,
@@ -298,15 +299,18 @@ function ReviewCard({ review, currentUserId, onLike, onEdit, onDelete }) {
               flexWrap: "wrap",
             }}
           >
-            <span
+            <Link
+              to={`/u/${review.author.username}`}
               style={{
                 fontSize: 13,
                 fontWeight: 700,
                 color: "var(--text-primary,#f0f4ff)",
+                textDecoration: "none",
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               {review.author.username || "Người dùng"}
-            </span>
+            </Link>
             {review.is_spoiler && (
               <span style={sc.spoilerBadge}>⚠ Spoiler</span>
             )}

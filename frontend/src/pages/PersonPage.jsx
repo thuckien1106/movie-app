@@ -4,6 +4,9 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { getPersonDetail, getPersonCredits } from "../api/personApi";
 import { addMovie } from "../api/movieApi";
 import { useToast } from "../components/ToastContext";
+import { useWatchlist } from "../context/WatchlistContext";
+import { useAuth } from "../context/AuthContext";
+
 import Navbar from "../components/Navbar";
 
 /* ── helpers ──────────────────────────────────────── */
@@ -86,11 +89,15 @@ const IconPlus = ({ saved }) =>
 /* ── Film credit card ─────────────────────────────── */
 function CreditCard({ movie }) {
   const [hov, setHov] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imgErr, setImgErr] = useState(false);
   const showToast = useToast();
   const navigate = useNavigate();
+
+  // Dùng WatchlistContext để biết phim đã lưu chưa (đồng bộ toàn app)
+  const { savedIds, addToSaved } = useWatchlist();
+  const { isLoggedIn } = useAuth();
+  const saved = savedIds.has(movie.id);
 
   const n = Number(movie.rating) || 0;
   const year = (movie.release_date || "").slice(0, 4);
@@ -99,6 +106,13 @@ function CreditCard({ movie }) {
   const handleAdd = async (e) => {
     e.stopPropagation();
     if (saving || saved) return;
+
+    if (!isLoggedIn) {
+      showToast("Vui lòng đăng nhập để thêm vào Watchlist.", "warning");
+      navigate("/login");
+      return;
+    }
+
     setSaving(true);
     try {
       await addMovie({
@@ -106,7 +120,8 @@ function CreditCard({ movie }) {
         title: movie.title,
         poster: movie.poster,
       });
-      setSaved(true);
+
+      addToSaved(movie.id); // cập nhật context ngay lập tức
       showToast(`"${movie.title}" đã thêm vào Watchlist!`, "success");
     } catch {
       showToast("Thêm thất bại.", "error");

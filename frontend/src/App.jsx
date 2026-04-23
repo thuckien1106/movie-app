@@ -23,6 +23,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import VerifyBanner from "./components/VerifyBanner";
+import PublicProfilePage from "./pages/PublicProfilePage";
 // ─── RouteErrorBoundary ───────────────────────────────────────────────────────
 // Tách riêng để dùng được useLocation() (hook chỉ chạy trong BrowserRouter).
 // resetKey = pathname: mỗi khi user navigate sang trang khác, ErrorBoundary
@@ -76,6 +77,14 @@ function AppRoutes() {
           element={
             <RouteErrorBoundary>
               <PersonPage />
+            </RouteErrorBoundary>
+          }
+        />
+        <Route
+          path="/u/:username"
+          element={
+            <RouteErrorBoundary>
+              <PublicProfilePage />
             </RouteErrorBoundary>
           }
         />

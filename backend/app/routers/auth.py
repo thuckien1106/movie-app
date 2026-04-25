@@ -27,7 +27,7 @@ from app.utils.dependencies import get_db, get_current_user
 from app.utils.rate_limit import limiter, Limits
 from app.utils.config import settings
 from app.models.user import User
-
+from sqlalchemy import func
 router  = APIRouter(prefix="/auth", tags=["Auth"])
 _bearer = HTTPBearer(auto_error=False)
 
@@ -163,6 +163,39 @@ def get_public_profile(
         "recent_movies": recent_movies,
     }
 
+@router.get("/users")
+def search_users(
+    request: Request,
+    q:       str     = Query(..., min_length=1, max_length=50),
+    limit:   int     = Query(6, ge=1, le=20),
+    db:      Session = Depends(get_db),
+):
+
+    limiter.check(request, "search_users", max_calls=30, window_sec=60)
+ 
+    term = f"%{q.lower()}%"
+    users = (
+        db.query(User)
+        .filter(
+            User.username   != None,
+            User.is_banned  == False,
+            func.lower(User.username).like(term),
+        )
+        .order_by(User.username)
+        .limit(limit)
+        .all()
+    )
+ 
+    return [
+        {
+            "id":         u.id,
+            "username":   u.username,
+            "avatar":     u.avatar,
+            "avatar_url": u.avatar_url,
+            "bio":        u.bio,
+        }
+        for u in users
+    ]
 @router.patch("/profile", response_model=UserResponse)
 def update_profile_endpoint(
     request: Request,

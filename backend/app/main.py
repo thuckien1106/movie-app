@@ -27,7 +27,8 @@ from app.routers import reviews as reviews_router
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from app.routers import admin as admin_router
-
+from app.models import comment as comment_models
+from app.routers import comments as comments_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
 
@@ -204,7 +205,7 @@ app.include_router(reminder_router.router)
 app.include_router(recommendations_router.router)
 app.include_router(reviews_router.router)
 app.include_router(admin_router.router)
-
+app.include_router(comments_router.router)
 @app.get("/")
 def root():
     return {"message": "Films API v2.4 running", "docs": "/docs"}

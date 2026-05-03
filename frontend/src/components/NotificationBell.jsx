@@ -81,6 +81,11 @@ function NotifItem({ notif, onRead, onDelete, onNavigate }) {
     setTimeout(() => onDelete(notif.id), 220);
   };
 
+  // Detect loại notification từ title để chọn icon phù hợp
+  const isLike = notif.title?.startsWith("❤️");
+  const isComment = notif.title?.startsWith("💬");
+  const isReminder = !isLike && !isComment;
+
   return (
     <div
       onClick={() => onNavigate(notif)}
@@ -105,8 +110,8 @@ function NotifItem({ notif, onRead, onDelete, onNavigate }) {
         overflow: "hidden",
       }}
     >
-      {/* Poster */}
-      {notif.poster ? (
+      {/* Icon / Poster */}
+      {isReminder && notif.poster ? (
         <img
           src={notif.poster}
           alt=""
@@ -124,17 +129,27 @@ function NotifItem({ notif, onRead, onDelete, onNavigate }) {
         <div
           style={{
             width: 40,
-            height: 56,
-            borderRadius: "var(--radius-sm, 6px)",
-            background: "var(--bg-card2)",
+            height: 40,
+            borderRadius: "50%",
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 18,
-            flexShrink: 0,
+            background: isLike
+              ? "rgba(245,197,24,0.12)"
+              : isComment
+                ? "rgba(96,165,250,0.12)"
+                : "var(--bg-card2)",
+            border: isLike
+              ? "1px solid rgba(245,197,24,0.2)"
+              : isComment
+                ? "1px solid rgba(96,165,250,0.2)"
+                : "1px solid var(--border)",
+            alignSelf: "center",
           }}
         >
-          🎬
+          {isLike ? "❤️" : isComment ? "💬" : "🎬"}
         </div>
       )}
 
@@ -199,8 +214,10 @@ function NotifItem({ notif, onRead, onDelete, onNavigate }) {
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: "var(--red)",
-              boxShadow: "0 0 6px rgba(229,9,20,0.6)",
+              background: isLike ? "#f5c518" : "var(--red)",
+              boxShadow: isLike
+                ? "0 0 6px rgba(245,197,24,0.6)"
+                : "0 0 6px rgba(229,9,20,0.6)",
               flexShrink: 0,
             }}
           />
@@ -518,7 +535,8 @@ export default function NotificationBell() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Đặt nhắc nhở phim sắp chiếu để nhận thông báo tại đây
+                  Bạn sẽ nhận thông báo khi có người thích review của bạn hoặc
+                  khi phim sắp chiếu
                 </p>
               </div>
             )}

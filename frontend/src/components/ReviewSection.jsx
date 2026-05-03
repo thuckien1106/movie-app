@@ -917,6 +917,8 @@ function ReviewCard({
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={handleLike}
+          disabled={liking || !isLoggedIn}
+          title={!isLoggedIn ? "Đăng nhập để thích review" : ""}
           style={{
             ...sc.likeBtn,
             color: review.liked_by_me ? "#f5c518" : "rgba(160,175,210,0.5)",
@@ -926,10 +928,42 @@ function ReviewCard({
             borderColor: review.liked_by_me
               ? "rgba(245,197,24,0.3)"
               : "rgba(100,120,175,0.15)",
+            opacity: liking ? 0.6 : 1,
+            transform: liking ? "scale(0.93)" : "scale(1)",
+            transition: "all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
           }}
         >
-          ♥ {review.likes > 0 ? review.likes : ""} Hữu ích
+          <span
+            style={{
+              display: "inline-block",
+              transform: liking ? "scale(1.4)" : "scale(1)",
+              transition: "transform 0.22s cubic-bezier(0.34,1.56,0.64,1)",
+            }}
+          >
+            {review.liked_by_me ? "♥" : "♡"}
+          </span>
+          <span>
+            {review.likes > 0 ? (
+              <>
+                <strong>{review.likes}</strong>
+                <span style={{ fontWeight: 400, marginLeft: 3 }}>hữu ích</span>
+              </>
+            ) : (
+              "Hữu ích"
+            )}
+          </span>
         </button>
+        {!isLoggedIn && (
+          <span style={{ fontSize: 11, color: "rgba(140,155,195,0.35)" }}>
+            <a
+              href="/login"
+              style={{ color: "rgba(229,9,20,0.6)", textDecoration: "none" }}
+            >
+              Đăng nhập
+            </a>{" "}
+            để thích
+          </span>
+        )}
       </div>
 
       {/* ── COMMENT SECTION ── */}
@@ -1007,17 +1041,37 @@ export default function ReviewSection({ movieId }) {
 
   const handleLike = async (reviewId) => {
     if (!isLoggedIn) return showToast("Đăng nhập để thích review!", "info");
+
+    // Optimistic update — cập nhật UI ngay, revert nếu lỗi
+    const prev = reviews.find((r) => r.id === reviewId);
+    setReviews((reviews) =>
+      reviews.map((r) =>
+        r.id === reviewId
+          ? {
+              ...r,
+              liked_by_me: !r.liked_by_me,
+              likes: r.liked_by_me ? Math.max(0, r.likes - 1) : r.likes + 1,
+            }
+          : r,
+      ),
+    );
+
     try {
       const res = await toggleLike(reviewId);
-      setReviews((prev) =>
-        prev.map((r) =>
+      // Sync với giá trị chính xác từ server
+      setReviews((reviews) =>
+        reviews.map((r) =>
           r.id === reviewId
             ? { ...r, likes: res.data.likes, liked_by_me: res.data.liked }
             : r,
         ),
       );
     } catch {
-      /* silent */
+      // Revert nếu request thất bại
+      setReviews((reviews) =>
+        reviews.map((r) => (r.id === reviewId ? prev : r)),
+      );
+      showToast("Có lỗi xảy ra, thử lại sau.", "error");
     }
   };
 

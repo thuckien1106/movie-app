@@ -344,7 +344,39 @@ def delete_collection(db: Session, user_id: int, collection_id: int):
     db.commit()
     return True
 
-
+def update_collection(db: Session, user_id: int, collection_id: int, data) -> CollectionResponse | None:
+    """
+    Đổi tên / mô tả bộ sưu tập.
+    Trả về None nếu không tìm thấy hoặc không có quyền.
+    """
+    col = db.query(Collection).filter(
+        Collection.id == collection_id,
+        Collection.user_id == user_id,
+    ).first()
+    if not col:
+        return None
+ 
+    if data.name is not None:
+        col.name = data.name.strip()
+    if data.description is not None:
+        col.description = data.description.strip() or None
+ 
+    db.commit()
+    db.refresh(col)
+ 
+    count = db.query(Watchlist).filter(
+        Watchlist.user_id == user_id,
+        Watchlist.collection_id == col.id,
+    ).count()
+ 
+    return CollectionResponse(
+        id=col.id,
+        name=col.name,
+        description=col.description,
+        movie_count=count,
+        created_at=col.created_at,
+    )
+ 
 # ════════════════════════════════════════════
 # SHARE
 # ════════════════════════════════════════════
@@ -597,11 +629,7 @@ def get_detailed_stats(db: Session, user_id: int):
 # ════════════════════════════════════════════
 
 def backfill_missing_runtime(db: Session, user_id: int) -> int:
-    """
-    Tìm các phim trong watchlist thiếu runtime (NULL hoặc 0),
-    gọi TMDB detail API để lấy runtime + genre_ids rồi cập nhật DB.
-    Trả về số phim đã cập nhật thành công.
-    """
+    
     import logging
     import time
     logger = logging.getLogger(__name__)

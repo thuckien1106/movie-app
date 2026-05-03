@@ -705,7 +705,7 @@ function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const showToast = useToast();
-  const { savedIds, addToSaved } = useWatchlist();
+  const { savedIds, collections, addToSaved, refresh } = useWatchlist();
   const castRef = useRef(null);
   const crewRef = useRef(null);
   const simRef = useRef(null);
@@ -722,6 +722,7 @@ function MovieDetail() {
   const [isReminded, setIsReminded] = useState(false);
   const [parallaxY, setParallaxY] = useState(0);
   const [entered, setEntered] = useState(false);
+  const [showColPicker, setShowColPicker] = useState(false);
 
   // Lấy trạng thái từ context — đồng bộ với MovieCard
   const added = movie ? savedIds.has(movie.id) : false;
@@ -783,9 +784,10 @@ function MovieDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleAdd = async () => {
+  const handleAdd = async (collectionId = null) => {
     if (addingToList || added || !movie) return;
     setAdding(true);
+    setShowColPicker(false);
     try {
       await addMovie({
         movie_id: movie.id,
@@ -795,15 +797,30 @@ function MovieDetail() {
         genre_ids: movie.genre_ids?.length
           ? movie.genre_ids.map(String).join(",")
           : null,
+        collection_id: collectionId,
       });
-      addToSaved(movie.id); // cập nhật context — đồng bộ với MovieCard
-      showToast("Đã thêm vào Watchlist!", "success");
+      addToSaved(movie.id);
+      refresh(); // cập nhật context — đồng bộ với MovieCard
+      showToast(
+        collectionId ? `Đã thêm vào watchlist!` : "Đã thêm vào Watchlist!",
+        "success",
+      );
     } catch {
       showToast("Thêm thất bại.", "error");
     } finally {
       setAdding(false);
     }
   };
+
+  // Đóng col picker khi click ngoài
+  useEffect(() => {
+    if (!showColPicker) return;
+    const handler = (e) => {
+      if (!e.target.closest("[data-col-picker]")) setShowColPicker(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showColPicker]);
 
   const scrollList = (ref, dir) =>
     ref.current?.scrollBy({ left: dir * 340, behavior: "smooth" });
@@ -938,32 +955,112 @@ function MovieDetail() {
                 <span>{showTrailer ? "Ẩn Trailer" : "Xem Trailer"}</span>
               </button>
             )}
-            <button
-              style={{
-                ...s.btnSecondary,
-                ...(added ? s.btnAdded : {}),
-                opacity: addingToList ? 0.65 : 1,
-              }}
-              onClick={handleAdd}
-              disabled={addingToList || added}
-              onMouseEnter={(e) => {
-                if (!added) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.15)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!added) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
-                }
-              }}
-            >
-              <IconPlus />
-              <span>
-                {added ? "Đã lưu" : addingToList ? "Đang thêm…" : "My List"}
-              </span>
-            </button>
+            <div style={{ position: "relative" }} data-col-picker>
+              <button
+                style={{
+                  ...s.btnSecondary,
+                  ...(added ? s.btnAdded : {}),
+                  opacity: addingToList ? 0.65 : 1,
+                }}
+                onClick={() => {
+                  if (added || addingToList) return;
+                  if (collections.length > 0) {
+                    setShowColPicker((p) => !p);
+                  } else {
+                    handleAdd();
+                  }
+                }}
+                disabled={addingToList || added}
+                onMouseEnter={(e) => {
+                  if (!added) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!added) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
+                  }
+                }}
+              >
+                <IconPlus />
+                <span>
+                  {added ? "Đã lưu" : addingToList ? "Đang thêm…" : "My List"}
+                </span>
+                {!added && !addingToList && collections.length > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      opacity: 0.55,
+                      marginLeft: -2,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ▾
+                  </span>
+                )}
+              </button>
+
+              {/* Collection picker dropdown */}
+              {showColPicker && !added && (
+                <div style={s.colPickerDropdown}>
+                  <div style={s.colPickerHeader}>Thêm vào bộ sưu tập</div>
+                  <button
+                    onClick={() => handleAdd(null)}
+                    style={s.colPickerItem}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.06)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <span
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <span style={{ opacity: 0.5 }}>▣</span>
+                      Không có bộ sưu tập
+                    </span>
+                  </button>
+                  {collections.map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => handleAdd(col.id)}
+                      style={s.colPickerItem}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background =
+                          "rgba(255,255,255,0.06)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ opacity: 0.5 }}>◈</span>
+                        {col.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(130,145,185,0.45)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {col.movie_count} phim
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {isUpcoming(movie.release_date) && (
               <RemindButton
                 movie={movie}
@@ -1098,6 +1195,7 @@ function MovieDetail() {
 const css = `
   @keyframes fadeSlideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
   @keyframes shimmerLoad { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  @keyframes colPickerIn { from { opacity:0; transform:translateY(-6px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
   ::-webkit-scrollbar { display:none; }
 `;
 
@@ -1283,6 +1381,47 @@ const s = {
     color: "var(--green,#22c55e)",
     borderColor: "rgba(34,197,94,0.4)",
     cursor: "default",
+  },
+  colPickerDropdown: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    left: 0,
+    zIndex: 300,
+    minWidth: 220,
+    background: "rgba(10,14,22,0.98)",
+    border: "1px solid rgba(100,120,175,0.22)",
+    borderRadius: 12,
+    overflow: "hidden",
+    boxShadow: "0 20px 50px rgba(0,0,0,0.8)",
+    backdropFilter: "blur(20px)",
+    animation: "colPickerIn 0.15s cubic-bezier(0.34,1.2,0.64,1) both",
+  },
+  colPickerHeader: {
+    padding: "8px 14px 6px",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    color: "rgba(140,155,195,0.4)",
+    borderBottom: "1px solid rgba(100,120,175,0.1)",
+  },
+  colPickerItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    padding: "10px 14px",
+    background: "transparent",
+    border: "none",
+    borderBottom: "1px solid rgba(100,120,175,0.07)",
+    color: "rgba(200,215,255,0.85)",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "var(--font-body,sans-serif)",
+    textAlign: "left",
+    transition: "background 0.1s",
+    gap: 8,
   },
   posterWrap: {
     position: "absolute",

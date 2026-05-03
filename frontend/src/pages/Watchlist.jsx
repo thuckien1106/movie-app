@@ -13,6 +13,7 @@ import {
   moveToCollection,
   getShareLink,
   toggleShareLink,
+  updateCollection,
 } from "../api/movieApi";
 import { useToast } from "../components/ToastContext";
 import { Link, useNavigate } from "react-router-dom";
@@ -421,6 +422,7 @@ function Sidebar({
   onCreateCol,
   isMobile,
   onClose,
+  onRenameCol,
   maxCollections = 20,
 }) {
   const pct =
@@ -585,61 +587,17 @@ function Sidebar({
 
       {/* Collections */}
       {collections.map((col) => (
-        <div
+        <CollectionItem
           key={col.id}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            marginBottom: 2,
+          col={col}
+          active={activeCol === col.id}
+          onOpen={() => {
+            onOpenDetail(col.id);
+            isMobile && onClose();
           }}
-        >
-          <button
-            onClick={() => {
-              onOpenDetail(col.id);
-              isMobile && onClose();
-            }}
-            style={{
-              ...w.colBtn,
-              flex: 1,
-              marginBottom: 0,
-              ...(activeCol === col.id ? w.colBtnActive : {}),
-            }}
-            onMouseEnter={(e) => {
-              if (activeCol !== col.id)
-                e.currentTarget.style.background = "var(--bg-card2)";
-            }}
-            onMouseLeave={(e) => {
-              if (activeCol !== col.id)
-                e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, opacity: 0.6 }}>◈</span>
-              <span
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {col.name}
-              </span>
-            </span>
-            <span style={w.colCount}>{col.movie_count}</span>
-          </button>
-          <button
-            onClick={() => onDeleteCol(col.id)}
-            style={w.colDeleteBtn}
-            title="Xoá"
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-faint)")
-            }
-          >
-            <IconTrash />
-          </button>
-        </div>
+          onDelete={() => onDeleteCol(col.id)}
+          onRename={onRenameCol} // prop mới
+        />
       ))}
 
       {/* New collection */}
@@ -2488,6 +2446,15 @@ export default function Watchlist() {
     showToast("Đã xoá bộ sưu tập.", "success");
     load();
   };
+  const handleRenameCol = async (id, newName) => {
+    try {
+      await updateCollection(id, { name: newName });
+      showToast(`Đã đổi tên thành "${newName}"`, "success");
+      load();
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Đổi tên thất bại.", "error");
+    }
+  };
   const handleMoveCol = async (mid, cid) => {
     await moveToCollection(mid, cid || null);
     showToast("Đã cập nhật.", "success");
@@ -2557,6 +2524,7 @@ export default function Watchlist() {
     onOpenDetail: openDetail,
     onDeleteCol: handleDeleteCol,
     onCreateCol: handleCreateCol,
+    onRenameCol: handleRenameCol,
     onClose: () => setDrawerOpen(false),
   };
 
@@ -3014,7 +2982,128 @@ export default function Watchlist() {
     </div>
   );
 }
+function CollectionItem({ col, active, onOpen, onDelete, onRename }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(col.name);
+  const inputRef = useRef(null);
 
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== col.name) onRename(col.id, trimmed);
+    else setName(col.name); // revert nếu không đổi
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          marginBottom: 2,
+        }}
+      >
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value.slice(0, 100))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") {
+              setName(col.name);
+              setEditing(false);
+            }
+          }}
+          onBlur={save}
+          style={{
+            flex: 1,
+            padding: "6px 8px",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(229,9,20,0.4)",
+            borderRadius: 7,
+            color: "var(--text-primary)",
+            fontSize: 13,
+            outline: "none",
+            fontFamily: "var(--font-body, sans-serif)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}
+    >
+      <button
+        onClick={onOpen}
+        style={{
+          ...w.colBtn,
+          flex: 1,
+          marginBottom: 0,
+          ...(active ? w.colBtnActive : {}),
+        }}
+        onDoubleClick={() => setEditing(true)} // double-click để edit
+        title="Double-click để đổi tên"
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, opacity: 0.6 }}>◈</span>
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {col.name}
+          </span>
+        </span>
+        <span style={w.colCount}>{col.movie_count}</span>
+      </button>
+      {/* Nút edit */}
+      <button
+        onClick={() => setEditing(true)}
+        style={{ ...w.colDeleteBtn, marginRight: -2 }}
+        title="Đổi tên"
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#60a5fa")}
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.color = "var(--text-faint)")
+        }
+      >
+        {/* Pencil icon */}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </button>
+      <button
+        onClick={() => onDelete(col.id)}
+        style={w.colDeleteBtn}
+        title="Xoá"
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.color = "var(--text-faint)")
+        }
+      >
+        <IconTrash />
+      </button>
+    </div>
+  );
+}
 /* ── Collection Detail ───────────────────────────── */
 function CollectionDetail({
   collection,
@@ -3190,15 +3279,16 @@ function CollectionDetail({
   );
 }
 
-/* ── Styles ─────────────────────────────────────── */
+/* ── Styles — nâng cấp UI ─────────────────────────────── */
 const w = {
   /* ── Export panel ── */
   exportPanel: {
-    background: "var(--bg-surface, #0e1218)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-xl, 16px)",
-    padding: "18px 20px 16px",
+    background: "rgba(8,12,20,0.95)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 16,
+    padding: "20px 22px 18px",
     marginBottom: 16,
+    backdropFilter: "blur(12px)",
     animation: "confirmIn 0.2s cubic-bezier(0.34,1.3,0.64,1) both",
   },
   exportHeader: {
@@ -3215,10 +3305,10 @@ const w = {
   },
   exportSummaryChip: {
     fontSize: 12,
-    color: "var(--text-muted)",
-    background: "var(--bg-card2)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-full)",
+    color: "rgba(160,175,210,0.6)",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 99,
     padding: "3px 10px",
   },
   exportCards: {
@@ -3231,16 +3321,16 @@ const w = {
     display: "flex",
     alignItems: "center",
     gap: 14,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-lg)",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(100,120,175,0.12)",
+    borderRadius: 12,
     padding: "12px 16px",
   },
   exportCardIcon: {
     width: 36,
     height: 36,
-    borderRadius: "var(--radius-md)",
-    background: "rgba(59,130,246,0.1)",
+    borderRadius: 10,
+    background: "rgba(59,130,246,0.12)",
     color: "#60a5fa",
     display: "flex",
     alignItems: "center",
@@ -3256,25 +3346,25 @@ const w = {
   exportCardDesc: {
     margin: 0,
     fontSize: 11,
-    color: "var(--text-faint)",
+    color: "rgba(140,155,195,0.5)",
     lineHeight: 1.5,
   },
   exportBtn: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border-mid)",
-    color: "var(--text-secondary)",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(100,120,175,0.2)",
+    color: "rgba(160,175,210,0.7)",
     padding: "7px 14px",
-    borderRadius: "var(--radius-md)",
+    borderRadius: 8,
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
     fontFamily: "var(--font-body, sans-serif)",
     whiteSpace: "nowrap",
     flexShrink: 0,
-    transition: "background 0.15s ease",
+    transition: "all 0.15s",
   },
   backfillNotice: {
     display: "flex",
@@ -3282,10 +3372,12 @@ const w = {
     gap: 10,
     marginTop: 12,
     padding: "10px 14px",
-    background: "rgba(234,179,8,0.07)",
-    border: "1px solid rgba(234,179,8,0.2)",
-    borderRadius: "var(--radius-md)",
+    background: "rgba(234,179,8,0.06)",
+    border: "1px solid rgba(234,179,8,0.18)",
+    borderRadius: 10,
   },
+
+  /* ── Search bar ── */
   searchBar: {
     marginBottom: 16,
     display: "flex",
@@ -3299,8 +3391,8 @@ const w = {
   },
   searchIcon: {
     position: "absolute",
-    left: 12,
-    color: "var(--text-faint)",
+    left: 13,
+    color: "rgba(140,155,195,0.4)",
     display: "flex",
     alignItems: "center",
     pointerEvents: "none",
@@ -3308,70 +3400,69 @@ const w = {
   },
   searchInput: {
     width: "100%",
-    height: 40,
-    background: "var(--bg-card2, #1a1f2a)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md, 10px)",
+    height: 42,
+    background: "rgba(255,255,255,0.03)",
+    border: "1.5px solid rgba(100,120,175,0.15)",
+    borderRadius: 12,
     color: "var(--text-primary)",
     fontSize: 13,
     fontFamily: "var(--font-body, sans-serif)",
-    paddingLeft: 36,
-    paddingRight: 36,
+    paddingLeft: 38,
+    paddingRight: 38,
     outline: "none",
-    transition: "border-color 0.15s ease",
+    transition: "border-color 0.15s, box-shadow 0.15s",
     boxSizing: "border-box",
   },
   searchClearBtn: {
     position: "absolute",
-    right: 10,
-    background: "none",
+    right: 11,
+    background: "rgba(255,255,255,0.06)",
     border: "none",
     cursor: "pointer",
-    color: "var(--text-faint)",
+    color: "rgba(140,155,195,0.5)",
     display: "flex",
     alignItems: "center",
     padding: 4,
-    borderRadius: 4,
-    transition: "color 0.15s",
+    borderRadius: 6,
+    transition: "all 0.15s",
+    width: 20,
+    height: 20,
+    justifyContent: "center",
   },
-  filterPills: {
-    display: "flex",
-    gap: 6,
-    flexWrap: "wrap",
-  },
+  filterPills: { display: "flex", gap: 6, flexWrap: "wrap" },
   filterPill: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "6px 13px",
-    borderRadius: "var(--radius-full, 999px)",
-    border: "1px solid var(--border-mid)",
-    background: "transparent",
-    color: "var(--text-muted)",
+    padding: "5px 13px",
+    borderRadius: 99,
+    border: "1px solid rgba(100,120,175,0.15)",
+    background: "rgba(255,255,255,0.025)",
+    color: "rgba(140,155,195,0.55)",
     fontSize: 12,
     fontWeight: 500,
     cursor: "pointer",
     fontFamily: "var(--font-body, sans-serif)",
-    transition: "all 0.15s ease",
+    transition: "all 0.15s",
     whiteSpace: "nowrap",
   },
   filterPillActive: {
     background: "rgba(229,9,20,0.12)",
-    borderColor: "rgba(229,9,20,0.4)",
-    color: "var(--red-text, #ff6b6b)",
+    borderColor: "rgba(229,9,20,0.35)",
+    color: "rgba(255,100,100,0.9)",
     fontWeight: 700,
   },
   filterDotGreen: {
-    width: 7,
-    height: 7,
+    width: 6,
+    height: 6,
     borderRadius: "50%",
     background: "#22c55e",
     flexShrink: 0,
     display: "inline-block",
   },
   filterDotYellow: {
-    width: 7,
-    height: 7,
+    width: 6,
+    height: 6,
     borderRadius: "50%",
     background: "#eab308",
     flexShrink: 0,
@@ -3387,69 +3478,72 @@ const w = {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "var(--text-faint)",
+    color: "rgba(140,155,195,0.4)",
     fontSize: 12,
     fontFamily: "var(--font-body, sans-serif)",
     padding: "2px 4px",
     transition: "color 0.15s",
   },
-  /* Dashboard header */
+
+  /* ── Dashboard header ── */
   dashHeader: {
-    padding: "clamp(20px,4vh,36px) clamp(20px,5vw,48px) 28px",
-    borderBottom: "1px solid var(--border)",
+    padding: "clamp(24px,4vh,40px) clamp(20px,5vw,52px) 28px",
+    borderBottom: "1px solid rgba(100,120,175,0.1)",
     background:
-      "linear-gradient(160deg, rgba(229,9,20,0.04) 0%, var(--bg-surface,#0e1218) 40%, rgba(59,130,246,0.03) 100%)",
+      "linear-gradient(160deg, rgba(229,9,20,0.05) 0%, rgba(6,9,16,0.98) 40%, rgba(30,50,120,0.04) 100%)",
     position: "relative",
   },
 
-  /* Stat cards */
+  /* ── Stat cards ── */
   statsRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-    gap: 12,
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    gap: 10,
     marginTop: 20,
   },
   statCard: {
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-lg)",
+    background: "rgba(255,255,255,0.02)",
+    border: "1px solid rgba(100,120,175,0.1)",
+    borderRadius: 14,
     padding: "16px 18px",
-    transition: "border-color 0.18s ease",
+    transition: "border-color 0.18s, transform 0.18s",
+    position: "relative",
+    overflow: "hidden",
   },
 
-  /* Body layout */
+  /* ── Body ── */
   body: {
     maxWidth: 1280,
     margin: "0 auto",
-    padding: "28px clamp(16px,4vw,48px) 60px",
+    padding: "24px clamp(16px,4vw,48px) 60px",
   },
   layout: {
     display: "grid",
     gridTemplateColumns: "220px 1fr",
-    gap: 28,
+    gap: 24,
     alignItems: "start",
   },
 
-  /* Sidebar */
+  /* ── Sidebar ── */
   sidebar: {
     position: "sticky",
-    top: "calc(60px + 20px)",
-    background:
-      "linear-gradient(160deg, var(--bg-surface) 0%, var(--bg-card) 100%)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-xl)",
-    padding: "20px 16px",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+    top: "calc(60px + 16px)",
+    background: "rgba(8,12,20,0.96)",
+    border: "1px solid rgba(100,120,175,0.12)",
+    borderRadius: 16,
+    padding: "18px 14px",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+    backdropFilter: "blur(16px)",
   },
   sidebarMobile: { padding: "4px 0 8px" },
   sideStats: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
-    padding: "12px 10px",
-    background: "rgba(229,9,20,0.05)",
-    borderRadius: "var(--radius-md)",
+    marginBottom: 10,
+    padding: "11px 10px",
+    background: "rgba(229,9,20,0.06)",
+    borderRadius: 10,
     border: "1px solid rgba(229,9,20,0.12)",
   },
   sideStat: {
@@ -3461,43 +3555,43 @@ const w = {
   },
   sideStatDivider: {
     width: 1,
-    height: 28,
-    background: "var(--border)",
+    height: 26,
+    background: "rgba(100,120,175,0.15)",
     flexShrink: 0,
   },
 
-  /* Collection buttons */
+  /* ── Collection buttons ── */
   colBtn: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    padding: "9px 10px",
+    padding: "8px 10px",
     background: "transparent",
     border: "none",
-    borderRadius: "var(--radius-md)",
-    color: "var(--text-secondary)",
+    borderRadius: 8,
+    color: "rgba(140,155,195,0.6)",
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 500,
     marginBottom: 2,
     fontFamily: "var(--font-body, sans-serif)",
     textAlign: "left",
-    transition: "background 0.15s ease, color 0.15s ease",
+    transition: "all 0.15s",
   },
   colBtnActive: {
-    background: "rgba(229,9,20,0.14)",
-    color: "var(--red-text)",
+    background: "rgba(229,9,20,0.12)",
+    color: "rgba(255,100,100,0.9)",
     fontWeight: 700,
-    boxShadow: "0 0 0 1px rgba(229,9,20,0.25)",
+    boxShadow: "inset 0 0 0 1px rgba(229,9,20,0.2)",
   },
   colCount: {
     fontSize: 10,
     fontWeight: 600,
-    background: "var(--border-mid)",
-    borderRadius: "var(--radius-full)",
+    background: "rgba(100,120,175,0.12)",
+    borderRadius: 99,
     padding: "1px 7px",
-    color: "var(--text-faint)",
+    color: "rgba(130,145,185,0.5)",
     flexShrink: 0,
   },
   colDeleteBtn: {
@@ -3508,24 +3602,24 @@ const w = {
     justifyContent: "center",
     background: "transparent",
     border: "none",
-    color: "var(--text-faint)",
+    color: "rgba(130,145,185,0.3)",
     cursor: "pointer",
-    borderRadius: "var(--radius-sm)",
-    transition: "color 0.15s ease",
+    borderRadius: 6,
+    transition: "color 0.15s",
     flexShrink: 0,
     padding: 0,
   },
   colInput: {
     flex: 1,
     padding: "8px 10px",
-    background: "var(--bg-input)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 8,
     color: "var(--text-primary)",
     fontSize: 12,
     fontFamily: "var(--font-body,sans-serif)",
     outline: "none",
-    transition: "border-color 0.18s ease",
+    transition: "border-color 0.15s",
   },
   addBtn: {
     width: 34,
@@ -3533,21 +3627,21 @@ const w = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "var(--red)",
+    background: "var(--red, #e50914)",
     border: "none",
-    borderRadius: "var(--radius-md)",
+    borderRadius: 8,
     color: "#fff",
     cursor: "pointer",
     flexShrink: 0,
-    transition: "background 0.18s ease, box-shadow 0.18s ease",
+    transition: "all 0.18s",
   },
 
-  /* View toggle */
+  /* ── View toggle ── */
   viewToggle: {
     display: "flex",
-    background: "var(--bg-card)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 9,
     overflow: "hidden",
   },
   viewToggleBtn: {
@@ -3558,80 +3652,80 @@ const w = {
     height: 34,
     background: "transparent",
     border: "none",
-    color: "var(--text-muted)",
+    color: "rgba(130,145,185,0.4)",
     cursor: "pointer",
-    transition: "background 0.15s ease, color 0.15s ease",
+    transition: "all 0.15s",
   },
   viewToggleBtnActive: {
-    background: "var(--red-dim)",
-    color: "var(--red-text)",
+    background: "rgba(229,9,20,0.15)",
+    color: "rgba(255,100,100,0.9)",
   },
 
-  /* Buttons */
+  /* ── Buttons ── */
   btnPrimary: {
     display: "inline-flex",
     alignItems: "center",
     gap: 7,
-    background: "var(--red)",
+    background: "var(--red, #e50914)",
     border: "none",
     color: "#fff",
     padding: "9px 18px",
-    borderRadius: "var(--radius-md)",
+    borderRadius: 10,
     fontSize: 13,
     fontWeight: 700,
-    letterSpacing: "0.04em",
+    letterSpacing: "0.03em",
     cursor: "pointer",
     fontFamily: "var(--font-body, sans-serif)",
     boxShadow: "0 4px 16px rgba(229,9,20,0.3)",
-    transition: "background 0.18s ease",
+    transition: "all 0.18s",
   },
   btnGhost: {
     display: "inline-flex",
     alignItems: "center",
     gap: 7,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border-mid)",
-    color: "var(--text-secondary)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.18)",
+    color: "rgba(160,175,210,0.7)",
     padding: "9px 16px",
-    borderRadius: "var(--radius-md)",
+    borderRadius: 10,
     fontSize: 13,
     fontWeight: 500,
     cursor: "pointer",
     fontFamily: "var(--font-body, sans-serif)",
-    transition: "border-color 0.15s ease, background 0.15s ease",
+    transition: "all 0.15s",
   },
 
-  /* List card */
+  /* ── List card — redesign ── */
   listCard: {
     display: "flex",
-    gap: 16,
+    gap: 14,
     alignItems: "flex-start",
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-lg)",
-    padding: "14px 18px",
-    transition:
-      "border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease",
+    background: "rgba(255,255,255,0.018)",
+    border: "1px solid rgba(100,120,175,0.1)",
+    borderRadius: 14,
+    padding: "13px 16px",
+    transition: "all 0.18s",
   },
   listCardHov: {
-    borderColor: "var(--border-bright)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(120,145,210,0.15)",
+    borderColor: "rgba(100,120,175,0.25)",
+    background: "rgba(255,255,255,0.03)",
+    boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
     transform: "translateY(-1px)",
   },
-  listCardWatched: { opacity: 0.6 },
+  listCardWatched: { opacity: 0.55 },
   dragHandle: {
     display: "flex",
     alignItems: "center",
     paddingRight: 4,
     cursor: "grab",
-    color: "var(--text-faint)",
+    color: "rgba(130,145,185,0.25)",
     flexShrink: 0,
     marginTop: 4,
   },
   listInfo: { flex: 1, minWidth: 0 },
   listTitle: {
-    margin: "0 0 6px",
-    fontSize: 15,
+    margin: "0 0 5px",
+    fontSize: 14.5,
     fontWeight: 700,
     color: "var(--text-primary)",
     lineHeight: 1.3,
@@ -3643,27 +3737,27 @@ const w = {
     display: "inline-flex",
     alignItems: "center",
     gap: 4,
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: 700,
-    padding: "3px 9px",
-    borderRadius: "var(--radius-full)",
-    letterSpacing: "0.05em",
+    padding: "2px 8px",
+    borderRadius: 99,
+    letterSpacing: "0.06em",
     textTransform: "uppercase",
   },
   watchBadgeWatched: {
-    background: "rgba(34,197,94,0.14)",
-    color: "var(--green)",
-    border: "1px solid rgba(34,197,94,0.3)",
+    background: "rgba(34,197,94,0.1)",
+    color: "#4ade80",
+    border: "1px solid rgba(34,197,94,0.25)",
   },
   watchBadgePending: {
-    background: "var(--border)",
-    color: "var(--text-muted)",
-    border: "1px solid var(--border-mid)",
+    background: "rgba(100,120,175,0.08)",
+    color: "rgba(140,155,195,0.5)",
+    border: "1px solid rgba(100,120,175,0.15)",
   },
   notePreview: {
     margin: "4px 0 0",
     fontSize: 12,
-    color: "var(--text-faint)",
+    color: "rgba(130,145,185,0.4)",
     fontStyle: "italic",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -3671,32 +3765,32 @@ const w = {
   },
   noteArea: {
     width: "100%",
-    padding: "9px 12px",
-    background: "var(--bg-input)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md)",
+    padding: "8px 12px",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 9,
     color: "var(--text-primary)",
     fontSize: 13,
     fontFamily: "var(--font-body,sans-serif)",
     resize: "vertical",
     outline: "none",
     boxSizing: "border-box",
-    transition: "border-color 0.18s ease",
+    transition: "border-color 0.15s",
   },
   listActions: {
     display: "flex",
     gap: 6,
     flexWrap: "wrap",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 9,
   },
   colSelect: {
-    background: "var(--bg-input)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--text-muted)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 7,
+    color: "rgba(140,155,195,0.6)",
     fontSize: 11,
-    padding: "5px 8px",
+    padding: "4px 8px",
     cursor: "pointer",
     outline: "none",
     fontFamily: "var(--font-body,sans-serif)",
@@ -3706,61 +3800,58 @@ const w = {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    color: "var(--text-secondary)",
-    borderRadius: "var(--radius-sm)",
-    padding: "5px 10px",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    color: "rgba(160,175,210,0.65)",
+    borderRadius: 7,
+    padding: "4px 10px",
     fontSize: 11,
     fontWeight: 500,
     cursor: "pointer",
     fontFamily: "var(--font-body,sans-serif)",
-    transition: "background 0.15s ease",
+    transition: "all 0.15s",
   },
-  actionBtnGreen: {
-    color: "var(--green)",
-    borderColor: "rgba(34,197,94,0.35)",
-  },
+  actionBtnGreen: { color: "#4ade80", borderColor: "rgba(34,197,94,0.3)" },
   actionBtnDanger: {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    color: "var(--red-text)",
-    borderRadius: "var(--radius-sm)",
-    padding: "5px 10px",
+    background: "rgba(229,9,20,0.06)",
+    border: "1px solid rgba(229,9,20,0.2)",
+    color: "rgba(255,100,100,0.7)",
+    borderRadius: 7,
+    padding: "4px 10px",
     fontSize: 11,
     fontWeight: 500,
     cursor: "pointer",
     fontFamily: "var(--font-body,sans-serif)",
-    transition: "background 0.15s ease, border-color 0.15s ease",
+    transition: "all 0.15s",
   },
   btnXs: {
-    background: "var(--bg-card2)",
-    border: "1px solid var(--border-mid)",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(100,120,175,0.15)",
     color: "var(--text-primary)",
     padding: "5px 12px",
-    borderRadius: "var(--radius-sm)",
+    borderRadius: 7,
     cursor: "pointer",
     fontSize: 12,
     fontFamily: "var(--font-body,sans-serif)",
   },
 
-  /* Grid */
+  /* ── Grid — larger cards ── */
   gridLayout: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-    gap: 16,
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: 14,
   },
   gridCard: {
-    borderRadius: "var(--radius-lg)",
+    borderRadius: 14,
     overflow: "hidden",
-    background: "var(--bg-card)",
-    border: "1px solid var(--border)",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(100,120,175,0.1)",
     cursor: "pointer",
     transition:
-      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s ease, border-color 0.2s ease",
+      "transform 0.3s cubic-bezier(0.34,1.3,0.64,1), box-shadow 0.3s, border-color 0.2s",
   },
   gridWatchedBadge: {
     position: "absolute",
@@ -3769,19 +3860,19 @@ const w = {
     width: 22,
     height: 22,
     borderRadius: "50%",
-    background: "var(--green)",
+    background: "rgba(34,197,94,0.9)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 0 8px rgba(34,197,94,0.5)",
+    boxShadow: "0 0 10px rgba(34,197,94,0.5)",
   },
   gridTitle: {
-    margin: "0 0 4px",
-    fontSize: 11,
+    margin: "0 0 5px",
+    fontSize: 11.5,
     fontWeight: 700,
     color: "var(--text-primary)",
-    lineHeight: 1.3,
+    lineHeight: 1.35,
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
@@ -3793,59 +3884,60 @@ const w = {
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    background: "transparent",
-    border: "1px solid var(--border)",
-    color: "var(--text-muted)",
-    borderRadius: "var(--radius-sm)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    color: "rgba(130,145,185,0.55)",
+    borderRadius: 7,
     padding: "5px 0",
     fontSize: 10,
     fontWeight: 600,
     cursor: "pointer",
     fontFamily: "var(--font-body,sans-serif)",
-    transition: "background 0.15s ease",
+    transition: "all 0.15s",
   },
 
-  /* Filter pills */
+  /* ── Filter pills ── */
   filterPill: {
-    background: "var(--bg-card)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-full)",
-    color: "var(--text-muted)",
-    padding: "6px 14px",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 99,
+    color: "rgba(140,155,195,0.55)",
+    padding: "5px 13px",
     fontSize: 12,
     cursor: "pointer",
     fontFamily: "var(--font-body,sans-serif)",
-    transition: "border-color 0.15s ease",
+    transition: "all 0.15s",
   },
   filterPillActive: {
-    background: "var(--red-dim)",
-    borderColor: "var(--red-border)",
-    color: "var(--red-text)",
+    background: "rgba(229,9,20,0.12)",
+    borderColor: "rgba(229,9,20,0.3)",
+    color: "rgba(255,100,100,0.9)",
     fontWeight: 700,
   },
 
-  /* Share panel */
+  /* ── Share panel ── */
   sharePanel: {
-    background: "var(--bg-card)",
-    border: "1px solid var(--red-border)",
-    borderRadius: "var(--radius-lg)",
+    background: "rgba(8,12,20,0.95)",
+    border: "1px solid rgba(229,9,20,0.2)",
+    borderRadius: 14,
     padding: "16px 18px",
     marginBottom: 20,
-    boxShadow: "0 4px 20px rgba(229,9,20,0.1)",
+    boxShadow: "0 4px 24px rgba(229,9,20,0.08)",
+    backdropFilter: "blur(12px)",
   },
   shareInput: {
     flex: 1,
     padding: "9px 12px",
-    background: "var(--bg-input)",
-    border: "1px solid var(--border-mid)",
-    borderRadius: "var(--radius-md)",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    borderRadius: 9,
     color: "var(--text-primary)",
     fontSize: 13,
     fontFamily: "var(--font-body,sans-serif)",
     outline: "none",
   },
 
-  /* Mobile chips */
+  /* ── Mobile chips ── */
   chipBar: {
     display: "flex",
     gap: 8,
@@ -3859,32 +3951,32 @@ const w = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    background: "var(--bg-card)",
-    border: "1px solid var(--border-mid)",
-    color: "var(--text-muted)",
-    borderRadius: "var(--radius-full)",
-    padding: "7px 14px",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(100,120,175,0.15)",
+    color: "rgba(140,155,195,0.6)",
+    borderRadius: 99,
+    padding: "6px 14px",
     fontSize: 12,
     cursor: "pointer",
     whiteSpace: "nowrap",
     fontFamily: "var(--font-body,sans-serif)",
-    transition: "all 0.15s ease",
+    transition: "all 0.15s",
   },
   chipActive: {
-    background: "var(--red-dim)",
-    borderColor: "var(--red-border)",
-    color: "var(--red-text)",
+    background: "rgba(229,9,20,0.12)",
+    borderColor: "rgba(229,9,20,0.3)",
+    color: "rgba(255,100,100,0.9)",
     fontWeight: 700,
   },
   chipCount: {
     fontSize: 10,
-    background: "var(--border-mid)",
-    borderRadius: "var(--radius-full)",
+    background: "rgba(100,120,175,0.12)",
+    borderRadius: 99,
     padding: "1px 6px",
-    color: "var(--text-faint)",
+    color: "rgba(130,145,185,0.5)",
   },
 
-  /* FAB */
+  /* ── FAB ── */
   fab: {
     position: "fixed",
     bottom: 24,
@@ -3893,23 +3985,23 @@ const w = {
     width: 50,
     height: 50,
     borderRadius: "50%",
-    background: "var(--red)",
+    background: "var(--red, #e50914)",
     border: "none",
     color: "#fff",
     fontSize: 18,
     cursor: "pointer",
-    boxShadow: "0 4px 20px rgba(229,9,20,0.5)",
+    boxShadow: "0 4px 24px rgba(229,9,20,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    transition: "transform 0.18s ease",
+    transition: "transform 0.18s",
   },
   fabBadge: {
     position: "absolute",
     top: -4,
     right: -4,
     background: "#fff",
-    color: "var(--red)",
+    color: "var(--red, #e50914)",
     borderRadius: "50%",
     width: 18,
     height: 18,
@@ -3918,16 +4010,16 @@ const w = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "2px solid var(--red)",
+    border: "2px solid var(--red, #e50914)",
   },
 
-  /* Spinner */
+  /* ── Spinner ── */
   spinner: {
     width: 20,
     height: 20,
     flexShrink: 0,
-    border: "2px solid rgba(255,255,255,0.08)",
-    borderTop: "2px solid var(--red)",
+    border: "2px solid rgba(255,255,255,0.06)",
+    borderTop: "2px solid var(--red, #e50914)",
     borderRadius: "50%",
     animation: "spin 0.75s linear infinite",
   },

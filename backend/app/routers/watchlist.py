@@ -6,7 +6,8 @@ import re
 from app.schemas.watchlist_schema import (
     WatchlistCreate, WatchlistResponse, WatchlistNoteUpdate,
     WatchlistMoveCollection, WatchlistRatingUpdate, WatchlistStats,
-    CollectionCreate, CollectionResponse, ShareResponse, PublicWatchlistResponse,
+    CollectionCreate, CollectionUpdate, CollectionResponse,
+    ShareResponse, PublicWatchlistResponse,
 )
 from app.services import watchlist_service
 from app.utils.dependencies import get_db, get_current_user
@@ -197,6 +198,23 @@ def delete_collection(
     if not ok:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ sưu tập.")
     return {"message": "Đã xoá bộ sưu tập."}
+
+
+@router.patch("/collections/{collection_id}", response_model=CollectionResponse)
+def update_collection(
+    request:       Request,
+    collection_id: int,
+    data:          CollectionUpdate,
+    db:            Session = Depends(get_db),
+    current_user:  User    = Depends(get_current_user),
+):
+    """Đổi tên hoặc mô tả bộ sưu tập."""
+    limiter.check(request, "watchlist_write", **Limits.WATCHLIST_WRITE)
+    _validate_collection_id(collection_id)
+    col = watchlist_service.update_collection(db, current_user.id, collection_id, data)
+    if not col:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bộ sưu tập.")
+    return col
 
 
 # ════════════════════════════════════════════

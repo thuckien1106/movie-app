@@ -8,6 +8,11 @@ import {
   getActivity,
   getWatchlistStats,
 } from "../api/movieApi";
+import {
+  getFollowStatus,
+  getFollowers,
+  getFollowing,
+} from "../api/publicProfileApi";
 import Navbar from "../components/Navbar";
 import DeleteAccountSection from "../components/DeleteAccountSection";
 /* ── helpers ─────────────────────────────────── */
@@ -752,6 +757,226 @@ function AvatarPickerModal({ current, onSelect, onClose }) {
   );
 }
 
+/* ── UserList Modal ──────────────────────────── */
+function UserListModal({ username, mode, onClose }) {
+  const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFn = mode === "followers" ? getFollowers : getFollowing;
+
+  useEffect(() => {
+    setLoading(true);
+    fetchFn(username, page)
+      .then((r) => {
+        setUsers((prev) =>
+          page === 1 ? r.data.users : [...prev, ...r.data.users],
+        );
+        setTotal(r.data.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [username, mode, page]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(6px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 360,
+          maxHeight: 520,
+          background: "rgba(10,14,22,0.99)",
+          border: "1px solid rgba(100,120,175,0.2)",
+          borderRadius: 18,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+          animation: "modalIn 0.2s cubic-bezier(0.34,1.3,0.64,1) both",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+            borderBottom: "1px solid rgba(100,120,175,0.1)",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "var(--text-primary,#f0f4ff)",
+            }}
+          >
+            {mode === "followers"
+              ? `${total} Người theo dõi`
+              : `${total} Đang theo dõi`}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: "rgba(130,145,185,0.5)",
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* List */}
+        <div
+          style={{
+            overflowY: "auto",
+            flex: 1,
+            padding: "8px 0",
+            scrollbarWidth: "none",
+          }}
+        >
+          {users.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => {
+                onClose();
+                navigate(`/u/${u.username}`);
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 20px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                transition: "background 0.12s",
+                fontFamily: "var(--font-body,sans-serif)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.04)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgba(229,9,20,0.15)",
+                  border: "1px solid rgba(229,9,20,0.2)",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                {u.avatar_url ? (
+                  <img
+                    src={u.avatar_url}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 18 }}>
+                    {u.avatar || (u.username?.[0]?.toUpperCase() ?? "?")}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: "var(--text-primary,#f0f4ff)",
+                }}
+              >
+                @{u.username}
+              </span>
+            </button>
+          ))}
+
+          {!loading && users.length < total && (
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              style={{
+                width: "100%",
+                padding: "10px 0",
+                background: "none",
+                border: "none",
+                color: "rgba(130,145,185,0.5)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "var(--font-body,sans-serif)",
+              }}
+            >
+              Xem thêm
+            </button>
+          )}
+
+          {loading && (
+            <div
+              style={{ display: "flex", justifyContent: "center", padding: 24 }}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  border: "2px solid rgba(255,255,255,0.1)",
+                  borderTop: "2px solid var(--red,#e50914)",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+            </div>
+          )}
+
+          {!loading && users.length === 0 && (
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 13,
+                color: "rgba(130,145,185,0.4)",
+                padding: "28px 0",
+                margin: 0,
+              }}
+            >
+              {mode === "followers"
+                ? "Chưa có người theo dõi"
+                : "Chưa theo dõi ai"}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════
    MAIN PROFILE PAGE
 ════════════════════════════════════════════════ */
@@ -763,6 +988,8 @@ export default function Profile() {
   const [tab, setTab] = useState("profile");
   const [activity, setActivity] = useState([]);
   const [stats, setStats] = useState(null);
+  const [followStats, setFollowStats] = useState(null);
+  const [listMode, setListMode] = useState(null); // "followers" | "following" | null // { followers, following_count }
   const [loadingAct, setLoadAct] = useState(false);
   const [entered, setEntered] = useState(false);
 
@@ -803,6 +1030,12 @@ export default function Profile() {
     if (tab === "profile" && !stats) {
       getWatchlistStats()
         .then((r) => setStats(r.data))
+        .catch(() => {});
+    }
+    // Load follow stats khi có username
+    if (tab === "profile" && !followStats && user?.username) {
+      getFollowStatus(user.username)
+        .then((r) => setFollowStats(r.data))
         .catch(() => {});
     }
   }, [tab]);
@@ -961,6 +1194,28 @@ export default function Profile() {
             <p style={s.heroEmail}>{user.email}</p>
             {(bio.trim() || user.bio) && (
               <p style={s.heroBio}>"{bio.trim() || user.bio}"</p>
+            )}
+
+            {/* Follow stats */}
+            {followStats && (
+              <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
+                <button
+                  onClick={() => setListMode("followers")}
+                  style={s.followStatBtn}
+                >
+                  <span style={s.followStatNum}>{followStats.followers}</span>
+                  <span style={s.followStatLabel}>Người theo dõi</span>
+                </button>
+                <button
+                  onClick={() => setListMode("following")}
+                  style={s.followStatBtn}
+                >
+                  <span style={s.followStatNum}>
+                    {followStats.following_count}
+                  </span>
+                  <span style={s.followStatLabel}>Đang theo dõi</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -1859,6 +2114,31 @@ const s = {
     boxShadow: "0 2px 8px rgba(229,9,20,0.4)",
   },
   heroInfo: { flex: 1, minWidth: 180 },
+  followStatBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 1,
+    textAlign: "left",
+  },
+  followStatNum: {
+    fontSize: 18,
+    fontWeight: 800,
+    color: "var(--text-primary,#f0f4ff)",
+    lineHeight: 1.1,
+    fontFamily: "var(--font-display,'Bebas Neue',sans-serif)",
+    letterSpacing: "0.02em",
+  },
+  followStatLabel: {
+    fontSize: 10,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "rgba(130,145,185,0.45)",
+  },
   memberBadge: {
     display: "inline-flex",
     alignItems: "center",

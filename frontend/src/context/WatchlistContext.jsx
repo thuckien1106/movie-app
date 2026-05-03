@@ -5,11 +5,12 @@ import {
   useEffect,
   useCallback,
 } from "react";
-import { getWatchlist } from "../api/movieApi";
+import { getWatchlist, getCollections } from "../api/movieApi";
 import { useAuth } from "./AuthContext";
 
 const WatchlistContext = createContext({
   savedIds: new Set(),
+  collections: [],
   addToSaved: () => {},
   removeFromSaved: () => {},
   refresh: () => {},
@@ -18,16 +19,22 @@ const WatchlistContext = createContext({
 export function WatchlistProvider({ children }) {
   const { isLoggedIn } = useAuth();
   const [savedIds, setSavedIds] = useState(new Set());
+  const [collections, setCollections] = useState([]);
 
   const refresh = useCallback(async () => {
     if (!isLoggedIn) {
       setSavedIds(new Set());
+      setCollections([]);
       return;
     }
     try {
-      const r = await getWatchlist();
-      const ids = new Set((r.data || []).map((m) => m.movie_id));
+      const [wlRes, colRes] = await Promise.all([
+        getWatchlist(),
+        getCollections(),
+      ]);
+      const ids = new Set((wlRes.data || []).map((m) => m.movie_id));
       setSavedIds(ids);
+      setCollections(colRes.data || []);
     } catch {
       /* silent */
     }
@@ -54,7 +61,7 @@ export function WatchlistProvider({ children }) {
 
   return (
     <WatchlistContext.Provider
-      value={{ savedIds, addToSaved, removeFromSaved, refresh }}
+      value={{ savedIds, collections, addToSaved, removeFromSaved, refresh }}
     >
       {children}
     </WatchlistContext.Provider>

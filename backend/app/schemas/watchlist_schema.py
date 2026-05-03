@@ -153,6 +153,33 @@ class CollectionCreate(BaseModel):
         return v
 
 
+class CollectionUpdate(BaseModel):
+    name:        Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def name_safe(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Tên bộ sưu tập không được để trống.")
+        if _SAFE_TEXT_RE.search(v):
+            raise ValueError("Tên chứa ký tự không hợp lệ.")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def description_safe(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if _SAFE_TEXT_RE.search(v):
+            raise ValueError("Mô tả chứa ký tự không hợp lệ.")
+        return v or None
+
+
 class CollectionResponse(BaseModel):
     id:          int
     name:        str

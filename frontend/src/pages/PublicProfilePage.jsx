@@ -2,6 +2,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getPublicProfile } from "../api/publicProfileApi";
+import {
+  toggleFollow,
+  getFollowStatus,
+  getFollowers,
+  getFollowing,
+  getSocialFeed,
+} from "../api/publicProfileApi";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 const GENRE_COLORS = ["#e50914", "#f5c518", "#60a5fa", "#4ade80", "#c084fc"];
@@ -243,16 +251,570 @@ function MovieCard({ movie }) {
   );
 }
 
+/* ── Follow Button ───────────────────────────────────────────── */
+function FollowButton({ username, isOwnProfile }) {
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState(null); // null = loading
+  const [busy, setBusy] = useState(false);
+  const [hov, setHov] = useState(false);
+
+  useEffect(() => {
+    if (!username) return;
+    getFollowStatus(username)
+      .then((r) => setStatus(r.data))
+      .catch(() =>
+        setStatus({ following: false, followers: 0, following_count: 0 }),
+      );
+  }, [username]);
+
+  if (isOwnProfile || !status) return null;
+
+  const handleClick = async () => {
+    if (!isLoggedIn) return navigate("/login");
+    setBusy(true);
+    try {
+      const r = await toggleFollow(username);
+      setStatus((prev) => ({
+        ...prev,
+        following: r.data.following,
+        followers: r.data.following
+          ? (prev?.followers ?? 0) + 1
+          : Math.max(0, (prev?.followers ?? 1) - 1),
+      }));
+    } catch {
+      /* silent */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const isFollowing = status.following;
+  const label = busy
+    ? "…"
+    : isFollowing
+      ? hov
+        ? "Bỏ theo dõi"
+        : "Đang theo dõi"
+      : "Theo dõi";
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      disabled={busy}
+      style={{
+        padding: "9px 22px",
+        borderRadius: 10,
+        border: isFollowing ? "1.5px solid rgba(229,9,20,0.35)" : "none",
+        background: isFollowing
+          ? hov
+            ? "rgba(229,9,20,0.12)"
+            : "rgba(229,9,20,0.07)"
+          : "var(--red,#e50914)",
+        color: isFollowing ? "rgba(255,100,100,0.9)" : "#fff",
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: busy ? "default" : "pointer",
+        fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+        transition: "all 0.18s ease",
+        opacity: busy ? 0.6 : 1,
+        minWidth: 120,
+        letterSpacing: "0.01em",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ── Follower / Following counts ─────────────────────────────── */
+function FollowStats({ username, onOpenList }) {
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    if (!username) return;
+    getFollowStatus(username)
+      .then((r) => setStatus(r.data))
+      .catch(() => {});
+  }, [username]);
+
+  if (!status) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+      <button onClick={() => onOpenList("followers")} style={fsStat}>
+        <span style={fsNum}>{status.followers}</span>
+        <span style={fsLabel}>Người theo dõi</span>
+      </button>
+      <button onClick={() => onOpenList("following")} style={fsStat}>
+        <span style={fsNum}>{status.following_count}</span>
+        <span style={fsLabel}>Đang theo dõi</span>
+      </button>
+    </div>
+  );
+}
+const fsStat = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  padding: 0,
+  textAlign: "left",
+  display: "flex",
+  flexDirection: "column",
+  gap: 1,
+};
+const fsNum = {
+  fontSize: 18,
+  fontWeight: 800,
+  color: "var(--text-primary,#f0f4ff)",
+  lineHeight: 1.1,
+};
+const fsLabel = {
+  fontSize: 10,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "rgba(130,145,185,0.45)",
+};
+
+/* ── UserList Modal (followers / following) ──────────────────── */
+function UserListModal({ username, mode, onClose }) {
+  const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFn = mode === "followers" ? getFollowers : getFollowing;
+
+  useEffect(() => {
+    setLoading(true);
+    fetchFn(username, page)
+      .then((r) => {
+        setUsers((prev) =>
+          page === 1 ? r.data.users : [...prev, ...r.data.users],
+        );
+        setTotal(r.data.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [username, mode, page]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 500,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(6px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 360,
+          maxHeight: 520,
+          background: "rgba(10,14,22,0.99)",
+          border: "1px solid rgba(100,120,175,0.2)",
+          borderRadius: 18,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+          animation: "modalIn 0.2s cubic-bezier(0.34,1.3,0.64,1) both",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+            borderBottom: "1px solid rgba(100,120,175,0.1)",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "var(--text-primary,#f0f4ff)",
+            }}
+          >
+            {mode === "followers"
+              ? `${total} Người theo dõi`
+              : `${total} Đang theo dõi`}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: "rgba(130,145,185,0.5)",
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ overflowY: "auto", flex: 1, padding: "8px 0" }}>
+          {users.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => {
+                onClose();
+                navigate(`/u/${u.username}`);
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 20px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                transition: "background 0.12s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.04)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgba(229,9,20,0.15)",
+                  border: "1px solid rgba(229,9,20,0.2)",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                {u.avatar_url ? (
+                  <img
+                    src={u.avatar_url}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 16 }}>
+                    {u.avatar || (u.username?.[0]?.toUpperCase() ?? "?")}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: "var(--text-primary,#f0f4ff)",
+                }}
+              >
+                @{u.username}
+              </span>
+            </button>
+          ))}
+          {!loading && users.length < total && (
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              style={{
+                width: "100%",
+                padding: "10px 0",
+                background: "none",
+                border: "none",
+                color: "rgba(130,145,185,0.5)",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              Xem thêm
+            </button>
+          )}
+          {loading && (
+            <div
+              style={{ display: "flex", justifyContent: "center", padding: 24 }}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  border: "2px solid rgba(255,255,255,0.1)",
+                  borderTop: "2px solid var(--red,#e50914)",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+            </div>
+          )}
+          {!loading && users.length === 0 && (
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 13,
+                color: "rgba(130,145,185,0.4)",
+                padding: "28px 0",
+              }}
+            >
+              {mode === "followers"
+                ? "Chưa có người theo dõi"
+                : "Chưa theo dõi ai"}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Social Feed Card ────────────────────────────────────────── */
+function FeedCard({ item }) {
+  const [hov, setHov] = useState(false);
+  function timeAgo(iso) {
+    if (!iso) return "";
+    const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (d < 60) return "vừa xong";
+    if (d < 3600) return `${Math.floor(d / 60)} phút trước`;
+    if (d < 86400) return `${Math.floor(d / 3600)} giờ trước`;
+    return `${Math.floor(d / 86400)} ngày trước`;
+  }
+  return (
+    <Link to={`/movie/${item.movie_id}`} style={{ textDecoration: "none" }}>
+      <div
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: hov
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(255,255,255,0.016)",
+          border: "1px solid rgba(100,120,175,0.1)",
+          marginBottom: 8,
+          transition: "background 0.15s",
+          cursor: "pointer",
+        }}
+      >
+        {/* Poster */}
+        <div
+          style={{
+            width: 44,
+            height: 62,
+            borderRadius: 7,
+            overflow: "hidden",
+            flexShrink: 0,
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(100,120,175,0.1)",
+          }}
+        >
+          {item.poster ? (
+            <img
+              src={item.poster}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 18,
+              }}
+            >
+              🎬
+            </div>
+          )}
+        </div>
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--text-primary,#f0f4ff)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {item.title}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Link
+              to={`/u/${item.user.username}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: "rgba(229,9,20,0.8)",
+                textDecoration: "none",
+              }}
+            >
+              @{item.user.username}
+            </Link>
+            <span style={{ fontSize: 11, color: "rgba(130,145,185,0.45)" }}>
+              {item.is_watched ? "đã xem" : "muốn xem"}
+            </span>
+          </div>
+          <p
+            style={{
+              margin: "3px 0 0",
+              fontSize: 10.5,
+              color: "rgba(130,145,185,0.35)",
+            }}
+          >
+            {timeAgo(item.added_at)}
+          </p>
+        </div>
+        {/* Status badge */}
+        <div style={{ fontSize: 16, flexShrink: 0 }}>
+          {item.is_watched ? "✅" : "🔖"}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Social Feed Section ─────────────────────────────────────── */
+function SocialFeedSection() {
+  const [items, setItems] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getSocialFeed(1)
+      .then((r) => {
+        setItems(r.data.items);
+        setHasMore(r.data.has_more);
+        setPage(1);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const loadMore = async () => {
+    const next = page + 1;
+    setLoading(true);
+    try {
+      const r = await getSocialFeed(next);
+      setItems((prev) => [...prev, ...r.data.items]);
+      setHasMore(r.data.has_more);
+      setPage(next);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!loading && items.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+        <p style={{ fontSize: 32, margin: "0 0 10px" }}>👥</p>
+        <p
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "rgba(140,155,195,0.5)",
+            margin: "0 0 6px",
+          }}
+        >
+          Feed trống
+        </p>
+        <p style={{ fontSize: 12, color: "rgba(130,145,185,0.35)", margin: 0 }}>
+          Theo dõi bạn bè để xem phim họ đang thêm vào đây
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {items.map((item, i) => (
+        <FeedCard key={`${item.user.id}-${item.movie_id}-${i}`} item={item} />
+      ))}
+      {hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "10px 0",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(100,120,175,0.12)",
+            borderRadius: 10,
+            color: "rgba(160,175,210,0.6)",
+            fontSize: 12,
+            cursor: "pointer",
+            marginTop: 4,
+            fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+          }}
+        >
+          {loading ? "Đang tải..." : "Xem thêm"}
+        </button>
+      )}
+      {loading && items.length === 0 && (
+        <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              border: "2px solid rgba(255,255,255,0.08)",
+              borderTop: "2px solid var(--red,#e50914)",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════
    MAIN
 ════════════════════════════════════════════ */
 export default function PublicProfilePage() {
   const { username } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [listMode, setListMode] = useState(null); // "followers" | "following" | null
+  const [activeTab, setActiveTab] = useState("watchlist"); // "watchlist" | "feed"
+
+  const isOwnProfile = currentUser?.username === username;
 
   useEffect(() => {
     if (!username) return;
@@ -371,6 +933,22 @@ export default function PublicProfilePage() {
                 <span style={{ opacity: 0.4 }}>"</span>
               </p>
             )}
+            {/* Follow stats + button */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 20,
+                marginTop: 14,
+                flexWrap: "wrap",
+              }}
+            >
+              <FollowStats
+                username={username}
+                onOpenList={(mode) => setListMode(mode)}
+              />
+              <FollowButton username={username} isOwnProfile={isOwnProfile} />
+            </div>
           </div>
 
           {/* Stats inline (desktop) */}
@@ -411,139 +989,204 @@ export default function PublicProfilePage() {
           transition: "opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s",
         }}
       >
-        <div style={s.grid}>
-          {/* ── Thể loại yêu thích ── */}
-          {stats.top_genres?.length > 0 && (
-            <section style={s.card}>
-              <h2 style={s.sectionTitle}>
-                <span style={s.sectionDot} />
-                Thể loại yêu thích
-              </h2>
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 14 }}
-              >
-                {stats.top_genres.map((g, i) => {
-                  const pct = Math.round(
-                    (g.count / (stats.top_genres[0]?.count || 1)) * 100,
-                  );
-                  const color = GENRE_COLORS[i] || "#60a5fa";
-                  return (
-                    <div key={g.genre_id}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 7,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: "rgba(210,220,245,0.85)",
-                            }}
-                          >
-                            {g.genre_name}
-                          </span>
-                        </div>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "rgba(130,145,185,0.45)",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {g.count} phim
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          height: 5,
-                          background: "rgba(255,255,255,0.05)",
-                          borderRadius: 99,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            borderRadius: 99,
-                            background: `linear-gradient(90deg, ${color}, ${color}aa)`,
-                            width: entered ? `${pct}%` : "0%",
-                            transition: `width 1.1s cubic-bezier(0.4,0,0.2,1) ${0.3 + i * 0.08}s`,
-                            boxShadow: `0 0 10px ${color}55`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+        {/* ── Tab bar ── */}
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            marginBottom: 28,
+            borderBottom: "1px solid rgba(100,120,175,0.1)",
+            paddingBottom: 0,
+          }}
+        >
+          {[
+            { key: "watchlist", label: "📽 Watchlist" },
+            { key: "feed", label: "👥 Feed bạn bè" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: "9px 18px",
+                background: "none",
+                border: "none",
+                borderBottom:
+                  activeTab === tab.key
+                    ? "2px solid var(--red,#e50914)"
+                    : "2px solid transparent",
+                color:
+                  activeTab === tab.key
+                    ? "var(--text-primary,#f0f4ff)"
+                    : "rgba(130,145,185,0.5)",
+                fontSize: 13,
+                fontWeight: activeTab === tab.key ? 700 : 500,
+                cursor: "pointer",
+                fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+                transition: "all 0.15s",
+                marginBottom: -1,
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-          {/* ── Phim gần nhất ── */}
-          {recent_movies?.length > 0 && (
-            <section style={s.card}>
-              <h2 style={s.sectionTitle}>
-                <span style={s.sectionDot} />
-                Xem gần đây
-              </h2>
-              {/* Grid đồng đều — mỗi card tự giữ aspect-ratio 2:3 */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 10,
-                }}
-              >
-                {recent_movies.map((m, i) => (
+        {/* ── Tab: Watchlist ── */}
+        {activeTab === "watchlist" && (
+          <div>
+            <div style={s.grid}>
+              {/* ── Thể loại yêu thích ── */}
+              {stats.top_genres?.length > 0 && (
+                <section style={s.card}>
+                  <h2 style={s.sectionTitle}>
+                    <span style={s.sectionDot} />
+                    Thể loại yêu thích
+                  </h2>
                   <div
-                    key={m.movie_id}
                     style={{
-                      opacity: entered ? 1 : 0,
-                      transform: entered ? "translateY(0)" : "translateY(10px)",
-                      transition: `opacity 0.4s ease ${0.2 + i * 0.06}s, transform 0.4s ease ${0.2 + i * 0.06}s`,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
                     }}
                   >
-                    <MovieCard movie={m} />
+                    {stats.top_genres.map((g, i) => {
+                      const pct = Math.round(
+                        (g.count / (stats.top_genres[0]?.count || 1)) * 100,
+                      );
+                      const color = GENRE_COLORS[i] || "#60a5fa";
+                      return (
+                        <div key={g.genre_id}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 7,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  background: color,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: "rgba(210,220,245,0.85)",
+                                }}
+                              >
+                                {g.genre_name}
+                              </span>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "rgba(130,145,185,0.45)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {g.count} phim
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              height: 5,
+                              background: "rgba(255,255,255,0.05)",
+                              borderRadius: 99,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                borderRadius: 99,
+                                background: `linear-gradient(90deg, ${color}, ${color}aa)`,
+                                width: entered ? `${pct}%` : "0%",
+                                transition: `width 1.1s cubic-bezier(0.4,0,0.2,1) ${0.3 + i * 0.08}s`,
+                                boxShadow: `0 0 10px ${color}55`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+                </section>
+              )}
 
-        {/* ── Watchlist link ── */}
-        <div style={{ marginTop: 32, textAlign: "center" }}>
-          <p
-            style={{
-              fontSize: 12,
-              color: "rgba(130,145,185,0.35)",
-              marginBottom: 8,
-            }}
-          >
-            Muốn xem toàn bộ watchlist?
-          </p>
-        </div>
+              {/* ── Phim gần nhất ── */}
+              {recent_movies?.length > 0 && (
+                <section style={s.card}>
+                  <h2 style={s.sectionTitle}>
+                    <span style={s.sectionDot} />
+                    Xem gần đây
+                  </h2>
+                  {/* Grid đồng đều — mỗi card tự giữ aspect-ratio 2:3 */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 1fr)",
+                      gap: 10,
+                    }}
+                  >
+                    {recent_movies.map((m, i) => (
+                      <div
+                        key={m.movie_id}
+                        style={{
+                          opacity: entered ? 1 : 0,
+                          transform: entered
+                            ? "translateY(0)"
+                            : "translateY(10px)",
+                          transition: `opacity 0.4s ease ${0.2 + i * 0.06}s, transform 0.4s ease ${0.2 + i * 0.06}s`,
+                        }}
+                      >
+                        <MovieCard movie={m} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            {/* Watchlist link */}
+            <div style={{ marginTop: 32, textAlign: "center" }}>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "rgba(130,145,185,0.35)",
+                  marginBottom: 8,
+                }}
+              >
+                Muốn xem toàn bộ watchlist?
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab: Feed bạn bè ── */}
+        {activeTab === "feed" && <SocialFeedSection />}
       </div>
+
+      {/* ── Modal followers/following ── */}
+      {listMode && (
+        <UserListModal
+          username={username}
+          mode={listMode}
+          onClose={() => setListMode(null)}
+        />
+      )}
 
       <style>{css}</style>
     </div>
@@ -729,7 +1372,8 @@ const s = {
 };
 
 const css = `
-  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  @keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
   @media (max-width: 640px) {
     .hero-stats { display: none !important; }
   }

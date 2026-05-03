@@ -1,10 +1,3 @@
-# app/services/review_service.py
-# Thay đổi duy nhất so với file gốc:
-#   - get_reviews(): thêm filter .filter(Review.is_hidden == False)
-#     để ẩn review bị mod hide khỏi public
-#
-# Dán file này vào thay thế toàn bộ file gốc.
-
 from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -12,6 +5,7 @@ from fastapi import HTTPException
 
 from app.models.review import Review, ReviewLike
 from app.models.user import User
+from app.models.reminder import InAppNotification
 from app.schemas.review_schema import ReviewCreate, ReviewUpdate
 
 
@@ -153,9 +147,44 @@ def toggle_like(db, user_id, review_id) -> dict:
         ReviewLike.review_id == review_id,
     ).first()
     if existing:
-        db.delete(existing); review.likes = max(0, review.likes - 1); liked = False
+        db.delete(existing)
+        review.likes = max(0, review.likes - 1)
+        liked = False
     else:
         db.add(ReviewLike(user_id=user_id, review_id=review_id))
-        review.likes += 1; liked = True
+        review.likes += 1
+        liked = True
+
+        # ── Gửi in-app notification cho chủ review ───────────────
+        # Không tự notify chính mình
+        if review.user_id != user_id:
+            liker = db.query(User).filter(User.id == user_id).first()
+            liker_name = (liker.username or "Ai đó") if liker else "Ai đó"
+
+            # Tránh spam: chỉ tạo 1 notif nếu chưa có notif like từ
+            # cùng liker cho cùng review trong vòng 24 giờ
+            from datetime import datetime, timezone, timedelta
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+            already = db.query(InAppNotification).filter(
+                InAppNotification.user_id  == review.user_id,
+                InAppNotification.title.like(f"%{liker_name}%"),
+                InAppNotification.created_at >= cutoff,
+                # dùng body chứa review_id để identify chính xác
+                InAppNotification.body.like(f"%#{review_id}%"),
+            ).first()
+
+            if not already:
+                db.add(InAppNotification(
+                    user_id  = review.user_id,
+                    movie_id = review.movie_id,
+                    title    = f"❤️ {liker_name} thích review của bạn",
+                    body     = (
+                        f"Review #{review_id} của bạn vừa nhận được lượt thích mới!"
+                        + (f' "{review.content[:60]}…"' if review.content else "")
+                    ),
+                    poster   = None,
+                    is_read  = False,
+                ))
+
     db.commit()
     return {"liked": liked, "likes": review.likes}

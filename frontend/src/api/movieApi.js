@@ -115,3 +115,5 @@ export function removeSearchHistory(query) {
 export function clearSearchHistory() {
   localStorage.removeItem(HISTORY_KEY);
 }
+export const updateCollection = (id, data) =>
+  api.patch(`/watchlist/collections/${id}`, data);

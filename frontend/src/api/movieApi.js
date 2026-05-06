@@ -67,6 +67,8 @@ export const createCollection = (data) =>
   api.post("/watchlist/collections", data);
 export const deleteCollection = (id) =>
   api.delete(`/watchlist/collections/${id}`);
+export const updateCollection = (id, data) =>
+  api.patch(`/watchlist/collections/${id}`, data);
 
 // ── Share ─────────────────────────────────────────────────
 export const getShareLink = () => api.get("/watchlist/share/link");
@@ -115,5 +117,10 @@ export function removeSearchHistory(query) {
 export function clearSearchHistory() {
   localStorage.removeItem(HISTORY_KEY);
 }
-export const updateCollection = (id, data) =>
-  api.patch(`/watchlist/collections/${id}`, data);
+
+/* ── View History (server-side) ──────────────────────────── */
+export const logView = (data) => api.post("/history", data);
+export const getViewHistory = (limit = 20) =>
+  api.get("/history", { params: { limit } });
+export const deleteViewItem = (movieId) => api.delete(`/history/${movieId}`);
+export const clearViewHistory = () => api.delete("/history");

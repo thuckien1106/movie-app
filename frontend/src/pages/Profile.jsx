@@ -2011,6 +2011,14 @@ export default function Profile() {
         />
       )}
 
+      {listMode && user?.username && (
+        <UserListModal
+          username={user.username}
+          mode={listMode}
+          onClose={() => setListMode(null)}
+        />
+      )}
+
       <style>{`
         @keyframes spin   { to { transform: rotate(360deg); } }
         @keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }

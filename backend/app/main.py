@@ -31,6 +31,9 @@ from app.models import comment as comment_models
 from app.routers import comments as comments_router
 from app.models import follow as follow_models
 from app.routers import follow as follow_router
+from app.models import view_history as view_history_models
+from app.routers import history as history_router
+from app.routers import comments as comments_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("films")
 
@@ -209,6 +212,7 @@ app.include_router(reviews_router.router)
 app.include_router(admin_router.router)
 app.include_router(comments_router.router)
 app.include_router(follow_router.router)
+app.include_router(history_router.router)
 @app.get("/")
 def root():
     return {"message": "Films API v2.4 running", "docs": "/docs"}

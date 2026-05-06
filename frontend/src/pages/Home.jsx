@@ -13,6 +13,9 @@ import {
   addSearchHistory,
   removeSearchHistory,
   clearSearchHistory,
+  getViewHistory,
+  deleteViewItem,
+  clearViewHistory,
 } from "../api/movieApi";
 import MovieCard from "../components/MovieCard";
 import TrailerModal from "../components/TrailerModal";
@@ -94,6 +97,251 @@ const HERO_ROTATE_MS = 8000; // auto-advance every 8 s
 /* ══════════════════════════════════════════════
    HOME PAGE
 ══════════════════════════════════════════════ */
+/* ── Recently Viewed Section ─────────────────────────────── */
+function RecentlyViewed({ items, onDelete, onClearAll }) {
+  const navigate = useNavigate();
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  function timeAgo(iso) {
+    if (!iso) return "";
+    const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (d < 60) return "vừa xong";
+    if (d < 3600) return `${Math.floor(d / 60)} phút trước`;
+    if (d < 86400) return `${Math.floor(d / 3600)} giờ trước`;
+    return `${Math.floor(d / 86400)} ngày trước`;
+  }
+
+  return (
+    <div style={rv.wrap}>
+      {/* Header */}
+      <div style={rv.header}>
+        <div style={rv.title}>
+          <span style={{ fontSize: 15 }}>🕐</span>
+          <span>Xem gần đây</span>
+        </div>
+        {confirmClear ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "rgba(130,145,185,0.6)" }}>
+              Xoá tất cả?
+            </span>
+            <button
+              onClick={() => {
+                onClearAll();
+                setConfirmClear(false);
+              }}
+              style={rv.confirmBtn}
+            >
+              Xoá
+            </button>
+            <button onClick={() => setConfirmClear(false)} style={rv.cancelBtn}>
+              Huỷ
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmClear(true)} style={rv.clearBtn}>
+            Xoá tất cả
+          </button>
+        )}
+      </div>
+
+      {/* Horizontal scroll list */}
+      <div style={rv.list}>
+        {items.map((item) => (
+          <div key={item.movie_id} style={rv.item}>
+            {/* Poster */}
+            <div
+              style={rv.posterWrap}
+              onClick={() => navigate(`/movie/${item.movie_id}`)}
+              title={item.title}
+            >
+              {item.poster ? (
+                <img
+                  src={`https://image.tmdb.org/t/p/w185${item.poster}`}
+                  alt={item.title}
+                  style={rv.poster}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : (
+                <div style={rv.posterFallback}>🎬</div>
+              )}
+              {/* Delete button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(item.movie_id);
+                }}
+                style={rv.deleteBtn}
+                title="Xoá khỏi lịch sử"
+              >
+                ✕
+              </button>
+              {/* Overlay on hover */}
+              <div style={rv.overlay} className="rv-overlay">
+                <span style={{ fontSize: 20 }}>▶</span>
+              </div>
+            </div>
+            {/* Title + time */}
+            <p style={rv.itemTitle} title={item.title}>
+              {item.title}
+            </p>
+            <p style={rv.itemTime}>{timeAgo(item.viewed_at)}</p>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .rv-item-wrap:hover .rv-overlay { opacity: 1 !important; }
+        .rv-poster-wrap:hover .rv-overlay { opacity: 1 !important; }
+      `}</style>
+    </div>
+  );
+}
+
+/* RecentlyViewed styles */
+const rv = {
+  wrap: {
+    padding: "0 clamp(16px,4vw,64px)",
+    marginBottom: 8,
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  title: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontSize: 13,
+    fontWeight: 700,
+    color: "rgba(180,195,230,0.6)",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  clearBtn: {
+    background: "none",
+    border: "none",
+    color: "rgba(130,145,185,0.35)",
+    fontSize: 11,
+    cursor: "pointer",
+    padding: "3px 6px",
+    fontFamily: "var(--font-body,sans-serif)",
+    transition: "color 0.15s",
+  },
+  confirmBtn: {
+    background: "rgba(229,9,20,0.15)",
+    border: "1px solid rgba(229,9,20,0.3)",
+    color: "rgba(229,9,20,0.9)",
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: "3px 10px",
+    borderRadius: 6,
+    fontFamily: "var(--font-body,sans-serif)",
+  },
+  cancelBtn: {
+    background: "none",
+    border: "1px solid rgba(100,120,175,0.2)",
+    color: "rgba(130,145,185,0.5)",
+    fontSize: 11,
+    cursor: "pointer",
+    padding: "3px 10px",
+    borderRadius: 6,
+    fontFamily: "var(--font-body,sans-serif)",
+  },
+  list: {
+    display: "flex",
+    gap: 10,
+    overflowX: "auto",
+    paddingBottom: 8,
+    scrollbarWidth: "none",
+    msOverflowStyle: "none",
+  },
+  item: {
+    flexShrink: 0,
+    width: 90,
+    cursor: "pointer",
+  },
+  posterWrap: {
+    position: "relative",
+    width: 90,
+    height: 130,
+    borderRadius: 8,
+    overflow: "hidden",
+    border: "1px solid rgba(100,120,175,0.12)",
+    cursor: "pointer",
+    background: "rgba(255,255,255,0.04)",
+  },
+  poster: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+    transition: "transform 0.2s ease",
+  },
+  posterFallback: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 28,
+    background: "rgba(255,255,255,0.04)",
+  },
+  deleteBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    background: "rgba(0,0,0,0.7)",
+    border: "none",
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 9,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+    opacity: 0,
+    transition: "opacity 0.15s",
+    lineHeight: 1,
+  },
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+    opacity: 0,
+    transition: "opacity 0.18s",
+  },
+  itemTitle: {
+    margin: "6px 0 2px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "rgba(200,215,255,0.7)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    lineHeight: 1.3,
+  },
+  itemTime: {
+    margin: 0,
+    fontSize: 10,
+    color: "rgba(130,145,185,0.35)",
+  },
+};
+
+/* ── end RecentlyViewed ──────────────────────────────────── */
+
 export default function Home() {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -113,6 +361,22 @@ export default function Home() {
   const [pendingFilters, setPendingFilters] = useState(DEFAULT_FILTERS);
   const hasMore = useRef(true);
   const filterPanelRef = useRef(null);
+
+  // Lịch sử xem gần đây
+  const [recentHistory, setRecentHistory] = useState([]);
+  const refreshHistory = useCallback(() => {
+    if (!isLoggedIn) {
+      setRecentHistory([]);
+      return;
+    }
+    getViewHistory(12)
+      .then((r) => setRecentHistory(r.data || []))
+      .catch(() => {});
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
 
   const debouncedQuery = useDebounce(query, 400);
 
@@ -249,6 +513,21 @@ export default function Home() {
         <div ref={heroRef}>
           <HeroBanner onPlayTrailer={(m) => setSelectedMovie(m)} />
         </div>
+      )}
+
+      {/* ══ XEM GẦN ĐÂY ══ */}
+      {isLoggedIn && recentHistory.length > 0 && showHero && (
+        <RecentlyViewed
+          items={recentHistory}
+          onDelete={async (movieId) => {
+            await deleteViewItem(movieId).catch(() => {});
+            refreshHistory();
+          }}
+          onClearAll={async () => {
+            await clearViewHistory().catch(() => {});
+            setRecentHistory([]);
+          }}
+        />
       )}
 
       {/* ══ SECTION LABEL (below hero) ══ */}
@@ -1898,6 +2177,12 @@ const globalCSS = `
   ::-webkit-scrollbar { display: none; }
   select option { background: #111620; color: #f0f4ff; }
   [data-theme="light"] select option { background: #fff; color: #0a0c14; }
+
+  /* Recently Viewed hover effects */
+  div[style*="position: relative"]:hover > button[title="Xoá khỏi lịch sử"] { opacity: 1 !important; }
+  div[style*="position: relative"]:hover img { transform: scale(1.05); }
+  div[style*="position: relative"]:hover > div[style*="opacity: 0"] { opacity: 1 !important; }
+
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: 0.5; transform: scale(0.85); }

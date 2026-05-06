@@ -601,6 +601,7 @@ function MovieCard({ movie, onPlay }) {
           {onPlay && (
             <button
               onClick={handlePlay}
+              className="card-btn-trailer"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -622,14 +623,6 @@ function MovieCard({ movie, onPlay }) {
                 transition:
                   "transform 0.27s cubic-bezier(0.4,0,0.2,1) 0.08s, opacity 0.22s ease 0.08s, background 0.15s ease, box-shadow 0.15s ease",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#ff1a1a";
-                e.currentTarget.style.boxShadow = "0 0 20px rgba(229,9,20,0.5)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--red, #e50914)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
             >
               <IconPlay />
               <span>Xem Trailer</span>
@@ -640,6 +633,11 @@ function MovieCard({ movie, onPlay }) {
           <button
             onClick={handleAdd}
             disabled={saving || saved}
+            className={
+              saved
+                ? "card-btn-watchlist card-btn-watchlist--saved"
+                : "card-btn-watchlist"
+            }
             style={{
               display: "flex",
               alignItems: "center",
@@ -661,14 +659,6 @@ function MovieCard({ movie, onPlay }) {
               opacity: hover ? (saving ? 0.65 : 1) : 0,
               transition:
                 "transform 0.27s cubic-bezier(0.4,0,0.2,1) 0.12s, opacity 0.22s ease 0.12s, background 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (!saved)
-                e.currentTarget.style.background = "rgba(255,255,255,0.14)";
-            }}
-            onMouseLeave={(e) => {
-              if (!saved)
-                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
             }}
           >
             {saved ? <IconCheck /> : <IconPlus />}
@@ -716,6 +706,19 @@ function MovieCard({ movie, onPlay }) {
   );
 }
 
-const cardCSS = `@keyframes cardShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`;
+const cardCSS = `
+  @keyframes cardShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── Trailer button ── */
+  .card-btn-trailer:hover {
+    background: #ff1a1a !important;
+    box-shadow: 0 0 20px rgba(229,9,20,0.5) !important;
+  }
+
+  /* ── Watchlist button — only when not saved ── */
+  .card-btn-watchlist:not(.card-btn-watchlist--saved):hover {
+    background: rgba(255,255,255,0.14) !important;
+  }
+`;
 
 export default MovieCard;

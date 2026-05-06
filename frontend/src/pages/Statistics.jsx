@@ -1,11 +1,27 @@
 // src/pages/Statistics.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getDetailedStats } from "../api/movieApi";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
 import ScrollToTop from "../components/ScrollToTop";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  Sector,
+  AreaChart,
+  Area,
+} from "recharts";
 
 /* ── helpers ──────────────────────────────────────────── */
 function fmtRuntime(mins) {
@@ -84,55 +100,309 @@ function StatCard({
   );
 }
 
-/* ── monthly bar chart ────────────────────────────────── */
+/* ── custom tooltip cho BarChart ──────────────────────── */
+function MonthTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={s.rcTooltip}>
+      <p style={s.rcTooltipTitle}>{label}</p>
+      {payload.map((p) => (
+        <p
+          key={p.dataKey}
+          style={{ margin: "2px 0", color: p.color, fontSize: 12 }}
+        >
+          {p.name}: <strong>{p.value}</strong>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ── Monthly bar chart dùng Recharts ─────────────────── */
 function MonthlyChart({ data }) {
-  const [hovered, setHovered] = useState(null);
-  const maxVal = Math.max(...data.map((d) => Math.max(d.added, d.watched)), 1);
+  // Chuẩn hóa data cho recharts
+  const chartData = data.map((d) => ({
+    name: fmtMonthLabel(d.year, d.month),
+    "Thêm mới": d.added,
+    "Đã xem": d.watched,
+  }));
 
   return (
-    <div style={s.chartWrap}>
-      <div style={s.chartLegend}>
-        <span style={s.legendDot("#3b82f6")} />{" "}
-        <span style={s.legendText}>Thêm mới</span>
-        <span style={{ ...s.legendDot("#22c55e"), marginLeft: 16 }} />{" "}
-        <span style={s.legendText}>Đã xem</span>
-      </div>
-      <div style={s.chartBars}>
-        {data.map((d, i) => (
-          <div
-            key={i}
-            style={s.barCol}
-            onMouseEnter={() => setHovered(i)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            {hovered === i && (
-              <div style={s.tooltip}>
-                <div style={s.tooltipMonth}>
-                  {fmtMonthLabel(d.year, d.month)} {d.year}
-                </div>
-                <div style={{ color: "#3b82f6" }}>+{d.added} thêm</div>
-                <div style={{ color: "#22c55e" }}>✓ {d.watched} xem</div>
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart
+        data={chartData}
+        margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+        barCategoryGap="30%"
+        barGap={3}
+      >
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(100,120,175,0.1)"
+          vertical={false}
+        />
+        <XAxis
+          dataKey="name"
+          tick={{ fill: "rgba(140,155,195,0.5)", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "rgba(140,155,195,0.4)", fontSize: 10 }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip
+          content={<MonthTooltip />}
+          cursor={{ fill: "rgba(255,255,255,0.03)" }}
+        />
+        <Legend
+          iconType="circle"
+          iconSize={8}
+          wrapperStyle={{
+            fontSize: 12,
+            color: "rgba(140,155,195,0.6)",
+            paddingTop: 12,
+          }}
+        />
+        <Bar
+          dataKey="Thêm mới"
+          fill="#3b82f6"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={28}
+        />
+        <Bar
+          dataKey="Đã xem"
+          fill="#22c55e"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={28}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ── Area chart — runtime tích lũy ───────────────────── */
+function RuntimeAreaChart({ data }) {
+  let cum = 0;
+  const chartData = data.map((d) => {
+    cum += (d.added || 0) * 110; // ước lượng ~110 phút/phim
+    return {
+      name: fmtMonthLabel(d.year, d.month),
+      "Phim tích lũy": cum > 0 ? Math.round(cum / 60) : 0,
+    };
+  });
+
+  return (
+    <ResponsiveContainer width="100%" height={160}>
+      <AreaChart
+        data={chartData}
+        margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+      >
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(100,120,175,0.08)"
+          vertical={false}
+        />
+        <XAxis
+          dataKey="name"
+          tick={{ fill: "rgba(140,155,195,0.45)", fontSize: 10 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "rgba(140,155,195,0.4)", fontSize: 10 }}
+          axisLine={false}
+          tickLine={false}
+          unit="g"
+        />
+        <Tooltip
+          content={({ active, payload, label }) =>
+            active && payload?.length ? (
+              <div style={s.rcTooltip}>
+                <p style={s.rcTooltipTitle}>{label}</p>
+                <p style={{ margin: 0, color: "#a855f7", fontSize: 12 }}>
+                  ~{payload[0].value}g xem phim
+                </p>
               </div>
-            )}
-            <div style={s.barPair}>
-              <div
-                style={{
-                  ...s.bar,
-                  height: `${(d.added / maxVal) * 100}%`,
-                  background: "#3b82f6",
-                  opacity: hovered === i ? 1 : 0.75,
-                }}
+            ) : null
+          }
+          cursor={{ stroke: "rgba(168,85,247,0.3)", strokeWidth: 1 }}
+        />
+        <Area
+          type="monotone"
+          dataKey="Phim tích lũy"
+          stroke="#a855f7"
+          strokeWidth={2}
+          fill="url(#areaGrad)"
+          dot={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ── Genre Donut dùng Recharts PieChart ──────────────── */
+function GenreDonut({ genres }) {
+  const [activeIdx, setActiveIdx] = useState(null);
+  const top5 = genres.slice(0, 5);
+  const otherCount = genres.slice(5).reduce((s, g) => s + g.count, 0);
+  const pieData = [
+    ...top5.map((g) => ({ name: g.genre_name, value: g.count })),
+    ...(otherCount > 0 ? [{ name: "Khác", value: otherCount }] : []),
+  ];
+  const colors = [...GENRE_COLORS.slice(0, 5), "rgba(100,120,175,0.4)"];
+
+  const renderActiveShape = (props) => {
+    const {
+      cx,
+      cy,
+      innerRadius,
+      outerRadius,
+      startAngle,
+      endAngle,
+      fill,
+      payload,
+      value,
+    } = props;
+    return (
+      <g>
+        <text
+          x={cx}
+          y={cy - 10}
+          textAnchor="middle"
+          fill="#f0f4ff"
+          fontSize={14}
+          fontWeight={700}
+        >
+          {payload.name}
+        </text>
+        <text
+          x={cx}
+          y={cy + 12}
+          textAnchor="middle"
+          fill="rgba(140,155,195,0.6)"
+          fontSize={12}
+        >
+          {value} phim
+        </text>
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius + 6}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+        />
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={innerRadius - 4}
+          outerRadius={innerRadius - 1}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+        />
+      </g>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        flexWrap: "wrap",
+      }}
+    >
+      <ResponsiveContainer width={180} height={180}>
+        <PieChart>
+          <Pie
+            data={pieData}
+            cx="50%"
+            cy="50%"
+            innerRadius={52}
+            outerRadius={78}
+            dataKey="value"
+            paddingAngle={3}
+            activeIndex={activeIdx ?? undefined}
+            activeShape={renderActiveShape}
+            onMouseEnter={(_, i) => setActiveIdx(i)}
+            onMouseLeave={() => setActiveIdx(null)}
+          >
+            {pieData.map((_, i) => (
+              <Cell
+                key={i}
+                fill={colors[i % colors.length]}
+                stroke="transparent"
               />
-              <div
-                style={{
-                  ...s.bar,
-                  height: `${(d.watched / maxVal) * 100}%`,
-                  background: "#22c55e",
-                  opacity: hovered === i ? 1 : 0.75,
-                }}
-              />
-            </div>
-            <div style={s.barLabel}>{fmtMonthLabel(d.year, d.month)}</div>
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 120,
+          display: "flex",
+          flexDirection: "column",
+          gap: 7,
+        }}
+      >
+        {pieData.map((d, i) => (
+          <div
+            key={d.name}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+              opacity: activeIdx === null || activeIdx === i ? 1 : 0.4,
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={() => setActiveIdx(i)}
+            onMouseLeave={() => setActiveIdx(null)}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: colors[i % colors.length],
+              }}
+            />
+            <span
+              style={{
+                fontSize: 12,
+                color: "rgba(180,195,230,0.8)",
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {d.name}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                color: "rgba(130,145,185,0.45)",
+                fontWeight: 600,
+              }}
+            >
+              {d.value}
+            </span>
           </div>
         ))}
       </div>
@@ -140,7 +410,7 @@ function MonthlyChart({ data }) {
   );
 }
 
-/* ── genre bar list ───────────────────────────────────── */
+/* ── Genre horizontal bar list (top 10) ──────────────── */
 function GenreList({ genres }) {
   const max = genres[0]?.count || 1;
   return (
@@ -174,19 +444,17 @@ function GenreList({ genres }) {
   );
 }
 
-/* ── watched ratio ring ───────────────────────────────── */
+/* ── watched ratio ring (SVG tự vẽ — giữ nguyên) ─────── */
 function RatioRing({ watched, total }) {
   const pct = total > 0 ? watched / total : 0;
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const dash = pct * circ;
-  const gap = circ - dash;
+  const r = 54,
+    circ = 2 * Math.PI * r;
+  const dash = pct * circ,
+    gap = circ - dash;
   const unwatched = total - watched;
-
   return (
     <div style={s.ringWrap} className="stats-ring-wrap">
       <svg width="140" height="140" viewBox="0 0 140 140">
-        {/* track */}
         <circle
           cx="70"
           cy="70"
@@ -195,7 +463,6 @@ function RatioRing({ watched, total }) {
           stroke="var(--border-mid)"
           strokeWidth="14"
         />
-        {/* progress */}
         <circle
           cx="70"
           cy="70"
@@ -235,21 +502,17 @@ function RatioRing({ watched, total }) {
         </text>
       </svg>
       <div style={s.ringStats}>
-        <div style={s.ringStatRow}>
-          <span style={{ ...s.ringDot, background: "#22c55e" }} />
-          <span style={s.ringStatLabel}>Đã xem</span>
-          <span style={s.ringStatVal}>{watched}</span>
-        </div>
-        <div style={s.ringStatRow}>
-          <span style={{ ...s.ringDot, background: "var(--border-bright)" }} />
-          <span style={s.ringStatLabel}>Chưa xem</span>
-          <span style={s.ringStatVal}>{unwatched}</span>
-        </div>
-        <div style={s.ringStatRow}>
-          <span style={{ ...s.ringDot, background: "var(--red)" }} />
-          <span style={s.ringStatLabel}>Tổng</span>
-          <span style={s.ringStatVal}>{total}</span>
-        </div>
+        {[
+          { color: "#22c55e", label: "Đã xem", val: watched },
+          { color: "var(--border-bright)", label: "Chưa xem", val: unwatched },
+          { color: "var(--red)", label: "Tổng", val: total },
+        ].map(({ color, label, val }) => (
+          <div key={label} style={s.ringStatRow}>
+            <span style={{ ...s.ringDot, background: color }} />
+            <span style={s.ringStatLabel}>{label}</span>
+            <span style={s.ringStatVal}>{val}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -260,9 +523,6 @@ function Skeleton({ style }) {
   return <div style={{ ...s.skeleton, ...style }} />;
 }
 
-/* ════════════════════════════════════════════════════════
-   MAIN PAGE
-════════════════════════════════════════════════════════ */
 export default function Statistics() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -391,20 +651,20 @@ export default function Statistics() {
 
         {/* ── Main content grid ───────────── */}
         <div style={s.mainGrid} className="stats-main-grid">
-          {/* Monthly activity chart */}
+          {/* Monthly activity chart — full width */}
           <div style={{ ...s.panel, gridColumn: "1 / -1" }}>
             <div style={s.panelHeader}>
               <h2 style={s.panelTitle}>📅 Hoạt động theo tháng</h2>
               <span style={s.panelSub}>12 tháng gần nhất</span>
             </div>
             {loading ? (
-              <Skeleton style={{ height: 180 }} />
+              <Skeleton style={{ height: 200 }} />
             ) : (
               <MonthlyChart data={stats.monthly_activity} />
             )}
           </div>
 
-          {/* Genre breakdown */}
+          {/* Genre donut */}
           <div style={s.panel}>
             <div style={s.panelHeader}>
               <h2 style={s.panelTitle}>🎭 Thể loại yêu thích</h2>
@@ -415,17 +675,29 @@ export default function Statistics() {
               )}
             </div>
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} style={{ height: 28, marginBottom: 10 }} />
-              ))
+              <Skeleton style={{ height: 180 }} />
             ) : stats.all_genres.length === 0 ? (
               <p style={s.noData}>Chưa có dữ liệu thể loại</p>
             ) : (
-              <GenreList genres={stats.all_genres} />
+              <>
+                <GenreDonut genres={stats.all_genres} />
+                <div
+                  style={{
+                    marginTop: 20,
+                    borderTop: "1px solid rgba(100,120,175,0.1)",
+                    paddingTop: 16,
+                  }}
+                >
+                  <p style={{ ...s.panelSub, marginBottom: 10 }}>
+                    Top 10 thể loại
+                  </p>
+                  <GenreList genres={stats.all_genres} />
+                </div>
+              </>
             )}
           </div>
 
-          {/* Watched ratio + highlights */}
+          {/* Ratio ring + highlights + runtime area */}
           <div style={s.panel}>
             <div style={s.panelHeader}>
               <h2 style={s.panelTitle}>📈 Tỷ lệ xem phim</h2>
@@ -447,7 +719,6 @@ export default function Statistics() {
                     </div>
                   </div>
                 )}
-
                 {stats.best_streak > 0 && (
                   <div style={{ ...s.highlight, marginTop: 10 }}>
                     <span style={s.highlightIcon}>🔥</span>
@@ -457,6 +728,16 @@ export default function Statistics() {
                         {stats.best_streak} tháng liên tiếp
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Runtime area chart */}
+                {stats.monthly_activity?.length > 1 && (
+                  <div style={{ marginTop: 24 }}>
+                    <p style={{ ...s.panelSub, marginBottom: 10 }}>
+                      📺 Giờ xem phim tích lũy (ước tính)
+                    </p>
+                    <RuntimeAreaChart data={stats.monthly_activity} />
                   </div>
                 )}
               </>
@@ -551,6 +832,23 @@ const s = {
   statSub: {
     fontSize: "var(--text-xs)",
     color: "var(--text-muted)",
+  },
+
+  /* recharts custom tooltip */
+  rcTooltip: {
+    background: "rgba(8,10,20,0.97)",
+    border: "1px solid rgba(100,120,175,0.2)",
+    borderRadius: 10,
+    padding: "10px 14px",
+    boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
+    fontSize: 13,
+    fontFamily: "var(--font-body,'DM Sans',sans-serif)",
+  },
+  rcTooltipTitle: {
+    margin: "0 0 6px",
+    fontWeight: 700,
+    color: "var(--text-primary,#f0f4ff)",
+    fontSize: 12,
   },
 
   /* panels */

@@ -393,39 +393,20 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     <button
                       key={key}
                       onClick={() => handleTabClick(key)}
+                      className={
+                        isActive ? "nav-tab nav-tab--active" : "nav-tab"
+                      }
                       style={{
                         ...s.tab,
-                        background: isActive
-                          ? "rgba(229,9,20,0.14)"
-                          : "transparent",
-                        color: isActive
-                          ? "var(--text-primary)"
-                          : "var(--text-muted)",
-                        border: isActive
-                          ? "1px solid rgba(229,9,20,0.28)"
-                          : "1px solid transparent",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background =
-                            "rgba(255,255,255,0.05)";
-                          e.currentTarget.style.color = "var(--text-secondary)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--text-muted)";
-                        }
                       }}
                     >
                       <span
-                        style={{
-                          ...s.tabIcon,
-                          color: isActive
-                            ? "var(--red-text, #ff6b6b)"
-                            : "inherit",
-                        }}
+                        className={
+                          isActive
+                            ? "nav-tab__icon nav-tab__icon--active"
+                            : "nav-tab__icon"
+                        }
+                        style={s.tabIcon}
                       >
                         {Icon && <Icon />}
                       </span>
@@ -565,13 +546,8 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                         key={to}
                         to={to}
                         style={s.menuItem}
+                        className="nav-menu-item"
                         onClick={() => setShowUserMenu(false)}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "var(--bg-card2)")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background = "transparent")
-                        }
                       >
                         <span style={s.menuItemIcon}>{icon}</span>
                         <span>{label}</span>
@@ -591,12 +567,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                         textAlign: "left",
                         fontFamily: "inherit",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = "var(--red-dim)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
+                      className="nav-menu-item nav-menu-item--logout"
                     >
                       <span style={s.menuItemIcon}>{menuIcons.logout}</span>
                       <span>Đăng xuất</span>
@@ -605,18 +576,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                style={s.loginBtn}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--red-hover)";
-                  e.currentTarget.style.boxShadow = "var(--red-glow)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--red)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
+              <Link to="/login" style={s.loginBtn} className="nav-login-btn">
                 Đăng nhập
               </Link>
             )}
@@ -1018,6 +978,52 @@ const navCSS = `
     from { opacity: 0; transform: translateY(-6px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
+
+  /* ── Tab buttons ── */
+  .nav-tab {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .nav-tab:hover:not(.nav-tab--active) {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+  }
+  .nav-tab--active {
+    background: rgba(229,9,20,0.14);
+    color: var(--text-primary);
+    border-color: rgba(229,9,20,0.28);
+  }
+  .nav-tab__icon {
+    color: inherit;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .nav-tab__icon--active {
+    color: var(--red-text, #ff6b6b);
+  }
+
+  /* ── Dropdown menu items ── */
+  .nav-menu-item {
+    transition: background 0.13s ease;
+  }
+  .nav-menu-item:hover {
+    background: var(--bg-card2) !important;
+  }
+  .nav-menu-item--logout:hover {
+    background: var(--red-dim) !important;
+  }
+
+  /* ── Login button ── */
+  .nav-login-btn {
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .nav-login-btn:hover {
+    background: var(--red-hover) !important;
+    box-shadow: var(--red-glow) !important;
+  }
 `;
 
 const s = {
@@ -1099,8 +1105,6 @@ const s = {
     fontWeight: 500,
     fontFamily: "var(--font-body, sans-serif)",
     whiteSpace: "nowrap",
-    transition:
-      "background 0.18s ease, color 0.18s ease, border-color 0.18s ease",
   },
   tabIcon: { display: "flex", alignItems: "center", flexShrink: 0 },
   tabLabel: { letterSpacing: "0.01em" },

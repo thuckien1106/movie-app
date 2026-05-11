@@ -20,25 +20,24 @@ import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import Statistics from "./pages/Statistics";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import AdminPage from "./pages/AdminPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import VerifyBanner from "./components/VerifyBanner";
 import PublicProfilePage from "./pages/PublicProfilePage";
 import ComparePage from "./pages/ComparePage";
-// ─── RouteErrorBoundary ───────────────────────────────────────────────────────
-// Tách riêng để dùng được useLocation() (hook chỉ chạy trong BrowserRouter).
-// resetKey = pathname: mỗi khi user navigate sang trang khác, ErrorBoundary
-// tự reset — tránh trường hợp lỗi trang A làm kẹt cả app.
+import AiChatBox from "./components/AiChatBox";
+
 function RouteErrorBoundary({ children }) {
   const { pathname } = useLocation();
   return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
 }
 
-// ─── Routes ──────────────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
     <>
       <VerifyBanner />
+      <AiChatBox />
       <Routes>
         {/* Public routes */}
         <Route
@@ -176,21 +175,23 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <RouteErrorBoundary>
-                <AdminPage />
-              </RouteErrorBoundary>
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/verify-email"
           element={
             <RouteErrorBoundary>
               <VerifyEmailPage />
             </RouteErrorBoundary>
+          }
+        />
+
+        {/* Admin-only route — chỉ admin + moderator */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <RouteErrorBoundary>
+                <AdminPage />
+              </RouteErrorBoundary>
+            </AdminRoute>
           }
         />
 
@@ -201,11 +202,8 @@ function AppRoutes() {
   );
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
   return (
-    // ErrorBoundary ngoài cùng: bắt lỗi ở chính các Provider
-    // (ThemeProvider, AuthProvider...) trước khi BrowserRouter mount
     <ErrorBoundary>
       <ThemeProvider>
         <ToastProvider>

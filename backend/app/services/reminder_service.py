@@ -1,16 +1,4 @@
 # app/services/reminder_service.py
-"""
-Reminder service — xử lý toàn bộ logic nhắc nhở phim sắp chiếu.
-
-Luồng chính:
-  set_reminder()       → user đặt nhắc cho 1 phim
-  remove_reminder()    → huỷ nhắc
-  get_reminders()      → danh sách nhắc của user
-  check_and_fire()     → scheduler gọi mỗi ngày để tạo notification
-  get_notifications()  → lấy thông báo in-app
-  mark_read()          → đánh dấu đã đọc
-"""
-
 import logging
 from datetime import date, timedelta, datetime as datetime
 from sqlalchemy.orm import Session
@@ -21,7 +9,6 @@ from app.schemas.reminder_schema import ReminderCreate
 
 logger = logging.getLogger(__name__)
 
-# Số ngày trước release_date sẽ gửi thông báo
 NOTIFY_DAYS_BEFORE = 3
 
 
@@ -30,7 +17,6 @@ NOTIFY_DAYS_BEFORE = 3
 # ════════════════════════════════════════════
 
 def set_reminder(db: Session, user_id: int, data: ReminderCreate) -> Reminder:
-    """Đặt nhắc nhở. Idempotent — nếu đã tồn tại thì trả về item cũ."""
     existing = db.query(Reminder).filter(
         Reminder.user_id == user_id,
         Reminder.movie_id == data.movie_id,
@@ -38,7 +24,6 @@ def set_reminder(db: Session, user_id: int, data: ReminderCreate) -> Reminder:
     if existing:
         return existing
 
-    # Tính notify_on = release_date - NOTIFY_DAYS_BEFORE
     notify_on = None
     if data.release_date:
         try:
@@ -91,24 +76,16 @@ def is_reminded(db: Session, user_id: int, movie_id: int) -> bool:
 
 
 # ════════════════════════════════════════════
-# SCHEDULER — gọi mỗi ngày (lifespan / APScheduler)
+# SCHEDULER
 # ════════════════════════════════════════════
 
 def check_and_fire(db: Session) -> int:
-    """
-    Quét tất cả reminder chưa gửi có notify_on <= hôm nay.
-    Tạo InAppNotification cho từng user, đánh dấu is_sent = True.
-    Trả về số lượng notification đã tạo.
-
-    Idempotent: chạy nhiều lần trong ngày vẫn an toàn — đã kiểm tra
-    duplicate trước khi insert và dùng is_sent flag để không xử lý lại.
-    """
-    today = date.today().isoformat()
+    today   = date.today().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     pending = db.query(Reminder).filter(
         and_(
-            Reminder.is_sent == False,
+            Reminder.is_sent  == False,
             Reminder.notify_on != None,
             Reminder.notify_on <= today,
         )
@@ -122,20 +99,16 @@ def check_and_fire(db: Session) -> int:
 
     fired = 0
     for r in pending:
-        # Idempotency: kiểm tra notification đã tồn tại chưa (tránh duplicate
-        # nếu job chạy 2 lần gần nhau hoặc sau khi server restart)
         already = db.query(InAppNotification).filter(
-            InAppNotification.user_id == r.user_id,
-            InAppNotification.movie_id == r.movie_id,
+            InAppNotification.user_id    == r.user_id,
+            InAppNotification.movie_id   == r.movie_id,
+            InAppNotification.notif_type == "reminder",
         ).first()
         if already:
-            # Notification đã có → chỉ đánh dấu is_sent nếu chưa làm
             if not r.is_sent:
                 r.is_sent = True
-                logger.debug(f"[reminder] reminder id={r.id} already notified, marking sent")
             continue
 
-        # Tạo nội dung thông báo
         days_left = _days_until(r.release_date)
         if days_left is not None and days_left > 0:
             body = f'"{r.title}" sẽ ra rạp sau {days_left} ngày nữa ({r.release_date}). Đừng bỏ lỡ!'
@@ -144,14 +117,14 @@ def check_and_fire(db: Session) -> int:
         else:
             body = f'"{r.title}" đã ra rạp rồi! Bạn đã xem chưa?'
 
-        notif = InAppNotification(
-            user_id=r.user_id,
-            movie_id=r.movie_id,
-            title=f"🎬 Sắp ra rạp: {r.title}",
-            body=body,
-            poster=r.poster,
-        )
-        db.add(notif)
+        db.add(InAppNotification(
+            user_id    = r.user_id,
+            movie_id   = r.movie_id,
+            title      = f"🎬 Sắp ra rạp: {r.title}",
+            body       = body,
+            poster     = r.poster,
+            notif_type = "reminder",
+        ))
         r.is_sent = True
         fired += 1
         logger.info(f"[reminder] fired → user_id={r.user_id} movie='{r.title}' days_left={days_left}")
@@ -165,8 +138,7 @@ def _days_until(release_date_str: str | None) -> int | None:
     if not release_date_str:
         return None
     try:
-        rd = date.fromisoformat(release_date_str)
-        return (rd - date.today()).days
+        return (date.fromisoformat(release_date_str) - date.today()).days
     except ValueError:
         return None
 
@@ -181,9 +153,7 @@ def get_notifications(
     limit: int = 30,
     unread_only: bool = False,
 ) -> list[InAppNotification]:
-    q = db.query(InAppNotification).filter(
-        InAppNotification.user_id == user_id
-    )
+    q = db.query(InAppNotification).filter(InAppNotification.user_id == user_id)
     if unread_only:
         q = q.filter(InAppNotification.is_read == False)
     return q.order_by(InAppNotification.created_at.desc()).limit(limit).all()
@@ -200,7 +170,7 @@ def get_notification_stats(db: Session, user_id: int) -> dict:
 
 def mark_read(db: Session, user_id: int, notification_id: int) -> bool:
     notif = db.query(InAppNotification).filter(
-        InAppNotification.id == notification_id,
+        InAppNotification.id      == notification_id,
         InAppNotification.user_id == user_id,
     ).first()
     if not notif:
@@ -221,7 +191,7 @@ def mark_all_read(db: Session, user_id: int) -> int:
 
 def delete_notification(db: Session, user_id: int, notification_id: int) -> bool:
     notif = db.query(InAppNotification).filter(
-        InAppNotification.id == notification_id,
+        InAppNotification.id      == notification_id,
         InAppNotification.user_id == user_id,
     ).first()
     if not notif:

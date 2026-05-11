@@ -1,6 +1,6 @@
 # app/schemas/reminder_schema.py
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime
 import re
 
@@ -11,7 +11,7 @@ class ReminderCreate(BaseModel):
     movie_id:     int            = Field(..., gt=0, le=10_000_000)
     title:        str            = Field(..., min_length=1, max_length=255)
     poster:       Optional[str]  = Field(None, max_length=500)
-    release_date: Optional[str]  = Field(None, max_length=20)  # "YYYY-MM-DD"
+    release_date: Optional[str]  = Field(None, max_length=20)
 
     @field_validator("release_date")
     @classmethod
@@ -45,13 +45,15 @@ class ReminderResponse(BaseModel):
 
 
 class NotificationResponse(BaseModel):
-    id:         int
-    movie_id:   Optional[int]
-    title:      str
-    body:       Optional[str]
-    poster:     Optional[str]
-    is_read:    bool
-    created_at: datetime
+    id:          int
+    movie_id:    Optional[int]
+    review_id:   Optional[int]
+    title:       str
+    body:        Optional[str]
+    poster:      Optional[str]
+    notif_type:  str   # "reminder" | "like" | "comment"
+    is_read:     bool
+    created_at:  datetime
 
     class Config:
         from_attributes = True

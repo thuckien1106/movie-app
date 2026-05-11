@@ -20,6 +20,7 @@ class Settings:
 
     # ── Internal API key (dùng cho cron job / scheduler) ───
     INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+    GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 
     # ── Google OAuth2 ───────────────────────────────────────
     GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")

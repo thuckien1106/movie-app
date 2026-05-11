@@ -22,8 +22,8 @@ class Reminder(Base):
     movie_id     = Column(Integer, nullable=False)
     title        = Column(String(255), nullable=False)
     poster       = Column(String(500), nullable=True)
-    release_date = Column(String(20),  nullable=True)   # "2025-12-25"
-    notify_on    = Column(String(20),  nullable=True)   # release_date - 3 ngày
+    release_date = Column(String(20),  nullable=True)
+    notify_on    = Column(String(20),  nullable=True)
     is_sent      = Column(Boolean, default=False)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -32,16 +32,20 @@ class InAppNotification(Base):
     """
     Thông báo in-app — hiển thị trong notification bell.
 
-    Được tạo bởi scheduler khi đến notify_on,
-    hoặc ngay lập tức khi admin muốn thông báo tất cả user.
+    notif_type phân loại nguồn gốc:
+      "reminder"  → phim sắp chiếu (từ scheduler)
+      "like"      → ai đó thích review của bạn
+      "comment"   → ai đó bình luận vào review của bạn
     """
     __tablename__ = "notifications"
 
-    id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    movie_id   = Column(Integer, nullable=True)
-    title      = Column(String(255), nullable=False)   # tiêu đề thông báo
-    body       = Column(Text,        nullable=True)    # nội dung chi tiết
-    poster     = Column(String(500), nullable=True)
-    is_read    = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id          = Column(Integer, primary_key=True, index=True)
+    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    movie_id    = Column(Integer, nullable=True)
+    review_id   = Column(Integer, nullable=True)
+    title       = Column(String(255), nullable=False)
+    body        = Column(Text,        nullable=True)
+    poster      = Column(String(500), nullable=True)
+    notif_type  = Column(String(20),  nullable=False, default="reminder")
+    is_read     = Column(Boolean, default=False)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())

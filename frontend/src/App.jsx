@@ -1,5 +1,11 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import { ToastProvider } from "./components/ToastContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -21,12 +27,27 @@ import Statistics from "./pages/Statistics";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import { useAuth } from "./context/AuthContext";
 import AdminPage from "./pages/AdminPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import VerifyBanner from "./components/VerifyBanner";
 import PublicProfilePage from "./pages/PublicProfilePage";
 import ComparePage from "./pages/ComparePage";
 import AiChatBox from "./components/AiChatBox";
+
+// Nếu user là admin/moderator mà đang ở trang không phải /admin → redirect về /admin
+function AdminRedirect() {
+  const { user, isLoggedIn } = useAuth();
+  const location = useLocation();
+  if (
+    isLoggedIn &&
+    (user?.role === "admin" || user?.role === "moderator") &&
+    !location.pathname.startsWith("/admin")
+  ) {
+    return <Navigate to="/admin" replace />;
+  }
+  return null;
+}
 
 function RouteErrorBoundary({ children }) {
   const { pathname } = useLocation();
@@ -36,6 +57,7 @@ function RouteErrorBoundary({ children }) {
 function AppRoutes() {
   return (
     <>
+      <AdminRedirect />
       <VerifyBanner />
       <AiChatBox />
       <Routes>

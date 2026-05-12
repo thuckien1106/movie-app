@@ -15,8 +15,9 @@ export default function VerifyBanner() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  // Không hiện nếu: chưa login, đã verified, đã dismiss, tài khoản Google
+  // Không hiện nếu: chưa login, đã verified, đã dismiss, tài khoản Google, hoặc là admin/moderator
   if (!user || user.is_verified || user.is_google || dismissed) return null;
+  if (user.role === "admin" || user.role === "moderator") return null;
 
   const handleResend = async () => {
     if (sending || sent) return;

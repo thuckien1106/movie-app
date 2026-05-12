@@ -2,14 +2,8 @@
 /**
  * Trang trung gian sau khi Google redirect về FE.
  * URL: /oauth/callback?token=...&refresh_token=...&user_email=...&user_name=...
- *
- * Trang này:
- *  1. Đọc query params (token + refresh_token)
- *  2. Lưu token + user vào localStorage qua saveSession
- *  3. Redirect về trang chủ (hoặc trang trước đó)
- *  4. Nếu có lỗi → hiện thông báo + redirect về /login
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
@@ -25,14 +19,18 @@ export default function OAuthCallbackPage() {
   const { saveSession } = useAuth();
   const showToast = useToast();
   const navigate = useNavigate();
-  const [status, setStatus] = useState("loading"); // "loading" | "error"
+  const [status, setStatus] = useState("loading");
+  const handledRef = useRef(false); // ← chặn double-fire (React StrictMode)
 
   useEffect(() => {
+    // Guard: chỉ xử lý 1 lần duy nhất
+    if (handledRef.current) return;
+    handledRef.current = true;
+
     const token = params.get("token");
-    const refreshToken = params.get("refresh_token"); // ← THÊM MỚI
+    const refreshToken = params.get("refresh_token");
     const oauthError = params.get("oauth_error");
 
-    // ── Có lỗi từ BE ──
     if (oauthError) {
       const msg = ERROR_MESSAGES[oauthError] || "Đăng nhập Google thất bại.";
       showToast(msg, "error");
@@ -41,7 +39,6 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    // ── Thiếu token ──
     if (!token || !refreshToken) {
       showToast("Không nhận được thông tin xác thực.", "error");
       setStatus("error");
@@ -49,7 +46,6 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    // ── Xây user object từ query params ──
     const userData = {
       id: Number(params.get("user_id")) || 0,
       email: params.get("user_email") || "",
@@ -60,14 +56,13 @@ export default function OAuthCallbackPage() {
       is_google: true,
     };
 
-    // ── Lưu session (access token + refresh token + user) ──
-    saveSession(token, refreshToken, userData); // ← THÊM refresh_token
+    saveSession(token, refreshToken, userData);
     showToast(
       `Chào mừng, ${userData.username || userData.email.split("@")[0]}! 🎬`,
       "success",
     );
     navigate("/", { replace: true });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={s.page}>

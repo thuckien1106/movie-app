@@ -120,6 +120,11 @@ function NotifIcon({ notif }) {
       bg: "rgba(96,165,250,0.12)",
       border: "rgba(96,165,250,0.2)",
     },
+    broadcast: {
+      emoji: "📢",
+      bg: "rgba(168,85,247,0.12)",
+      border: "rgba(168,85,247,0.2)",
+    },
     reminder: { emoji: "🎬", bg: "var(--bg-card2)", border: "var(--border)" },
   }[type] || { emoji: "🔔", bg: "var(--bg-card2)", border: "var(--border)" };
 
@@ -154,7 +159,13 @@ function NotifItem({ notif, onRead, onDelete, onNavigate }) {
         ? "comment"
         : "reminder");
   const dotColor =
-    type === "like" ? "#f5c518" : type === "comment" ? "#60a5fa" : "var(--red)";
+    type === "like"
+      ? "#f5c518"
+      : type === "comment"
+        ? "#60a5fa"
+        : type === "broadcast"
+          ? "#a855f7"
+          : "var(--red)";
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -357,7 +368,7 @@ export default function NotificationBell() {
         ? "comment"
         : "reminder");
   const activityNotifs = notifs.filter((n) =>
-    ["like", "comment"].includes(getType(n)),
+    ["like", "comment", "broadcast"].includes(getType(n)),
   );
   const reminderNotifs = notifs.filter((n) => getType(n) === "reminder");
   const visibleNotifs = tab === "activity" ? activityNotifs : reminderNotifs;

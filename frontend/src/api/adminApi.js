@@ -30,3 +30,9 @@ export const unhideReview = (reviewId) =>
 
 export const deleteReviewAdmin = (reviewId) =>
   api.delete(`/admin/reviews/${reviewId}`);
+
+// ── Broadcast ─────────────────────────────────────────────
+export const sendBroadcast = (data) => api.post("/admin/broadcast", data);
+
+export const getBroadcastHistory = (page = 1) =>
+  api.get("/admin/broadcast/history", { params: { page } });

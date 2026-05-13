@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./NotificationBell";
 
-/* ── Hook ── */
 function useIsMobile(bp = 768) {
   const [mobile, setMobile] = useState(() => window.innerWidth < bp);
   useEffect(() => {
@@ -15,7 +14,7 @@ function useIsMobile(bp = 768) {
   return mobile;
 }
 
-/* ── SVG Icons for tabs ── */
+/* ── Icons ─────────────────────────────────────────────── */
 const TabIcons = {
   all: () => (
     <svg
@@ -87,8 +86,7 @@ const TabIcons = {
   ),
 };
 
-/* ── Nav link icons ── */
-const MoodIcon = () => (
+const IcoMood = () => (
   <svg
     width="14"
     height="14"
@@ -105,7 +103,7 @@ const MoodIcon = () => (
     <line x1="15" y1="9" x2="15.01" y2="9" />
   </svg>
 );
-const StarIcon = () => (
+const IcoStar = () => (
   <svg
     width="14"
     height="14"
@@ -119,72 +117,21 @@ const StarIcon = () => (
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
+const IcoAdmin = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
 
-/* ── TABS config ── */
-const TABS = [
-  { key: "all", label: "Khám phá", badge: null },
-  { key: "popular", label: "Phổ biến", badge: null },
-  { key: "top-rated", label: "Top Rated", badge: null },
-  { key: "upcoming", label: "Sắp chiếu", badge: "New" },
-  { key: "trending", label: "Trending", badge: null },
-];
-
-/* ── Logo ── */
-function Logo({ size = 28 }) {
-  return (
-    <svg
-      width={size * 2.8}
-      height={size}
-      viewBox="0 0 90 32"
-      fill="none"
-      style={{ display: "block" }}
-    >
-      <rect
-        x="1"
-        y="4"
-        width="3"
-        height="24"
-        rx="1.5"
-        fill="var(--red)"
-        opacity="0.9"
-      />
-      <rect x="1" y="6" width="3" height="4" rx="1" fill="var(--bg-page)" />
-      <rect x="1" y="13" width="3" height="4" rx="1" fill="var(--bg-page)" />
-      <rect x="1" y="20" width="3" height="4" rx="1" fill="var(--bg-page)" />
-      <text
-        x="9"
-        y="23"
-        fontFamily="'Bebas Neue', 'Arial Narrow', sans-serif"
-        fontSize="22"
-        letterSpacing="2"
-        fill="var(--text-primary)"
-      >
-        FILMS
-      </text>
-      <circle cx="86" cy="22" r="2.5" fill="var(--red)" />
-    </svg>
-  );
-}
-
-/* ── Page title ── */
-function PageTitle({ path }) {
-  const map = {
-    "/watchlist": "My Watchlist",
-    "/statistics": "Statistics",
-    "/profile": "Hồ sơ",
-    "/login": "Đăng nhập",
-    "/mood": "Tâm trạng",
-    "/reminders": "Nhắc nhở",
-    "/recommendations": "Gợi ý cho bạn",
-  };
-  if (path.startsWith("/movie/"))
-    return <span style={s.pageTitle}>Chi tiết phim</span>;
-  if (path.startsWith("/w/"))
-    return <span style={s.pageTitle}>Watchlist công khai</span>;
-  return <span style={s.pageTitle}>{map[path] ?? ""}</span>;
-}
-
-/* ── Menu item icons (inline SVG) ── */
 const menuIcons = {
   profile: (
     <svg
@@ -280,6 +227,20 @@ const menuIcons = {
       <path d="M13.73 21a2 2 0 01-3.46 0" />
     </svg>
   ),
+  admin: (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
   logout: (
     <svg
       width="15"
@@ -298,6 +259,297 @@ const menuIcons = {
   ),
 };
 
+const TABS = [
+  { key: "all", label: "Khám phá", badge: null },
+  { key: "popular", label: "Phổ biến", badge: null },
+  { key: "top-rated", label: "Top Rated", badge: null },
+  { key: "upcoming", label: "Sắp chiếu", badge: "New" },
+  { key: "trending", label: "Trending", badge: null },
+];
+
+/* ── Logo ── */
+function Logo({ size = 28 }) {
+  return (
+    <svg
+      width={size * 2.8}
+      height={size}
+      viewBox="0 0 90 32"
+      fill="none"
+      style={{ display: "block" }}
+    >
+      <rect
+        x="1"
+        y="4"
+        width="3"
+        height="24"
+        rx="1.5"
+        fill="var(--red)"
+        opacity="0.9"
+      />
+      <rect x="1" y="6" width="3" height="4" rx="1" fill="var(--bg-page)" />
+      <rect x="1" y="13" width="3" height="4" rx="1" fill="var(--bg-page)" />
+      <rect x="1" y="20" width="3" height="4" rx="1" fill="var(--bg-page)" />
+      <text
+        x="9"
+        y="23"
+        fontFamily="'Bebas Neue','Arial Narrow',sans-serif"
+        fontSize="22"
+        letterSpacing="2"
+        fill="var(--text-primary)"
+      >
+        FILMS
+      </text>
+      <circle cx="86" cy="22" r="2.5" fill="var(--red)" />
+    </svg>
+  );
+}
+
+/* ── Admin Navbar (chỉ hiện khi role admin/moderator) ── */
+function AdminNavbar({ user, logout }) {
+  const navigate = useNavigate();
+  const [showLogout, setShowLogout] = useState(false);
+  const displayName = user?.username || user?.email?.split("@")[0] || "";
+  const avatarChar = user?.avatar || displayName[0]?.toUpperCase() || "A";
+  const isAdmin = user?.role === "admin";
+
+  return (
+    <>
+      <nav style={{ ...s.navbar, ...s.navbarSolid }}>
+        {/* Left: Logo + badge */}
+        <div style={s.navLeft}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Logo size={24} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "rgba(225,29,72,0.12)",
+                border: "1px solid rgba(225,29,72,0.25)",
+                borderRadius: 99,
+                padding: "3px 10px 3px 6px",
+              }}
+            >
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "var(--red)",
+                  boxShadow: "0 0 6px var(--red)",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--red-text,#ff6b6b)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {isAdmin ? "ADMIN" : "MOD"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Center: page label */}
+        <div style={s.navCenter}>
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Trang Quản Trị
+          </span>
+        </div>
+
+        {/* Right */}
+        <div style={s.navRight}>
+          <ThemeToggle />
+          <NotificationBell />
+
+          {/* Avatar + logout */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-mid)",
+              borderRadius: 99,
+              padding: "4px 12px 4px 4px",
+            }}
+          >
+            <div style={{ ...s.avatar, background: "var(--red)" }}>
+              {avatarChar}
+            </div>
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+                maxWidth: 100,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displayName}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setShowLogout(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 14px",
+              borderRadius: 99,
+              background: "rgba(225,29,72,0.1)",
+              border: "1px solid rgba(225,29,72,0.25)",
+              color: "var(--red-text,#ff6b6b)",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+            className="admin-logout-btn"
+          >
+            {menuIcons.logout}
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      </nav>
+
+      <div style={{ height: 60 }} />
+
+      {showLogout && (
+        <LogoutModal
+          onConfirm={() => {
+            setShowLogout(false);
+            logout();
+            navigate("/login");
+          }}
+          onCancel={() => setShowLogout(false)}
+        />
+      )}
+      <style>{navCSS}</style>
+    </>
+  );
+}
+
+/* ── Logout Modal ── */
+function LogoutModal({ onConfirm, onCancel }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(6px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: "var(--bg-overlay,#0f1420)",
+          border: "1px solid var(--border-mid,rgba(255,255,255,0.1))",
+          borderRadius: 16,
+          padding: "28px 28px 24px",
+          maxWidth: 340,
+          width: "90%",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            margin: "0 auto 16px",
+            background: "rgba(229,9,20,0.1)",
+            border: "1.5px solid rgba(229,9,20,0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--red-text)",
+          }}
+        >
+          {menuIcons.logout}
+        </div>
+        <h3
+          style={{
+            margin: "0 0 8px",
+            fontSize: 17,
+            fontWeight: 700,
+            textAlign: "center",
+            color: "var(--text-primary)",
+          }}
+        >
+          Đăng xuất?
+        </h3>
+        <p
+          style={{
+            margin: "0 0 22px",
+            fontSize: 13,
+            textAlign: "center",
+            color: "var(--text-secondary)",
+            lineHeight: 1.6,
+          }}
+        >
+          Bạn có chắc muốn đăng xuất khỏi tài khoản không?
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "10px",
+              borderRadius: 9,
+              border: "1px solid var(--border-mid)",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Huỷ
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "10px",
+              borderRadius: 9,
+              border: "none",
+              background: "var(--red,#e50914)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════
    MAIN NAVBAR
 ════════════════════════════════════════════ */
@@ -307,11 +559,19 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
   const location = useLocation();
   const isMobile = useIsMobile();
 
+  const isAdmin = user?.role === "admin" || user?.role === "moderator";
+
+  // Admin/moderator → dùng AdminNavbar riêng
+  if (isLoggedIn && isAdmin) {
+    return <AdminNavbar user={user} logout={logout} />;
+  }
+
   const [solid, setSolid] = useState(!heroRef);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
-  const userMenuRef = useRef(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const userMenuRef = useRef(null);
+
   const isHome = location.pathname === "/";
   const isMood = location.pathname === "/mood";
   const isRec = location.pathname === "/recommendations";
@@ -323,10 +583,10 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
       return;
     }
     setSolid(false);
-    const obs = new IntersectionObserver(
-      ([entry]) => setSolid(!entry.isIntersecting),
-      { threshold: 0, rootMargin: "-60px 0px 0px 0px" },
-    );
+    const obs = new IntersectionObserver(([e]) => setSolid(!e.isIntersecting), {
+      threshold: 0,
+      rootMargin: "-60px 0px 0px 0px",
+    });
     obs.observe(heroRef.current);
     return () => obs.disconnect();
   }, [heroRef]);
@@ -357,6 +617,15 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
     user?.avatar || (user?.username || user?.email || "U")[0].toUpperCase();
   const displayName = user?.username || user?.email?.split("@")[0] || "";
 
+  const userMenuLinks = [
+    { to: "/profile", icon: menuIcons.profile, label: "Hồ sơ của tôi" },
+    { to: "/watchlist", icon: menuIcons.watchlist, label: "My Watchlist" },
+    { to: "/statistics", icon: menuIcons.stats, label: "Statistics" },
+    { to: "/recommendations", icon: menuIcons.rec, label: "Gợi ý cho bạn" },
+    { to: "/mood", icon: menuIcons.mood, label: "Tâm trạng" },
+    { to: "/reminders", icon: menuIcons.reminder, label: "Nhắc nhở" },
+  ];
+
   /* ═══ DESKTOP ═══ */
   if (!isMobile) {
     return (
@@ -367,7 +636,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             ...(solid ? s.navbarSolid : s.navbarTransparent),
           }}
         >
-          {/* Left: Logo */}
           <div style={s.navLeft}>
             <Link
               to="/"
@@ -382,7 +650,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             </Link>
           </div>
 
-          {/* Center: Tabs or Page title */}
           <div style={s.navCenter}>
             {isHome ? (
               <div style={s.tabBar}>
@@ -396,9 +663,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                       className={
                         isActive ? "nav-tab nav-tab--active" : "nav-tab"
                       }
-                      style={{
-                        ...s.tab,
-                      }}
+                      style={s.tab}
                     >
                       <span
                         className={
@@ -421,33 +686,23 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
             )}
           </div>
 
-          {/* Right: Controls */}
           <div style={s.navRight}>
-            {/* Mood link */}
             <Link
               to="/mood"
-              style={{
-                ...s.navLink,
-                ...(isMood ? s.navLinkMoodActive : {}),
-              }}
+              style={{ ...s.navLink, ...(isMood ? s.navLinkMoodActive : {}) }}
             >
-              <MoodIcon />
+              <IcoMood />
               <span>Tâm trạng</span>
             </Link>
-
             {isLoggedIn && (
               <Link
                 to="/recommendations"
-                style={{
-                  ...s.navLink,
-                  ...(isRec ? s.navLinkRecActive : {}),
-                }}
+                style={{ ...s.navLink, ...(isRec ? s.navLinkRecActive : {}) }}
               >
-                <StarIcon />
+                <IcoStar />
                 <span>Gợi ý</span>
               </Link>
             )}
-
             <NotificationBell />
             <ThemeToggle />
 
@@ -484,7 +739,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
                 {showUserMenu && (
                   <div style={s.userMenu}>
-                    {/* User info header */}
+                    {/* User info */}
                     <div style={s.menuUserInfo}>
                       <div
                         style={{
@@ -495,7 +750,20 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                           flexShrink: 0,
                         }}
                       >
-                        {avatarChar}
+                        {user?.avatar_url ? (
+                          <img
+                            src={user.avatar_url}
+                            alt=""
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          avatarChar
+                        )}
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <p style={s.menuUserName}>{displayName}</p>
@@ -504,44 +772,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                     </div>
                     <div style={s.menuDivider} />
 
-                    {[
-                      {
-                        to: "/profile",
-                        icon: menuIcons.profile,
-                        label: "Hồ sơ của tôi",
-                      },
-                      ...(user?.role === "admin" || user?.role === "moderator"
-                        ? [
-                            {
-                              to: "/admin",
-                              icon: menuIcons.stats,
-                              label: "Quản trị",
-                            },
-                          ]
-                        : []),
-
-                      {
-                        to: "/watchlist",
-                        icon: menuIcons.watchlist,
-                        label: "My Watchlist",
-                      },
-                      {
-                        to: "/statistics",
-                        icon: menuIcons.stats,
-                        label: "Statistics",
-                      },
-                      {
-                        to: "/recommendations",
-                        icon: menuIcons.rec,
-                        label: "Gợi ý cho bạn",
-                      },
-                      { to: "/mood", icon: menuIcons.mood, label: "Tâm trạng" },
-                      {
-                        to: "/reminders",
-                        icon: menuIcons.reminder,
-                        label: "Nhắc nhở",
-                      },
-                    ].map(({ to, icon, label }) => (
+                    {userMenuLinks.map(({ to, icon, label }) => (
                       <Link
                         key={to}
                         to={to}
@@ -585,113 +816,13 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
         {solid && !heroRef && <div style={{ height: 60 }} />}
         {showLogoutConfirm && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              background: "rgba(0,0,0,0.65)",
-              backdropFilter: "blur(6px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+          <LogoutModal
+            onConfirm={() => {
+              setShowLogoutConfirm(false);
+              logout();
             }}
-            onClick={() => setShowLogoutConfirm(false)}
-          >
-            <div
-              style={{
-                background: "var(--bg-overlay, #0f1420)",
-                border: "1px solid var(--border-mid, rgba(255,255,255,0.1))",
-                borderRadius: 16,
-                padding: "28px 28px 24px",
-                maxWidth: 340,
-                width: "90%",
-                boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Icon */}
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "50%",
-                  margin: "0 auto 16px",
-                  background: "rgba(229,9,20,0.1)",
-                  border: "1.5px solid rgba(229,9,20,0.25)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {menuIcons.logout}
-              </div>
-
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: 17,
-                  fontWeight: 700,
-                  textAlign: "center",
-                  color: "var(--text-primary, #f0f4ff)",
-                }}
-              >
-                Đăng xuất?
-              </h3>
-              <p
-                style={{
-                  margin: "0 0 22px",
-                  fontSize: 13,
-                  textAlign: "center",
-                  color: "var(--text-secondary, #94a3b8)",
-                  lineHeight: 1.6,
-                }}
-              >
-                Bạn có chắc muốn đăng xuất khỏi tài khoản không?
-              </p>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: 9,
-                    border:
-                      "1px solid var(--border-mid, rgba(255,255,255,0.1))",
-                    background: "transparent",
-                    color: "var(--text-secondary, #94a3b8)",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Huỷ
-                </button>
-                <button
-                  onClick={() => {
-                    setShowLogoutConfirm(false);
-                    logout();
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: 9,
-                    border: "none",
-                    background: "var(--red, #e50914)",
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Đăng xuất
-                </button>
-              </div>
-            </div>
-          </div>
+            onCancel={() => setShowLogoutConfirm(false)}
+          />
         )}
         <style>{navCSS}</style>
       </>
@@ -731,7 +862,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
               </div>
             </button>
           )}
-          {/* Hamburger */}
           <button
             onClick={() => setShowDrawer((p) => !p)}
             style={s.hamburger}
@@ -760,7 +890,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
 
       {solid && <div style={{ height: 52 }} />}
 
-      {/* Overlay */}
       <div
         style={{
           ...s.drawerOverlay,
@@ -770,7 +899,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         onClick={() => setShowDrawer(false)}
       />
 
-      {/* Drawer */}
       <div
         style={{
           ...s.drawer,
@@ -798,7 +926,20 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         {isLoggedIn ? (
           <div style={s.drawerUser}>
             <div style={{ ...s.avatar, width: 42, height: 42, fontSize: 18 }}>
-              {avatarChar}
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                avatarChar
+              )}
             </div>
             <div>
               <p style={s.drawerUserName}>{displayName}</p>
@@ -861,9 +1002,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
           },
           { to: "/reminders", icon: menuIcons.reminder, label: "Nhắc nhở" },
           { to: "/profile", icon: menuIcons.profile, label: "Hồ sơ" },
-          ...(user?.role === "admin" || user?.role === "moderator"
-            ? [{ to: "/admin", icon: menuIcons.stats, label: "⚙ Quản trị" }]
-            : []),
         ].map(({ to, icon, label }) => (
           <Link
             key={to}
@@ -899,7 +1037,6 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         )}
       </div>
 
-      {/* Bottom tab bar */}
       {isHome && (
         <div style={s.bottomNav}>
           {TABS.map(({ key, label }) => {
@@ -916,7 +1053,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                   style={{
                     ...s.bottomIcon,
                     color: isActive
-                      ? "var(--red-text, #ff6b6b)"
+                      ? "var(--red-text,#ff6b6b)"
                       : "var(--text-muted)",
                     transform: isActive ? "scale(1.1)" : "scale(1)",
                     transition: "all 0.2s ease",
@@ -953,7 +1090,7 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                 color: isMood ? "#c39bd3" : "var(--text-muted)",
               }}
             >
-              <MoodIcon />
+              <IcoMood />
             </span>
             <span
               style={{
@@ -968,62 +1105,50 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
         </div>
       )}
 
+      {showLogoutConfirm && (
+        <LogoutModal
+          onConfirm={() => {
+            setShowLogoutConfirm(false);
+            logout();
+          }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
       <style>{navCSS}</style>
     </>
   );
 }
 
+function PageTitle({ path }) {
+  const map = {
+    "/watchlist": "My Watchlist",
+    "/statistics": "Statistics",
+    "/profile": "Hồ sơ",
+    "/login": "Đăng nhập",
+    "/mood": "Tâm trạng",
+    "/reminders": "Nhắc nhở",
+    "/recommendations": "Gợi ý cho bạn",
+  };
+  if (path.startsWith("/movie/"))
+    return <span style={s.pageTitle}>Chi tiết phim</span>;
+  if (path.startsWith("/w/"))
+    return <span style={s.pageTitle}>Watchlist công khai</span>;
+  return <span style={s.pageTitle}>{map[path] ?? ""}</span>;
+}
+
 const navCSS = `
-  @keyframes menuIn {
-    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  /* ── Tab buttons ── */
-  .nav-tab {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid transparent;
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-  }
-  .nav-tab:hover:not(.nav-tab--active) {
-    background: rgba(255,255,255,0.05);
-    color: var(--text-secondary);
-  }
-  .nav-tab--active {
-    background: rgba(229,9,20,0.14);
-    color: var(--text-primary);
-    border-color: rgba(229,9,20,0.28);
-  }
-  .nav-tab__icon {
-    color: inherit;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-  }
-  .nav-tab__icon--active {
-    color: var(--red-text, #ff6b6b);
-  }
-
-  /* ── Dropdown menu items ── */
-  .nav-menu-item {
-    transition: background 0.13s ease;
-  }
-  .nav-menu-item:hover {
-    background: var(--bg-card2) !important;
-  }
-  .nav-menu-item--logout:hover {
-    background: var(--red-dim) !important;
-  }
-
-  /* ── Login button ── */
-  .nav-login-btn {
-    transition: background 0.15s ease, box-shadow 0.15s ease;
-  }
-  .nav-login-btn:hover {
-    background: var(--red-hover) !important;
-    box-shadow: var(--red-glow) !important;
-  }
+  @keyframes menuIn { from{opacity:0;transform:translateY(-6px) scale(0.97)} to{opacity:1;transform:none} }
+  .nav-tab { background:transparent; color:var(--text-muted); border:1px solid transparent; transition:background 0.18s ease,color 0.18s ease,border-color 0.18s ease; }
+  .nav-tab:hover:not(.nav-tab--active) { background:rgba(255,255,255,0.05); color:var(--text-secondary); }
+  .nav-tab--active { background:rgba(229,9,20,0.14); color:var(--text-primary); border-color:rgba(229,9,20,0.28); }
+  .nav-tab__icon { color:inherit; display:flex; align-items:center; flex-shrink:0; }
+  .nav-tab__icon--active { color:var(--red-text,#ff6b6b); }
+  .nav-menu-item { transition:background 0.13s ease; }
+  .nav-menu-item:hover { background:var(--bg-card2) !important; }
+  .nav-menu-item--logout:hover { background:var(--red-dim) !important; }
+  .nav-login-btn { transition:background 0.15s ease,box-shadow 0.15s ease; }
+  .nav-login-btn:hover { background:var(--red-hover) !important; box-shadow:var(--red-glow) !important; }
+  .admin-logout-btn:hover { background:rgba(225,29,72,0.2) !important; }
 `;
 
 const s = {
@@ -1032,7 +1157,7 @@ const s = {
     top: 0,
     left: 0,
     right: 0,
-    zIndex: "var(--z-navbar, 1000)",
+    zIndex: "var(--z-navbar,1000)",
     display: "grid",
     gridTemplateColumns: "1fr auto 1fr",
     alignItems: "center",
@@ -1040,20 +1165,20 @@ const s = {
     padding: "0 28px",
     height: 60,
     transition:
-      "background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease",
+      "background 0.35s ease,backdrop-filter 0.35s ease,border-color 0.35s ease",
   },
   navbarMobile: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
-    zIndex: "var(--z-navbar, 1000)",
+    zIndex: "var(--z-navbar,1000)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 16px",
     height: 52,
-    transition: "background 0.35s ease, backdrop-filter 0.35s ease",
+    transition: "background 0.35s ease,backdrop-filter 0.35s ease",
   },
   navbarSolid: {
     background: "var(--navbar-bg)",
@@ -1063,7 +1188,7 @@ const s = {
   },
   navbarTransparent: {
     background:
-      "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%)",
+      "linear-gradient(to bottom,rgba(0,0,0,0.55) 0%,transparent 100%)",
     backdropFilter: "none",
     borderBottom: "1px solid transparent",
   },
@@ -1075,15 +1200,12 @@ const s = {
     justifyContent: "flex-end",
     gap: 6,
   },
-
   pageTitle: {
     fontFamily: "var(--font-display)",
     fontSize: "var(--text-lg)",
     letterSpacing: "var(--tracking-wider)",
     color: "var(--text-primary)",
   },
-
-  /* Tab bar — pill style */
   tabBar: {
     display: "flex",
     alignItems: "center",
@@ -1103,7 +1225,7 @@ const s = {
     userSelect: "none",
     fontSize: "var(--text-sm)",
     fontWeight: 500,
-    fontFamily: "var(--font-body, sans-serif)",
+    fontFamily: "var(--font-body,sans-serif)",
     whiteSpace: "nowrap",
   },
   tabIcon: { display: "flex", alignItems: "center", flexShrink: 0 },
@@ -1119,8 +1241,6 @@ const s = {
     textTransform: "uppercase",
     lineHeight: 1.6,
   },
-
-  /* Nav pill links */
   navLink: {
     display: "flex",
     alignItems: "center",
@@ -1146,7 +1266,6 @@ const s = {
     borderColor: "rgba(245,197,24,0.35)",
     color: "#f5c518",
   },
-
   loginBtn: {
     background: "var(--red)",
     color: "#fff",
@@ -1158,8 +1277,6 @@ const s = {
     letterSpacing: "var(--tracking-wide)",
     transition: "all 0.15s ease",
   },
-
-  /* Avatar button */
   avatarBtn: {
     display: "flex",
     alignItems: "center",
@@ -1195,6 +1312,7 @@ const s = {
     flexShrink: 0,
     color: "#fff",
     userSelect: "none",
+    overflow: "hidden",
   },
   avatarName: {
     fontWeight: 500,
@@ -1203,8 +1321,6 @@ const s = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-
-  /* Dropdown menu */
   userMenu: {
     position: "absolute",
     right: 0,
@@ -1215,8 +1331,7 @@ const s = {
     borderRadius: 14,
     overflow: "hidden",
     zIndex: 100,
-    boxShadow:
-      "0 16px 48px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(100,120,180,0.12)",
+    boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
     animation: "menuIn 0.2s cubic-bezier(0.34,1.56,0.64,1) both",
   },
   menuUserInfo: {
@@ -1225,7 +1340,7 @@ const s = {
     gap: 10,
     padding: "14px 14px 12px",
     background:
-      "linear-gradient(135deg, var(--bg-card2) 0%, var(--bg-card) 100%)",
+      "linear-gradient(135deg,var(--bg-card2) 0%,var(--bg-card) 100%)",
     borderBottom: "1px solid var(--border)",
   },
   menuUserName: {
@@ -1267,8 +1382,6 @@ const s = {
     flexShrink: 0,
     opacity: 0.7,
   },
-
-  /* Mobile */
   avatarBtnMobile: {
     display: "flex",
     background: "transparent",
@@ -1294,7 +1407,7 @@ const s = {
     height: 1.5,
     background: "var(--text-secondary)",
     borderRadius: 99,
-    transition: "transform 0.25s ease, opacity 0.2s ease",
+    transition: "transform 0.25s ease,opacity 0.2s ease",
   },
   drawerOverlay: {
     position: "fixed",
@@ -1420,8 +1533,6 @@ const s = {
     borderRadius: "50%",
     background: "var(--red)",
   },
-
-  /* Bottom nav */
   bottomNav: {
     position: "fixed",
     bottom: 0,
@@ -1456,7 +1567,7 @@ const s = {
     width: 20,
     height: 3,
     borderRadius: 99,
-    background: "var(--red, #e50914)",
+    background: "var(--red,#e50914)",
   },
   bottomIcon: {
     display: "flex",

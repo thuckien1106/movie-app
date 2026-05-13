@@ -179,3 +179,106 @@ def delete_review(
     """Xoá hẳn review (không thể khôi phục)."""
     limiter.check(request, "admin_write", **_WRITE)
     return admin_service.delete_review_by_admin(db, review_id)
+
+# ══════════════════════════════════════════════════════════
+# BROADCAST NOTIFICATION
+# ══════════════════════════════════════════════════════════
+from pydantic import BaseModel as _BM, Field as _F
+from typing import Literal as _Lit
+
+class BroadcastRequest(_BM):
+    title:       str            = _F(..., min_length=1, max_length=255)
+    body:        str            = _F(..., min_length=1, max_length=2000)
+    target:      _Lit["all", "verified", "unverified", "banned", "role"] = "all"
+    target_role: str | None     = _F(None, pattern="^(user|moderator)$")
+    emoji:       str | None     = _F(None, max_length=4)
+
+class BroadcastResponse(_BM):
+    sent:    int
+    skipped: int
+    message: str
+
+@router.post("/broadcast", response_model=BroadcastResponse)
+def broadcast_notification(
+    req: BroadcastRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Gửi thông báo in-app hàng loạt tới nhóm user được chọn."""
+    from app.models.reminder import InAppNotification as _Notif
+    from sqlalchemy import and_
+
+    q = db.query(User).filter(User.is_banned == False)
+
+    if req.target == "verified":
+        q = q.filter(User.is_verified == True)
+    elif req.target == "unverified":
+        q = q.filter(User.is_verified == False)
+    elif req.target == "banned":
+        q = db.query(User).filter(User.is_banned == True)
+    elif req.target == "role" and req.target_role:
+        q = q.filter(User.role == req.target_role)
+
+    # Không gửi cho chính admin đang thực hiện
+    q = q.filter(User.id != current_user.id)
+
+    users = q.all()
+    icon  = req.emoji or "📢"
+    sent  = 0
+
+    for u in users:
+        db.add(_Notif(
+            user_id    = u.id,
+            title      = f"{icon} {req.title}",
+            body       = req.body,
+            notif_type = "broadcast",
+            is_read    = False,
+        ))
+        sent += 1
+
+    db.commit()
+    return BroadcastResponse(
+        sent    = sent,
+        skipped = 0,
+        message = f"Đã gửi tới {sent} người dùng."
+    )
+
+
+@router.get("/broadcast/history")
+def broadcast_history(
+    page:      int     = 1,
+    page_size: int     = 20,
+    db:        Session = Depends(get_db),
+    _:         User    = Depends(require_admin),
+):
+    """Lịch sử các broadcast (lấy từ notification đầu tiên của mỗi batch)."""
+    from app.models.reminder import InAppNotification as _Notif
+    from sqlalchemy import func
+
+    # Group theo title+body+ngày để detect cùng 1 batch
+    rows = (
+        db.query(
+            _Notif.title,
+            _Notif.body,
+            func.count(_Notif.id).label("recipients"),
+            func.min(_Notif.created_at).label("sent_at"),
+        )
+        .filter(_Notif.notif_type == "broadcast")
+        .group_by(
+            _Notif.title,
+            _Notif.body,
+            func.strftime("%Y-%m-%d %H:%M", _Notif.created_at),
+        )
+        .order_by(func.min(_Notif.created_at).desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "history": [
+            {"title": r.title, "body": r.body,
+             "recipients": r.recipients, "sent_at": r.sent_at}
+            for r in rows
+        ]
+    }

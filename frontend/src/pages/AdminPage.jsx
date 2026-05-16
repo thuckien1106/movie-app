@@ -1,5 +1,6 @@
 // src/pages/AdminPage.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
 import {
@@ -1395,13 +1396,17 @@ function ReviewsSection({ showToast, initialFilters = {} }) {
 }
 
 /* ─── SIDEBAR ───────────────────────────────────────────── */
-function Sidebar({ tab, setTab, stats, user }) {
+function Sidebar({ tab, setTab, stats, user, onLogout }) {
+  const [showLogout, setShowLogout] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
   const NAV = [
-    { id: "overview", icon: "◈", label: "Tổng quan" },
+    { id: "overview", icon: "◈", label: "Tổng quan", sub: "Dashboard" },
     {
       id: "users",
       icon: "👥",
       label: "Người dùng",
+      sub: "Quản lý tài khoản",
       badge: stats?.total_users,
       badgeColor: C.blue,
     },
@@ -1409,208 +1414,478 @@ function Sidebar({ tab, setTab, stats, user }) {
       id: "reviews",
       icon: "💬",
       label: "Review",
+      sub: "Kiểm duyệt nội dung",
       badge: stats?.flagged_reviews,
       badgeColor: C.amber,
+      alert: (stats?.flagged_reviews || 0) > 0,
     },
-    { id: "broadcast", icon: "📢", label: "Broadcast" },
+    { id: "broadcast", icon: "📢", label: "Broadcast", sub: "Gửi thông báo" },
   ];
 
+  const w = collapsed ? 64 : 240;
+
   return (
-    <aside
-      style={{
-        width: 220,
-        flexShrink: 0,
-        background: `var(--bg-overlay,#080f1e)`,
-        borderRight: `1px solid ${C.border}`,
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        position: "sticky",
-        top: 0,
-      }}
-    >
-      {/* Logo area */}
-      <div
+    <>
+      <aside
         style={{
-          padding: "20px 18px 16px",
-          borderBottom: `1px solid ${C.border}`,
+          width: w,
+          flexShrink: 0,
+          background: "linear-gradient(180deg, #060c1a 0%, #080e1c 100%)",
+          borderRight: `1px solid ${C.border}`,
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          position: "sticky",
+          top: 0,
+          transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+          overflow: "hidden",
+          boxShadow: "4px 0 24px rgba(0,0,0,0.3)",
         }}
       >
+        {/* Header */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 12,
+            padding: collapsed ? "16px 10px" : "18px 16px",
+            borderBottom: `1px solid rgba(255,255,255,0.05)`,
+            background:
+              "linear-gradient(135deg, rgba(225,29,72,0.08), rgba(124,58,237,0.06))",
           }}
         >
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              background: C.redDim,
-              border: `1px solid ${C.red}33`,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
+              justifyContent: collapsed ? "center" : "space-between",
+              gap: 10,
             }}
           >
-            🛡️
-          </div>
-          <div>
             <div
               style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: C.text,
-                letterSpacing: "-0.01em",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                minWidth: 0,
+                opacity: collapsed ? 0 : 1,
+                transition: "opacity 0.2s",
+                maxWidth: collapsed ? 0 : 200,
+                overflow: "hidden",
               }}
             >
-              Admin Panel
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  flexShrink: 0,
+                  background: "linear-gradient(135deg, #e11d48, #7c3aed)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 17,
+                  boxShadow: "0 4px 12px rgba(225,29,72,0.35)",
+                }}
+              >
+                🛡️
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: C.text,
+                    letterSpacing: "-0.02em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Admin Panel
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: C.muted,
+                    letterSpacing: "0.07em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {user?.role === "admin" ? "Quản trị viên" : "Kiểm duyệt"}
+                </div>
+              </div>
             </div>
+            {collapsed && (
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg, #e11d48, #7c3aed)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 17,
+                }}
+              >
+                🛡️
+              </div>
+            )}
+            <button
+              onClick={() => setCollapsed((p) => !p)}
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 7,
+                border: `1px solid rgba(255,255,255,0.08)`,
+                background: "rgba(255,255,255,0.05)",
+                color: C.muted,
+                cursor: "pointer",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                transition: "all 0.15s",
+              }}
+              className="sidebar-btn"
+            >
+              {collapsed ? "›" : "‹"}
+            </button>
+          </div>
+
+          {/* User card */}
+          {!collapsed && (
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: 10,
+                padding: "8px 10px",
+                border: `1px solid rgba(255,255,255,0.06)`,
+              }}
+            >
+              <UserAvatar user={user} size={30} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: C.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {user?.username || user?.email}
+                </div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>
+                  {user?.email?.split("@")[0]}@…
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: "2px 7px",
+                  borderRadius: 99,
+                  fontSize: 9,
+                  fontWeight: 800,
+                  background: user?.role === "admin" ? C.redDim : C.blueDim,
+                  color: user?.role === "admin" ? C.red : C.blue,
+                  border: `1px solid ${user?.role === "admin" ? C.red : C.blue}33`,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  flexShrink: 0,
+                }}
+              >
+                {user?.role === "admin" ? "Admin" : "Mod"}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav
+          style={{
+            flex: 1,
+            padding: collapsed ? "10px 8px" : "12px 10px",
+            overflowY: "auto",
+            scrollbarWidth: "none",
+          }}
+        >
+          {NAV.map((item) => {
+            const isActive = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                title={collapsed ? item.label : ""}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: collapsed ? 0 : 10,
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  padding: collapsed ? "11px 0" : "10px 12px",
+                  borderRadius: 10,
+                  marginBottom: 4,
+                  background: isActive
+                    ? "linear-gradient(135deg, rgba(225,29,72,0.15), rgba(124,58,237,0.08))"
+                    : "transparent",
+                  border: `1px solid ${isActive ? "rgba(225,29,72,0.3)" : "transparent"}`,
+                  color: isActive ? "#fff" : C.muted,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  transition: "all 0.18s ease",
+                  position: "relative",
+                }}
+                className="sidebar-btn"
+              >
+                {item.alert && !collapsed && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 7,
+                      left: 7,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: C.amber,
+                      boxShadow: `0 0 6px ${C.amber}`,
+                      animation: "alertPulse 2s ease infinite",
+                    }}
+                  />
+                )}
+                <span
+                  style={{
+                    fontSize: collapsed ? 19 : 16,
+                    width: collapsed ? "auto" : 22,
+                    textAlign: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {item.icon}
+                </span>
+                {!collapsed && (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isActive ? 700 : 500,
+                        color: isActive ? C.text : C.muted,
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: isActive ? "rgba(255,255,255,0.35)" : C.faint,
+                        marginTop: 1,
+                      }}
+                    >
+                      {item.sub}
+                    </div>
+                  </div>
+                )}
+                {!collapsed && item.badge > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: item.badgeColor + "22",
+                      color: item.badgeColor,
+                      borderRadius: 99,
+                      padding: "2px 7px",
+                      border: `1px solid ${item.badgeColor}33`,
+                    }}
+                  >
+                    {fmtNum(item.badge)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Stats mini */}
+        {!collapsed && stats && (
+          <div
+            style={{
+              margin: "0 10px 8px",
+              background: "rgba(255,255,255,0.03)",
+              borderRadius: 10,
+              border: `1px solid rgba(255,255,255,0.05)`,
+              padding: "12px 14px",
+            }}
+          >
             <div
               style={{
                 fontSize: 10,
-                color: C.muted,
-                letterSpacing: "0.06em",
+                color: C.faint,
+                fontWeight: 700,
                 textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 10,
               }}
             >
-              {user?.role === "admin" ? "Quản trị viên" : "Kiểm duyệt viên"}
+              Thống kê nhanh
             </div>
+            {[
+              {
+                label: "Tổng user",
+                value: stats.total_users,
+                color: C.blue,
+                icon: "👥",
+              },
+              {
+                label: "Tổng review",
+                value: stats.total_reviews,
+                color: C.purple,
+                icon: "💬",
+              },
+              {
+                label: "Bị khoá",
+                value: stats.banned_users,
+                color: C.red,
+                icon: "🔒",
+              },
+              {
+                label: "Báo cáo",
+                value: stats.flagged_reviews,
+                color: C.amber,
+                icon: "⚑",
+              },
+            ].map(({ label, value, color, icon }) => (
+              <div
+                key={label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 7,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 12 }}>{icon}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 800, color }}>
+                  {fmtNum(value)}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
 
-        {/* User card */}
+        {/* Bottom actions */}
         <div
           style={{
+            padding: collapsed ? "10px 8px" : "10px",
+            borderTop: `1px solid rgba(255,255,255,0.05)`,
             display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: C.card2,
-            borderRadius: 10,
-            padding: "8px 10px",
-            border: `1px solid ${C.border}`,
+            flexDirection: "column",
+            gap: 6,
           }}
         >
-          <UserAvatar user={user} size={28} />
-          <div style={{ minWidth: 0 }}>
+          {/* Theme toggle */}
+          {!collapsed && (
             <div
               style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: C.text,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "7px 10px",
+                borderRadius: 9,
+                background: "rgba(255,255,255,0.03)",
+                border: `1px solid rgba(255,255,255,0.06)`,
               }}
             >
-              {user?.username || user?.email}
+              <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>
+                Giao diện
+              </span>
+              <ThemeToggleInline />
             </div>
-            <div style={{ fontSize: 10, color: C.muted }}>
-              {user?.email?.split("@")[0]}
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 10px" }}>
-        {NAV.map((item) => (
+          {/* Logout button */}
           <button
-            key={item.id}
-            onClick={() => setTab(item.id)}
+            onClick={() => setShowLogout(true)}
+            title={collapsed ? "Đăng xuất" : ""}
             style={{
               width: "100%",
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: "10px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: collapsed ? 0 : 8,
+              padding: collapsed ? "11px 0" : "9px 12px",
               borderRadius: 9,
-              marginBottom: 3,
-              background: tab === item.id ? C.redDim : "transparent",
-              border: `1px solid ${tab === item.id ? C.red + "44" : "transparent"}`,
-              color: tab === item.id ? C.redText : C.muted,
+              border: "1px solid rgba(225,29,72,0.2)",
+              background: "rgba(225,29,72,0.06)",
+              color: "rgba(225,29,72,0.8)",
               fontSize: 13,
-              fontWeight: tab === item.id ? 700 : 400,
+              fontWeight: 600,
               cursor: "pointer",
-              textAlign: "left",
               fontFamily: "inherit",
               transition: "all 0.15s",
             }}
-            className="sidebar-btn"
+            className="logout-btn"
           >
-            <span style={{ fontSize: 16, width: 22, textAlign: "center" }}>
-              {item.icon}
-            </span>
-            <span style={{ flex: 1 }}>{item.label}</span>
-            {item.badge > 0 && (
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  background: item.badgeColor + "22",
-                  color: item.badgeColor,
-                  borderRadius: 99,
-                  padding: "1px 6px",
-                  lineHeight: 1.5,
-                }}
-              >
-                {fmtNum(item.badge)}
-              </span>
-            )}
+            <span style={{ fontSize: collapsed ? 18 : 14 }}>🚪</span>
+            {!collapsed && <span>Đăng xuất</span>}
           </button>
-        ))}
-      </nav>
-
-      {/* System status */}
-      {stats && (
-        <div
-          style={{
-            margin: "0 10px 10px",
-            background: C.card,
-            border: `1px solid ${C.border}`,
-            borderRadius: 10,
-            padding: "12px 14px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              color: C.muted,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-              marginBottom: 10,
-            }}
-          >
-            Hệ thống
-          </div>
-          {[
-            { label: "Users", value: stats.total_users, color: C.blue },
-            { label: "Reviews", value: stats.total_reviews, color: C.purple },
-            { label: "Banned", value: stats.banned_users, color: C.red },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 6,
-              }}
-            >
-              <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color }}>
-                {fmtNum(value)}
-              </span>
-            </div>
-          ))}
         </div>
+      </aside>
+
+      {showLogout && (
+        <ConfirmModal
+          msg="Bạn có chắc muốn đăng xuất khỏi Admin Panel không?"
+          onOk={() => {
+            setShowLogout(false);
+            onLogout();
+          }}
+          onCancel={() => setShowLogout(false)}
+        />
       )}
-    </aside>
+    </>
+  );
+}
+
+/* ── Theme Toggle inline ────────────────────────────────── */
+function ThemeToggleInline() {
+  const [dark, setDark] = useState(
+    () => document.documentElement.getAttribute("data-theme") === "dark",
+  );
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.setAttribute(
+      "data-theme",
+      next ? "dark" : "light",
+    );
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
+  return (
+    <button
+      onClick={toggle}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        background: dark ? "rgba(99,102,241,0.15)" : "rgba(251,191,36,0.15)",
+        border: `1px solid ${dark ? "rgba(99,102,241,0.3)" : "rgba(251,191,36,0.3)"}`,
+        borderRadius: 99,
+        padding: "3px 8px 3px 5px",
+        cursor: "pointer",
+        fontSize: 11,
+        fontWeight: 600,
+        color: dark ? "#818cf8" : "#d97706",
+        fontFamily: "inherit",
+        transition: "all 0.2s",
+      }}
+    >
+      <span style={{ fontSize: 13 }}>{dark ? "🌙" : "☀️"}</span>
+      {dark ? "Dark" : "Light"}
+    </button>
   );
 }
 
@@ -2256,7 +2531,8 @@ function BroadcastSection({ showToast }) {
 
 /* ─── MAIN ──────────────────────────────────────────────── */
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const showToast = useToast();
   const [tab, setTab] = useState("overview");
   const [tabFilters, setTabFilters] = useState({});
@@ -2293,6 +2569,10 @@ export default function AdminPage() {
         }}
         stats={stats}
         user={user}
+        onLogout={() => {
+          logout();
+          navigate("/login", { replace: true });
+        }}
       />
 
       <main
@@ -2358,11 +2638,14 @@ const td = { padding: "11px 12px", verticalAlign: "middle" };
 const adminCSS = `
   @keyframes adminSpin   { to { transform: rotate(360deg); } }
   @keyframes adminFadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes alertPulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
 
-  .admin-stat-card:hover  { border-color: var(--border-bright,#243050) !important; transform: translateY(-2px); }
-  .admin-alert-card:hover { transform: translateY(-1px); border-color: inherit !important; }
+  .admin-stat-card:hover  { border-color: var(--border-bright,#243050) !important; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important; }
+  .admin-alert-card:hover { transform: translateY(-1px); }
   .admin-trow:hover       { background: var(--bg-card2,#111c30); }
   .admin-review-card:hover{ border-color: var(--border-bright,#243050) !important; }
   .sm-btn:hover           { opacity: 0.8 !important; }
-  .sidebar-btn:hover      { color: var(--text-secondary) !important; background: var(--bg-card,#0d1526) !important; }
+  .sidebar-btn:hover      { color: rgba(255,255,255,0.8) !important; background: rgba(255,255,255,0.06) !important; }
+  .logout-btn:hover       { background: rgba(225,29,72,0.15) !important; color: #ff6b6b !important; border-color: rgba(225,29,72,0.4) !important; }
+  nav::-webkit-scrollbar  { display: none; }
 `;

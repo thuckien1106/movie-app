@@ -3,7 +3,7 @@
 Mood-based movie discovery — phiên bản đã sửa lỗi.
 
 Bug cũ: gọi tmdb_service.discover_by_genre() nhưng hàm đó không tồn tại.
-Fix: dùng trực tiếp tmdb_service.get_all_movies() vốn đã có sẵn,
+Fix: dùng trực tiếp tmdb_service.sync_get_all_movies() vốn đã có sẵn,
      và bỏ filter min_rating ở Python (để TMDB tự lọc qua vote_average.gte).
 """
 
@@ -136,7 +136,7 @@ def get_movies_by_mood(
 
     # --- Gọi TMDB cho từng genre chính bằng get_all_movies đã có sẵn ---
     for genre_id in cfg["genre_ids"][:2]:
-        data = tmdb_service.get_all_movies(
+        data = tmdb_service.sync_get_all_movies(
             page=page,
             genre_id=genre_id,
             min_rating=cfg["min_rating"],

@@ -1,4 +1,5 @@
 // src/App.jsx
+import { lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,31 +12,71 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { WatchlistProvider } from "./context/WatchlistContext";
 import ErrorBoundary from "./components/ErrorBoundary";
-import Home from "./pages/Home";
-import Watchlist from "./pages/Watchlist";
-import MovieDetail from "./pages/MovieDetail";
-import AuthPage from "./pages/AuthPage";
-import PublicWatchlist from "./pages/PublicWatchlist";
-import Profile from "./pages/Profile";
-import MoodDiscovery from "./pages/MoodDiscovery";
-import RemindersPage from "./pages/RemindersPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import RecommendationsPage from "./pages/RecommendationsPage";
-import PersonPage from "./pages/PersonPage";
-import OAuthCallbackPage from "./pages/OAuthCallbackPage";
-import Statistics from "./pages/Statistics";
-import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import { useAuth } from "./context/AuthContext";
-import AdminPage from "./pages/AdminPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
 import VerifyBanner from "./components/VerifyBanner";
-import PublicProfilePage from "./pages/PublicProfilePage";
-import ComparePage from "./pages/ComparePage";
 import AiChatBox from "./components/AiChatBox";
 
-// Nếu user là admin/moderator mà đang ở trang không phải /admin → redirect về /admin
+// ─── Lazy imports ────────────────────────────────────────────────────────────
+// Mỗi page sẽ được tách thành chunk riêng, chỉ tải khi user navigate đến.
+// Ước tính tiết kiệm ~70% initial bundle size.
+
+// Public — có thể xuất hiện ngay khi mở app, nhưng vẫn lazy vì Home đủ để render trước
+const Home = lazy(() => import("./pages/Home"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const MovieDetail = lazy(() => import("./pages/MovieDetail"));
+const PublicWatchlist = lazy(() => import("./pages/PublicWatchlist"));
+const PersonPage = lazy(() => import("./pages/PersonPage"));
+const ComparePage = lazy(() => import("./pages/ComparePage"));
+const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const OAuthCallbackPage = lazy(() => import("./pages/OAuthCallbackPage"));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Protected — chỉ load khi đã đăng nhập và navigate đến
+const Watchlist = lazy(() => import("./pages/Watchlist")); // 4026 dòng → chunk riêng
+const Profile = lazy(() => import("./pages/Profile"));
+const MoodDiscovery = lazy(() => import("./pages/MoodDiscovery"));
+const RemindersPage = lazy(() => import("./pages/RemindersPage"));
+const RecommendationsPage = lazy(() => import("./pages/RecommendationsPage"));
+const Statistics = lazy(() => import("./pages/Statistics"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+
+// Admin — chunk hoàn toàn tách biệt, user thường không bao giờ tải
+const AdminPage = lazy(() => import("./pages/AdminPage")); // 2651 dòng → chunk riêng
+
+// ─── Loading fallback ─────────────────────────────────────────────────────────
+// Hiển thị trong khi chunk đang tải — dùng spinner nhẹ, không import thêm gì
+function PageLoader() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        width: "100%",
+      }}
+      aria-label="Đang tải trang..."
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          border: "3px solid rgba(255,255,255,0.15)",
+          borderTop: "3px solid #e50914",
+          borderRadius: "50%",
+          animation: "spin 0.7s linear infinite",
+        }}
+      />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function AdminRedirect() {
   const { user, isLoggedIn } = useAuth();
   const location = useLocation();
@@ -54,6 +95,16 @@ function RouteErrorBoundary({ children }) {
   return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
 }
 
+// Bọc lazy page trong Suspense + ErrorBoundary — dùng chung cho mọi route
+function LazyPage({ children }) {
+  return (
+    <RouteErrorBoundary>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </RouteErrorBoundary>
+  );
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
     <>
@@ -61,88 +112,96 @@ function AppRoutes() {
       <VerifyBanner />
       <AiChatBox />
       <Routes>
-        {/* Public routes */}
+        {/* ── Public ── */}
         <Route
           path="/"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <Home />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/login"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <AuthPage />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/movie/:id"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <MovieDetail />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/w/:token"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <PublicWatchlist />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/person/:id"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <PersonPage />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/compare/:id1?/:id2?"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <ComparePage />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/u/:username"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <PublicProfilePage />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/forgot-password"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <ForgotPasswordPage />
-            </RouteErrorBoundary>
+            </LazyPage>
           }
         />
         <Route
           path="/oauth/callback"
           element={
-            <RouteErrorBoundary>
+            <LazyPage>
               <OAuthCallbackPage />
-            </RouteErrorBoundary>
+            </LazyPage>
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={
+            <LazyPage>
+              <VerifyEmailPage />
+            </LazyPage>
           }
         />
 
-        {/* Protected routes */}
+        {/* ── Protected ── */}
         <Route
           path="/watchlist"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <Watchlist />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
@@ -150,9 +209,9 @@ function AppRoutes() {
           path="/profile"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <Profile />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
@@ -160,9 +219,9 @@ function AppRoutes() {
           path="/mood"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <MoodDiscovery />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
@@ -170,9 +229,9 @@ function AppRoutes() {
           path="/reminders"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <RemindersPage />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
@@ -180,9 +239,9 @@ function AppRoutes() {
           path="/recommendations"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <RecommendationsPage />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
@@ -190,40 +249,50 @@ function AppRoutes() {
           path="/statistics"
           element={
             <ProtectedRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <Statistics />
-              </RouteErrorBoundary>
+              </LazyPage>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/verify-email"
+          path="/notifications"
           element={
-            <RouteErrorBoundary>
-              <VerifyEmailPage />
-            </RouteErrorBoundary>
+            <ProtectedRoute>
+              <LazyPage>
+                <NotificationsPage />
+              </LazyPage>
+            </ProtectedRoute>
           }
         />
 
-        {/* Admin-only route — chỉ admin + moderator */}
+        {/* ── Admin ── */}
         <Route
           path="/admin"
           element={
             <AdminRoute>
-              <RouteErrorBoundary>
+              <LazyPage>
                 <AdminPage />
-              </RouteErrorBoundary>
+              </LazyPage>
             </AdminRoute>
           }
         />
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+        {/* ── 404 ── */}
+        <Route
+          path="*"
+          element={
+            <LazyPage>
+              <NotFound />
+            </LazyPage>
+          }
+        />
       </Routes>
     </>
   );
 }
 
+// ─── App root ─────────────────────────────────────────────────────────────────
 function App() {
   return (
     <ErrorBoundary>

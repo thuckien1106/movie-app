@@ -261,18 +261,18 @@ def fetch_movies(intent: dict) -> list[dict]:
     action = intent.get("intent","chat")
 
     if action == "search" and intent.get("query"):
-        r = tmdb_service.search_movies(intent["query"], page=1)
+        r = tmdb_service.sync_search_movies(intent["query"], page=1)
         return r.get("results",[])[:8]
 
     if action == "trending":
-        return tmdb_service.get_trending_movies()[:8]
+        return tmdb_service.sync_get_trending_movies()[:8]
 
     if action == "top_rated":
-        r = tmdb_service.get_top_rated_movies(page=1)
+        r = tmdb_service.sync_get_top_rated_movies(page=1)
         return r.get("results",[])[:8]
 
     if action == "upcoming":
-        r = tmdb_service.get_upcoming_movies(page=1)
+        r = tmdb_service.sync_get_upcoming_movies(page=1)
         return r.get("results",[])[:8]
 
     if action == "discover":
@@ -285,7 +285,7 @@ def fetch_movies(intent: dict) -> list[dict]:
         if intent.get("year_gte"):    kwargs["year"]       = intent["year_gte"]
         if intent.get("min_rating"):  kwargs["min_rating"] = intent["min_rating"]
 
-        r = tmdb_service.get_all_movies(**kwargs)
+        r = tmdb_service.sync_get_all_movies(**kwargs)
         movies = r.get("results",[])
 
         # Filter year_lte client-side nếu cần

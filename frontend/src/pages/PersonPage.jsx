@@ -1,8 +1,8 @@
 // src/pages/PersonPage.jsx
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getPersonDetail, getPersonCredits } from "../api/personApi";
 import { addMovie } from "../api/movieApi";
+import { usePersonDetail, usePersonCredits } from "../hooks/useMovieQueries";
 import { useToast } from "../components/ToastContext";
 import { useWatchlist } from "../context/WatchlistContext";
 import { useAuth } from "../context/AuthContext";
@@ -326,36 +326,31 @@ export default function PersonPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [person, setPerson] = useState(null);
-  const [credits, setCredits] = useState({ cast: [], crew: [] });
-  const [loading, setLoading] = useState(true);
   const [filmTab, setFilmTab] = useState("cast");
   const [entered, setEntered] = useState(false);
 
+  // ── React Query — cache 1 giờ, navigate đi rồi quay lại không fetch lại ──
+  const { data: person, isLoading: loadingPerson } = usePersonDetail(id);
+  const { data: credits, isLoading: loadingCredits } = usePersonCredits(id);
+  const loading = loadingPerson || loadingCredits;
+
+  // Scroll to top + entrance animation khi đổi người
   useEffect(() => {
     window.scrollTo(0, 0);
-    setLoading(true);
     setEntered(false);
-    Promise.all([getPersonDetail(id), getPersonCredits(id)])
-      .then(([pd, pc]) => {
-        setPerson(pd.data);
-        const c = pc.data;
-        setCredits(c);
-        // Nếu không có vai diễn nhưng có crew thì mặc định tab crew
-        if (!c.cast?.length && c.crew?.length) setFilmTab("crew");
-      })
-      .catch(() => navigate(-1))
-      .finally(() => {
-        setLoading(false);
-        setTimeout(() => setEntered(true), 60);
-      });
-  }, [id]);
+    if (person) {
+      // Nếu không có vai diễn nhưng có crew thì mặc định tab crew
+      if (!credits?.cast?.length && credits?.crew?.length) setFilmTab("crew");
+      setTimeout(() => setEntered(true), 60);
+    }
+  }, [id, person]);
 
   if (loading) return <Skeleton />;
   if (!person) return null;
 
   const age = calcAge(person.birthday, person.deathday);
-  const films = filmTab === "cast" ? credits.cast : credits.crew;
+  const films =
+    filmTab === "cast" ? (credits?.cast ?? []) : (credits?.crew ?? []);
   const dept = person.known_for_department;
 
   return (

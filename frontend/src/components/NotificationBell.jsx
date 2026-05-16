@@ -608,14 +608,41 @@ export default function NotificationBell() {
           </div>
 
           {/* Footer */}
-          {tab === "reminder" && (
-            <div
+          <div
+            style={{
+              borderTop: "1px solid var(--border)",
+              padding: "10px 14px",
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <button
+              onClick={() => {
+                setOpen(false);
+                navigate(`/notifications?tab=${tab}`);
+              }}
+              className="notif-footer-btn"
               style={{
-                borderTop: "1px solid var(--border)",
-                padding: "10px 14px",
-                flexShrink: 0,
+                width: "100%",
+                background:
+                  "linear-gradient(135deg, rgba(225,29,72,0.1), rgba(124,58,237,0.08))",
+                border: "1px solid rgba(225,29,72,0.2)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--red-text,#ff6b6b)",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: "9px",
+                fontFamily: "var(--font-body, sans-serif)",
+                letterSpacing: "0.03em",
+                transition: "background 0.15s ease",
               }}
             >
+              Xem tất cả thông báo →
+            </button>
+            {tab === "reminder" && (
               <button
                 onClick={() => {
                   setOpen(false);
@@ -633,14 +660,13 @@ export default function NotificationBell() {
                   cursor: "pointer",
                   padding: "8px",
                   fontFamily: "var(--font-body, sans-serif)",
-                  letterSpacing: "0.02em",
                   transition: "background 0.15s ease",
                 }}
               >
                 Quản lý nhắc nhở phim →
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 

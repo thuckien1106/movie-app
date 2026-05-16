@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useWatchlist } from "../context/WatchlistContext";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { addMovie } from "../api/movieApi";
 import {
-  getMovieDetail,
-  getTrailer,
-  getCast,
-  getSimilarMovies,
-  addMovie,
-} from "../api/movieApi";
+  useMovieDetail,
+  useTrailer,
+  useCast,
+  useSimilarMovies,
+} from "../hooks/useMovieQueries";
 import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
 import RemindButton from "../components/RemindButton";
@@ -711,17 +711,22 @@ function MovieDetail() {
   const simRef = useRef(null);
   const backdropRef = useRef(null);
 
-  const [movie, setMovie] = useState(null);
-  const [youtubeKey, setYoutubeKey] = useState(null);
-  const [cast, setCast] = useState([]);
-  const [crew, setCrew] = useState([]);
-  const [similar, setSimilar] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [addingToList, setAdding] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [isReminded, setIsReminded] = useState(false);
   const [parallaxY, setParallaxY] = useState(0);
   const [entered, setEntered] = useState(false);
+
+  // ── React Query — tự cache, dedup, không fetch lại khi navigate A→B→A ──
+  const { data: movie, isLoading: loadingMovie } = useMovieDetail(id);
+  const { data: trailer } = useTrailer(id);
+  const { data: castData } = useCast(id);
+  const { data: similar = [] } = useSimilarMovies(id);
+
+  const youtubeKey = trailer?.youtube_key ?? null;
+  const cast = Array.isArray(castData) ? castData : (castData?.cast ?? []);
+  const crew = castData?.crew ?? [];
+  const loading = loadingMovie;
 
   // Lấy trạng thái từ context — đồng bộ với MovieCard
   const added = movie ? savedIds.has(movie.id) : false;
@@ -738,50 +743,20 @@ function MovieDetail() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* data fetch */
+  /* scroll to top + entrance animation khi đổi phim */
   useEffect(() => {
     window.scrollTo(0, 0);
-    setLoading(true);
     setShowTrailer(false);
-    setCast([]);
-    setCrew([]);
-    setSimilar([]);
     setEntered(false);
-    Promise.all([
-      getMovieDetail(id),
-      getTrailer(id),
-      getCast(id),
-      getSimilarMovies(id),
-    ])
-      .then(([d, t, c, sim]) => {
-        const m = d.data;
-        setMovie(m);
-        setYoutubeKey(t.data?.youtube_key || null);
-        // getCast now returns { cast, crew }
-        const castData = c.data;
-        if (
-          castData &&
-          typeof castData === "object" &&
-          !Array.isArray(castData)
-        ) {
-          setCast(castData.cast || []);
-          setCrew(castData.crew || []);
-        } else {
-          setCast(Array.isArray(castData) ? castData : []);
-        }
-        setSimilar(
-          Array.isArray(sim.data) ? sim.data : sim.data?.results || [],
-        );
-        if (isUpcoming(m.release_date)) {
-          checkReminder(m.id)
-            .then((r) => setIsReminded(r.data.reminded))
-            .catch(() => {});
-        }
-        setTimeout(() => setEntered(true), 80);
-      })
-      .catch(() => showToast("Không tải được thông tin phim.", "error"))
-      .finally(() => setLoading(false));
-  }, [id]);
+    if (movie) {
+      if (isUpcoming(movie.release_date)) {
+        checkReminder(movie.id)
+          .then((r) => setIsReminded(r.data.reminded))
+          .catch(() => {});
+      }
+      setTimeout(() => setEntered(true), 80);
+    }
+  }, [id, movie]);
 
   const handleAdd = async () => {
     if (addingToList || added || !movie) return;

@@ -5,18 +5,16 @@ import {
   getTopRatedMovies,
   getUpcomingMovies,
   searchMovies,
-  getGenres,
-  getTrendingMovies,
-  addMovie,
   getNowPlayingMovies,
+  addMovie,
   getSearchHistory,
   addSearchHistory,
   removeSearchHistory,
   clearSearchHistory,
-  getViewHistory,
   deleteViewItem,
   clearViewHistory,
 } from "../api/movieApi";
+import { useGenres, useViewHistory } from "../hooks/useMovieQueries";
 import MovieCard from "../components/MovieCard";
 import TrailerModal from "../components/TrailerModal";
 import ScrollToTop from "../components/ScrollToTop";
@@ -353,7 +351,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
-  const [genres, setGenres] = useState([]);
   const [activeGenre, setActiveGenre] = useState(null);
   const heroRef = useRef(null); // for Navbar IntersectionObserver
   const [showFilter, setShowFilter] = useState(false);
@@ -362,29 +359,14 @@ export default function Home() {
   const hasMore = useRef(true);
   const filterPanelRef = useRef(null);
 
-  // Lịch sử xem gần đây
-  const [recentHistory, setRecentHistory] = useState([]);
-  const refreshHistory = useCallback(() => {
-    if (!isLoggedIn) {
-      setRecentHistory([]);
-      return;
-    }
-    getViewHistory(12)
-      .then((r) => setRecentHistory(r.data || []))
-      .catch(() => {});
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    refreshHistory();
-  }, [refreshHistory]);
+  // ── React Query — genres và view history tự cache, không refetch khi re-mount ──
+  const { data: genres = [] } = useGenres();
+  const { data: recentHistory = [], refetch: refreshHistory } = useViewHistory(
+    12,
+    { enabled: isLoggedIn },
+  );
 
   const debouncedQuery = useDebounce(query, 400);
-
-  useEffect(() => {
-    getGenres()
-      .then((r) => setGenres(r.data || []))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const h = (e) => {

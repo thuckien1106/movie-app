@@ -88,7 +88,7 @@ def get_recommendations(db: Session, user_id: int, page: int = 1) -> dict:
 
     # ── Fallback: watchlist trống → trả trending ──────────────
     if not profile:
-        trending = tmdb_service.get_trending_movies()
+        trending = tmdb_service.sync_get_trending_movies()
         return {
             "movies":          trending[:20] if isinstance(trending, list) else [],
             "reason":          "Phim đang thịnh hành tuần này",
@@ -104,7 +104,7 @@ def get_recommendations(db: Session, user_id: int, page: int = 1) -> dict:
 
     # ── Nguồn 1: Discover theo genre hàng đầu ─────────────────
     for genre_id in top_genres[:3]:
-        data = tmdb_service.discover_by_genre(
+        data = tmdb_service.sync_discover_by_genre(
             genre_id=genre_id,
             page=page,
         )
@@ -112,7 +112,7 @@ def get_recommendations(db: Session, user_id: int, page: int = 1) -> dict:
 
     # ── Nguồn 2: Similar từ các phim seed ─────────────────────
     for mid in seed_ids:
-        similar = tmdb_service.get_similar_movies(mid, page=1)
+        similar = tmdb_service.sync_get_similar_movies(mid, page=1)
         if isinstance(similar, list):
             collected.extend(similar)
 

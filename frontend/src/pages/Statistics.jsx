@@ -1,7 +1,7 @@
 // src/pages/Statistics.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { getDetailedStats } from "../api/movieApi";
+import { useDetailedStats } from "../hooks/useMovieQueries";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
 import Navbar from "../components/Navbar";
@@ -527,23 +527,21 @@ export default function Statistics() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const showToast = useToast();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [animated, setAnimated] = useState(false);
+
+  // ── React Query — cache 10 phút, không fetch lại khi tab refocus ──
+  const { data: stats, isLoading: loading } = useDetailedStats();
 
   useEffect(() => {
     if (!isLoggedIn) {
       navigate("/login");
       return;
     }
-    getDetailedStats()
-      .then((res) => {
-        setStats(res.data);
-        setTimeout(() => setAnimated(true), 100);
-      })
-      .catch(() => showToast("Không tải được thống kê.", "error"))
-      .finally(() => setLoading(false));
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (stats) setTimeout(() => setAnimated(true), 100);
+  }, [stats]);
 
   /* ── empty state ───────────────────────── */
   if (!loading && stats && stats.total === 0) {

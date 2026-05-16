@@ -37,7 +37,7 @@ def _fetch_and_patch_runtime(movie_id: int, watchlist_id: int) -> None:
         if item.runtime and item.runtime > 0:
             return
 
-        detail = tmdb_service.get_movie_detail(movie_id)
+        detail = tmdb_service.sync_get_movie_detail(movie_id)
         if "error" in detail:
             _svc_logger.warning(f"[runtime_fetch] TMDB error for movie_id={movie_id}: {detail}")
             return
@@ -647,7 +647,7 @@ def backfill_missing_runtime(db: Session, user_id: int) -> int:
     updated = 0
     for item in items:
         try:
-            detail = tmdb_service.get_movie_detail(item.movie_id)
+            detail = tmdb_service.sync_get_movie_detail(item.movie_id)
             runtime   = detail.get("runtime")
             genre_ids = detail.get("genre_ids")  # list of ints from format_movie_detail
 

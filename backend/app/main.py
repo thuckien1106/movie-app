@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.utils.config import settings
 from app.database.connection import engine
 from app.database.base import Base
 from app.models import user, watchlist
@@ -153,11 +154,12 @@ app = FastAPI(
 app.add_middleware(RequestSizeMiddleware, max_bytes=64 * 1024)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logger.info(f"🌐 CORS allowed origins: {settings.ALLOWED_ORIGINS}")
 
 
 # ── Global exception handlers ─────────────

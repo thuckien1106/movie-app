@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getPublicWatchlist } from "../api/movieApi";
+import { usePublicWatchlist } from "../hooks/useMovieQueries";
 
 /* ── Genre name map ─────────────────────────────── */
 const GENRE_NAMES = {
@@ -56,25 +56,17 @@ function useCountUp(target, duration = 900) {
 ════════════════════════════════════════════════════ */
 export default function PublicWatchlist() {
   const { token } = useParams();
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [activeCollection, setActiveCollection] = useState(null); // null = all
+  const [activeCollection, setActiveCollection] = useState(null);
   const [hoveredMovie, setHoveredMovie] = useState(null);
   const headerRef = useRef(null);
   const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    getPublicWatchlist(token)
-      .then((res) => {
-        setData(res.data);
-        if (res.data?.collections?.length > 0) {
-          setActiveCollection(null); // start with "all"
-        }
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [token]);
+  // ── React Query — cache 5 phút, share link thường xem nhiều lần ──
+  const {
+    data,
+    isLoading: loading,
+    isError: error,
+  } = usePublicWatchlist(token);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);

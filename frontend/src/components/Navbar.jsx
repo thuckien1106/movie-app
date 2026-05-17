@@ -716,7 +716,15 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                   }}
                 >
                   <div style={s.avatarRing}>
-                    <div style={s.avatar}>{avatarChar}</div>
+                    <div
+                      style={{
+                        ...s.avatar,
+                        fontSize:
+                          user?.avatar && user.avatar.length > 1 ? 16 : 13,
+                      }}
+                    >
+                      <span style={{ lineHeight: 1 }}>{avatarChar}</span>
+                    </div>
                   </div>
                   <span style={s.avatarName}>{displayName}</span>
                   <svg
@@ -741,30 +749,43 @@ export default function Navbar({ heroRef, activeTab, onTabChange }) {
                   <div style={s.userMenu}>
                     {/* User info */}
                     <div style={s.menuUserInfo}>
-                      <div
-                        style={{
-                          ...s.avatar,
-                          width: 36,
-                          height: 36,
-                          fontSize: 15,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {user?.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt=""
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              borderRadius: "50%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          avatarChar
-                        )}
-                      </div>
+                      {/* Avatar — tách riêng để tránh overflow:hidden clip emoji */}
+                      {user?.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt=""
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            flexShrink: 0,
+                            border: "2px solid var(--red-border)",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: "50%",
+                            background: "var(--red)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            border: "2px solid var(--red-border)",
+                            // KHÔNG có overflow:hidden — emoji cần không gian
+                            fontSize: /\p{Emoji}/u.test(avatarChar) ? 24 : 17,
+                            fontWeight: 700,
+                            color: "#fff",
+                            userSelect: "none",
+                            lineHeight: 1,
+                          }}
+                        >
+                          {avatarChar}
+                        </div>
+                      )}
                       <div style={{ minWidth: 0 }}>
                         <p style={s.menuUserName}>{displayName}</p>
                         <p style={s.menuUserEmail}>{user?.email}</p>

@@ -1,20 +1,19 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { backfillRuntime, updateCollection } from "../api/movieApi";
 import {
-  getWatchlist,
-  deleteMovie,
-  toggleWatched,
-  updateNote,
-  updateRating,
-  getWatchlistStats,
-  backfillRuntime,
-  getCollections,
-  createCollection,
-  deleteCollection,
-  moveToCollection,
-  getShareLink,
-  toggleShareLink,
-  updateCollection,
-} from "../api/movieApi";
+  useWatchlist,
+  useWatchlistStats,
+  useCollections,
+  useShareLink,
+  useDeleteMovie,
+  useToggleWatched,
+  useUpdateNote,
+  useUpdateRating,
+  useMoveToCollection,
+  useCreateCollection,
+  useDeleteCollection,
+  useToggleShareLink,
+} from "../hooks/useMovieQueries";
 import { useToast } from "../components/ToastContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -2287,23 +2286,36 @@ export default function Watchlist() {
   const showToast = useToast();
   const isMobile = useIsMobile();
 
-  const [movies, setMovies] = useState([]);
-  const [orderedMovies, setOrdered] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [collections, setCols] = useState([]);
   const [activeCol, setActiveCol] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // "list"|"grid"|"detail"|"stats"
   const [listView, setListView] = useState("list"); // "list"|"grid" toggle
-  const [shareInfo, setShareInfo] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [editNote, setEditNote] = useState({});
-  const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [entered, setEntered] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState(null); // { movieId, title } | null
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  // ── React Query ──────────────────────────────────────────────────────────
+  const { data: rawMovies = [], isLoading: loading } = useWatchlist(activeCol);
+  const { data: stats } = useWatchlistStats();
+  const { data: collections = [] } = useCollections();
+  const { data: shareInfo } = useShareLink();
+
+  // Dùng thẳng rawMovies — thứ tự mặc định từ server (added_at DESC)
+  const movies = rawMovies;
+
+  // Mutations — tự invalidate cache sau khi thành công
+  const deleteMutation = useDeleteMovie();
+  const toggleMutation = useToggleWatched();
+  const updateNoteMutation = useUpdateNote();
+  const updateRatingMutation = useUpdateRating();
+  const moveColMutation = useMoveToCollection();
+  const createColMutation = useCreateCollection();
+  const deleteColMutation = useDeleteCollection();
+  const toggleShareMutation = useToggleShareLink();
 
   /* ── Search + filter state ── */
   const [searchQuery, setSearchQuery] = useState("");
@@ -2318,7 +2330,7 @@ export default function Watchlist() {
 
   /* ── Computed: filtered movies ── */
   const displayMovies = useMemo(() => {
-    let result = orderedMovies;
+    let result = movies;
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.trim().toLowerCase();
       result = result.filter((m) => m.title?.toLowerCase().includes(q));
@@ -2327,7 +2339,7 @@ export default function Watchlist() {
     if (filterStatus === "unwatched")
       result = result.filter((m) => !m.is_watched);
     return result;
-  }, [orderedMovies, debouncedSearch, filterStatus]);
+  }, [movies, debouncedSearch, filterStatus]);
 
   const uid = user?.id ?? user?.email ?? "guest";
 
@@ -2339,81 +2351,36 @@ export default function Watchlist() {
     return () => clearTimeout(t);
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [mRes, sRes, cRes] = await Promise.all([
-        getWatchlist(activeCol),
-        getWatchlistStats(),
-        getCollections(),
-      ]);
-      const raw = mRes.data || [];
-      setMovies(raw);
-      setStats(sRes.data);
-      setCols(cRes.data || []);
-      setOrdered(applyOrder(raw, loadOrder(uid, activeCol)));
-    } catch {
-      showToast("Không tải được dữ liệu.", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeCol, uid]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-  useEffect(() => {
-    setOrdered((prev) => {
-      if (prev.length === 0)
-        return applyOrder(movies, loadOrder(uid, activeCol));
-      const ids = prev.map((m) => m.movie_id);
-      const map = Object.fromEntries(movies.map((m) => [m.movie_id, m]));
-      return [
-        ...ids.filter((id) => map[id]).map((id) => map[id]),
-        ...movies.filter((m) => !ids.includes(m.movie_id)),
-      ];
-    });
-  }, [movies]);
-
   const handleDelete = (id) => {
-    const movie = orderedMovies.find((m) => m.movie_id === id);
+    const movie = movies.find((m) => m.movie_id === id);
     setConfirmDialog({ movieId: id, title: movie?.title || "phim này" });
   };
   const confirmDelete = async () => {
     if (!confirmDialog) return;
     try {
-      await deleteMovie(confirmDialog.movieId);
+      await deleteMutation.mutateAsync(confirmDialog.movieId);
       showToast("Đã xoá.", "success");
-      load();
     } catch {
       showToast("Xoá thất bại, vui lòng thử lại.", "error");
     } finally {
       setConfirmDialog(null);
     }
   };
-  const handleToggle = async (id) => {
-    await toggleWatched(id);
-    load();
-  };
+  const handleToggle = (id) => toggleMutation.mutate(id);
   const handleSaveNote = async (id) => {
-    await updateNote(id, editNote[id] ?? "");
+    await updateNoteMutation.mutateAsync({
+      movieId: id,
+      note: editNote[id] ?? "",
+    });
     showToast("Đã lưu.", "success");
     setEditNote((p) => {
       const x = { ...p };
       delete x[id];
       return x;
     });
-    load();
   };
-  const handleRate = async (movieId, rating) => {
-    try {
-      await updateRating(movieId, rating);
-      setMovies((prev) =>
-        prev.map((m) => (m.movie_id === movieId ? { ...m, rating } : m)),
-      );
-    } catch {
-      showToast("Đánh giá thất bại, thử lại nhé.", "error");
-    }
+  const handleRate = (movieId, rating) => {
+    updateRatingMutation.mutate({ movieId, rating });
   };
   const MAX_COLLECTIONS = 20;
 
@@ -2429,47 +2396,41 @@ export default function Watchlist() {
       return;
     }
     try {
-      await createCollection({ name });
+      await createColMutation.mutateAsync({ name });
       showToast(`Tạo "${name}" thành công!`, "success");
       setNewColName("");
-      load();
     } catch (err) {
       showToast(err.response?.data?.detail || "Tạo thất bại.", "error");
     }
   };
   const handleDeleteCol = async (id) => {
-    await deleteCollection(id);
+    await deleteColMutation.mutateAsync(id);
     if (activeCol === id) {
       setActiveCol(null);
       setViewMode("list");
     }
     showToast("Đã xoá bộ sưu tập.", "success");
-    load();
   };
   const handleRenameCol = async (id, newName) => {
     try {
       await updateCollection(id, { name: newName });
       showToast(`Đã đổi tên thành "${newName}"`, "success");
-      load();
     } catch (err) {
       showToast(err.response?.data?.detail || "Đổi tên thất bại.", "error");
     }
   };
   const handleMoveCol = async (mid, cid) => {
-    await moveToCollection(mid, cid || null);
+    await moveColMutation.mutateAsync({
+      movieId: mid,
+      collectionId: cid || null,
+    });
     showToast("Đã cập nhật.", "success");
-    load();
   };
-  const handleLoadShare = async () => {
-    const r = await getShareLink();
-    setShareInfo(r.data);
-    setShowShare(true);
-  };
+  const handleLoadShare = () => setShowShare(true);
   const handleToggleShare = async () => {
-    const r = await toggleShareLink();
-    setShareInfo(r.data);
+    const r = await toggleShareMutation.mutateAsync();
     showToast(
-      r.data.is_active ? "Đã bật chia sẻ." : "Đã tắt chia sẻ.",
+      r.data?.is_active ? "Đã bật chia sẻ." : "Đã tắt chia sẻ.",
       "success",
     );
   };
@@ -2492,14 +2453,7 @@ export default function Watchlist() {
       setBackfilling(false);
     }
   };
-  const handleReorder = (list) => {
-    setOrdered(list);
-    saveOrder(
-      uid,
-      activeCol,
-      list.map((m) => m.movie_id),
-    );
-  };
+  const handleReorder = () => {}; // drag-drop disabled — dùng thứ tự mặc định từ server
   const openDetail = (colId) => {
     setActiveCol(colId);
     setViewMode("detail");
@@ -2675,7 +2629,7 @@ export default function Watchlist() {
         {/* Export panel */}
         {showExport && (
           <ExportPanel
-            movies={orderedMovies}
+            movies={movies}
             collections={collections}
             stats={stats}
             username={user?.username}
@@ -2730,17 +2684,14 @@ export default function Watchlist() {
         {/* Backfill notice — hiện khi có phim thiếu thời lượng */}
         {stats &&
           stats.total > 0 &&
-          orderedMovies.some((m) => !m.runtime || m.runtime === 0) &&
+          movies.some((m) => !m.runtime || m.runtime === 0) &&
           (viewMode === "list" || viewMode === "grid") && (
             <div style={w.backfillNotice}>
               <span style={{ fontSize: 14 }}>⏱</span>
               <span
                 style={{ flex: 1, fontSize: 12, color: "var(--text-muted)" }}
               >
-                {
-                  orderedMovies.filter((m) => !m.runtime || m.runtime === 0)
-                    .length
-                }{" "}
+                {movies.filter((m) => !m.runtime || m.runtime === 0).length}{" "}
                 phim chưa có thời lượng. Bấm để cập nhật từ TMDB.
               </span>
               <button
@@ -2821,7 +2772,7 @@ export default function Watchlist() {
                     Đang tải...
                   </span>
                 </div>
-              ) : orderedMovies.length === 0 ? (
+              ) : movies.length === 0 ? (
                 <EmptyState />
               ) : (
                 <>
@@ -2831,7 +2782,7 @@ export default function Watchlist() {
                     onQuery={setSearchQuery}
                     status={filterStatus}
                     onStatus={setFilterStatus}
-                    total={orderedMovies.length}
+                    total={movies.length}
                     filtered={displayMovies.length}
                   />
 
@@ -2862,10 +2813,10 @@ export default function Watchlist() {
                           }}
                         >
                           {displayMovies.length}
-                          {displayMovies.length !== orderedMovies.length && (
+                          {displayMovies.length !== movies.length && (
                             <span style={{ color: "var(--text-dim)" }}>
                               {" "}
-                              / {orderedMovies.length}
+                              / {movies.length}
                             </span>
                           )}{" "}
                           phim
@@ -2915,7 +2866,7 @@ export default function Watchlist() {
           /* Collection detail */
           <CollectionDetail
             collection={activeColObj}
-            movies={orderedMovies}
+            movies={movies}
             collections={collections}
             editNote={editNote}
             setEditNote={setEditNote}

@@ -553,3 +553,122 @@ img {
 .page-enter {
   animation: fadeIn 0.35s var(--ease-normal) both;
 }
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT THEME — contrast fixes
+   Đảm bảo tất cả text đủ tương phản (WCAG AA) trên nền sáng
+══════════════════════════════════════════════════════════ */
+
+/* Reset toàn bộ color inherit về var để không bị stuck ở màu dark */
+[data-theme="light"] {
+  color: var(--text-primary);
+}
+
+/* Mọi text thường dùng opacity/rgba trong dark — override về solid color */
+[data-theme="light"] p,
+[data-theme="light"] span,
+[data-theme="light"] div,
+[data-theme="light"] li,
+[data-theme="light"] label {
+  color: inherit;
+}
+
+/* Heading luôn đậm nhất */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+  color: var(--text-primary);
+}
+
+/* Input — placeholder và text đủ đọc */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  color: var(--text-primary);
+  color-scheme: light;
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 1; /* Firefox thêm opacity mặc định */
+}
+
+/* Link */
+[data-theme="light"] a {
+  color: var(--text-primary);
+}
+[data-theme="light"] a:hover {
+  color: var(--red);
+}
+
+/* Badge / tag text */
+[data-theme="light"] .badge,
+[data-theme="light"] .tag {
+  color: var(--text-secondary);
+}
+
+/* Card overlay text (title trên poster) */
+[data-theme="light"] .card-title {
+  color: var(--text-primary);
+}
+
+/* Navbar link */
+[data-theme="light"] nav a,
+[data-theme="light"] nav button {
+  color: var(--text-secondary);
+}
+[data-theme="light"] nav a:hover,
+[data-theme="light"] nav button:hover {
+  color: var(--text-primary);
+}
+
+/* Sidebar / menu item */
+[data-theme="light"] [role="menuitem"],
+[data-theme="light"] [role="option"] {
+  color: var(--text-secondary);
+}
+[data-theme="light"] [role="menuitem"]:hover,
+[data-theme="light"] [role="option"]:hover {
+  color: var(--text-primary);
+  background: var(--bg-card2);
+}
+
+/* Select option */
+[data-theme="light"] select option {
+  background: #ffffff;
+  color: var(--text-primary);
+}
+
+/* Stat numbers, metadata */
+[data-theme="light"] .text-muted,
+[data-theme="light"] [class*="muted"] {
+  color: var(--text-muted) !important;
+}
+[data-theme="light"] .text-secondary,
+[data-theme="light"] [class*="secondary"] {
+  color: var(--text-secondary) !important;
+}
+
+/* SVG icon inherit */
+[data-theme="light"] svg {
+  color: inherit;
+}
+
+/* Table */
+[data-theme="light"] th {
+  color: var(--text-primary);
+}
+[data-theme="light"] td {
+  color: var(--text-secondary);
+}
+
+/* Scrollbar light */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(30, 40, 100, 0.2);
+}
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: transparent;
+}

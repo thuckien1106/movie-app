@@ -2,17 +2,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContext";
-import {
-  updateProfile,
-  changePassword,
-  getActivity,
-  getWatchlistStats,
-} from "../api/movieApi";
+import { updateProfile, changePassword } from "../api/movieApi";
 import {
   getFollowStatus,
   getFollowers,
   getFollowing,
 } from "../api/publicProfileApi";
+import { useActivity, useWatchlistStats } from "../hooks/useMovieQueries";
 import Navbar from "../components/Navbar";
 import DeleteAccountSection from "../components/DeleteAccountSection";
 /* ── helpers ─────────────────────────────────── */
@@ -986,12 +982,15 @@ export default function Profile() {
   const showToast = useToast();
 
   const [tab, setTab] = useState("profile");
-  const [activity, setActivity] = useState([]);
-  const [stats, setStats] = useState(null);
   const [followStats, setFollowStats] = useState(null);
-  const [listMode, setListMode] = useState(null); // "followers" | "following" | null // { followers, following_count }
-  const [loadingAct, setLoadAct] = useState(false);
+  const [listMode, setListMode] = useState(null);
   const [entered, setEntered] = useState(false);
+
+  // ── React Query ───────────────────────────────────────────────────────────
+  // enabled theo tab để không fetch khi chưa cần
+  const { data: activityData, isLoading: loadingAct } = useActivity(40);
+  const { data: stats } = useWatchlistStats();
+  const activity = activityData?.items ?? [];
 
   const [username, setUsername] = useState(user?.username || "");
   const [bio, setBio] = useState(user?.bio || "");
@@ -1017,21 +1016,6 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    if (tab === "activity" && activity.length === 0) {
-      setLoadAct(true);
-      Promise.all([getActivity(40), getWatchlistStats()])
-        .then(([a, st]) => {
-          setActivity(a.data?.items || []);
-          setStats(st.data);
-        })
-        .catch(() => showToast("Không tải được lịch sử.", "error"))
-        .finally(() => setLoadAct(false));
-    }
-    if (tab === "profile" && !stats) {
-      getWatchlistStats()
-        .then((r) => setStats(r.data))
-        .catch(() => {});
-    }
     // Load follow stats khi có username
     if (tab === "profile" && !followStats && user?.username) {
       getFollowStatus(user.username)

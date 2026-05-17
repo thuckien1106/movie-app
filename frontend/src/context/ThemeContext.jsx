@@ -141,21 +141,21 @@ const THEMES = {
 
   light: {
     /* ── Backgrounds ── */
-    "--bg-page": "#f5f6fa",
+    "--bg-page": "#eef0f7",
     "--bg-surface": "#ffffff",
     "--bg-card": "#ffffff",
-    "--bg-card2": "#f0f2f8",
+    "--bg-card2": "#e5e8f2",
     "--bg-overlay": "#ffffff",
-    "--bg-input": "#eef0f6",
-    "--bg-input2": "#e5e8f0",
-    "--bg-glass": "rgba(255,255,255,0.82)",
+    "--bg-input": "#e5e8f2",
+    "--bg-input2": "#d8dce9",
+    "--bg-glass": "rgba(255,255,255,0.90)",
 
-    /* ── Text ── */
-    "--text-primary": "#0a0c14",
-    "--text-secondary": "rgba(20,25,50,0.75)",
-    "--text-muted": "rgba(30,40,80,0.48)",
-    "--text-faint": "rgba(30,40,80,0.30)",
-    "--text-dim": "rgba(30,40,80,0.18)",
+    /* ── Text — đủ tương phản trên nền trắng (WCAG AA) ── */
+    "--text-primary": "#07080e", // ~#000 — tiêu đề, body chính
+    "--text-secondary": "#1c2040", // nội dung phụ — contrast ratio ~10:1
+    "--text-muted": "#3a4268", // label, caption — contrast ratio ~7:1
+    "--text-faint": "#5c6590", // placeholder — contrast ratio ~4.5:1 (AA)
+    "--text-dim": "#8891b5", // decoration, divider text
 
     /* ── Borders ── */
     "--border": "rgba(20,30,80,0.08)",
